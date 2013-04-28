@@ -104,7 +104,7 @@ Lisp function does not specify a special indentation."
                (1+ (current-column)))
               (specform
                (lisp-indent-specform specform state indent-point normal-indent))
-              ((string-match-p "\\`\\(?:\\S +/\\)?\\(def\\|with-\\|with_\\|fn\\)" function)
+              ((string-match-p "\\`\\(?:\\S +/\\)?\\(def\\|with-\\|with_\\|fn\\|lambda\\)" function)
                (lisp-indent-defform state indent-point)))))))
 
 ;;;###autoload
