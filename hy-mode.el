@@ -37,9 +37,9 @@
     (,(concat "(\\("
               (regexp-opt
                '("do" "for" "foreach" "try" "throw" "raise" "progn" "catch"
-                 "else" "finally" "except" "if" "assert" "global" "lambda"
-                 "fn" "yield" "decorate-with" "decorate_with" "with" "kwapply"
-                 "while" "let" "cond" "_>" "->" "_>>" "->>"))
+                 "else" "finally" "except" "if" "unless" "when" "assert" "global"
+                 "lambda" "fn" "yield" "decorate-with" "decorate_with" "with"
+                 "kwapply" "while" "let" "cond" "_>" "->" "_>>" "->>"))
               "\\)[ \n\r\t)]")
      (1 font-lock-keyword-face))
     (,(concat "(\\("
@@ -61,7 +61,10 @@
     ("decorate_with" . 1)
     ("except" . 1)
     ("catch" . 1)
-    ("let" . 1))
+    ("let" . 1)
+    ("if" . 1)
+    ("when" . 1)
+    ("unless" . 1))
   "How to indent specials specform."
   :group 'hy-mode)
 
