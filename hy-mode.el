@@ -53,6 +53,18 @@
               "\\)[ \n\r\t)]")
      (1 font-lock-builtin-face))))
 
+(defcustom hy-indent-specform
+  '(("for" . 1)
+    ("foreach" . 1)
+    ("while" . 1)
+    ("decorate-with" . 1)
+    ("decorate_with" . 1)
+    ("except" . 1)
+    ("catch" . 1)
+    ("let" . 1))
+  "How to indent specials specform."
+  :group 'hy-mode)
+
 (defun hy-indent-function (indent-point state)
   "This function is the normal value of the variable `lisp-indent-function' for `hy-mode'.
 It is used when indenting a line within a function call, to see
@@ -83,13 +95,16 @@ Lisp function does not specify a special indentation."
           ;; thing on that line has to be complete sexp since we are
           ;; inside the innermost containing sexp.
           (backward-prefix-chars))
-      (let ((open-paren (elt state 1))
-            (function (buffer-substring (point)
-                                        (progn (forward-sexp 1) (point)))))
+      (let* ((open-paren (elt state 1))
+             (function (buffer-substring (point)
+                                         (progn (forward-sexp 1) (point))))
+             (specform (cdr (assoc function hy-indent-specform))))
         (cond ((member (char-after open-paren) '(?\[ ?\{))
                (goto-char open-paren)
                (1+ (current-column)))
-              ((string-match-p "\\`\\(?:\\S +/\\)?\\(def\\|with-\\)" function)
+              (specform
+               (lisp-indent-specform specform state indent-point normal-indent))
+              ((string-match-p "\\`\\(?:\\S +/\\)?\\(def\\|with-\\|with_\\)" function)
                (lisp-indent-defform state indent-point)))))))
 
 ;;;###autoload
