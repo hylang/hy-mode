@@ -26,7 +26,7 @@
 
 (defconst hy-font-lock-keywords
   `((,(concat "(\\("
-              (regexp-opt '("defn" "defclass" "import"))
+              (regexp-opt '("defn" "defun" "defclass" "import"))
               "\\)\\>"
               ;; Spaces
               "[ \r\n\t]+"
@@ -38,11 +38,20 @@
               (regexp-opt
                '("do" "for" "foreach" "try" "throw" "raise" "progn" "catch"
                  "except" "if" "assert" "global" "lambda" "fn" "yield"
-                 "decorate-with" "with" "," "list-comp" "kwapply"
-                 "while" "let"))
-              "\\)\\>")
-     (1 font-lock-keyword-face))))
-
+                 "decorate-with" "decorate_with" "with" "kwapply"
+                 "while" "let" "cond" "_>" "->" "_>>" "->>"))
+              "\\)[ \n\r\t)]")
+     (1 font-lock-keyword-face))
+    (,(concat "(\\("
+              (regexp-opt
+               '("get" "slice" "assoc" "," "quote" "eval" "list-comp" "not" "~"
+                 "and" "or" "=" "!=" "<" "<=" ">" ">=" "is" "in" "is-not"
+                 "is_not" "not-in" "not_in" "+" "%" "/" "//" "*" "**" "<<" ">>"
+                 "|" "^" "&" "-" "+=" "/=" "//=" "*=" "-=" "_=" "%=" "**=" "<<="
+                 ">>=" "|=" "^=" "&=" "setv" "setf" "def" "car" "first" "cdr" "rest"
+                 "take" "drop"))
+              "\\)[ \n\r\t)]")
+     (1 font-lock-builtin-face))))
 
 (defun hy-indent-function (indent-point state)
   "This function is the normal value of the variable `lisp-indent-function' for `hy-mode'.
