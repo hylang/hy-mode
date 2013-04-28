@@ -37,8 +37,8 @@
     (,(concat "(\\("
               (regexp-opt
                '("do" "for" "foreach" "try" "throw" "raise" "progn" "catch"
-                 "except" "if" "assert" "global" "lambda" "fn" "yield"
-                 "decorate-with" "decorate_with" "with" "kwapply"
+                 "else" "finally" "except" "if" "assert" "global" "lambda"
+                 "fn" "yield" "decorate-with" "decorate_with" "with" "kwapply"
                  "while" "let" "cond" "_>" "->" "_>>" "->>"))
               "\\)[ \n\r\t)]")
      (1 font-lock-keyword-face))
@@ -49,7 +49,7 @@
                  "is_not" "not-in" "not_in" "+" "%" "/" "//" "*" "**" "<<" ">>"
                  "|" "^" "&" "-" "+=" "/=" "//=" "*=" "-=" "_=" "%=" "**=" "<<="
                  ">>=" "|=" "^=" "&=" "setv" "setf" "def" "car" "first" "cdr" "rest"
-                 "take" "drop"))
+                 "take" "drop" "print"))
               "\\)[ \n\r\t)]")
      (1 font-lock-builtin-face))))
 
