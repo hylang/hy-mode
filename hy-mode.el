@@ -97,11 +97,25 @@ Lisp function does not specify a special indentation."
   (add-to-list 'auto-mode-alist '("\\.hy\\'" . hy-mode))
   (add-to-list 'interpreter-mode-alist '("hy" . hy-mode)))
 
+(defvar hy-mode-syntax-table
+  (let ((table (copy-syntax-table lisp-mode-syntax-table)))
+    (modify-syntax-entry ?\{ "(}" table)
+    (modify-syntax-entry ?\} "){" table)
+    (modify-syntax-entry ?\[ "(]" table)
+    (modify-syntax-entry ?\] ")[" table)
+    table))
+
 ;;;###autoload
 (define-derived-mode hy-mode prog-mode "Hy"
   "Major mode for editing Hy files."
   (setq font-lock-defaults
-        '(hy-font-lock-keywords))
+        '(hy-font-lock-keywords
+          nil nil
+          (("+-*/.<>=!?$%_&~^:@" . "w")) ; syntax alist
+          nil
+          (font-lock-mark-block-function . mark-defun)
+          (font-lock-syntactic-face-function
+           . lisp-font-lock-syntactic-face-function)))
   (setq-local comment-start ";")
   (setq-local comment-start-skip
               "\\(\\(^\\|[^\\\\\n]\\)\\(\\\\\\\\\\)*\\)\\(;+\\|#|\\) *")
