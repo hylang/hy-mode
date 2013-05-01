@@ -121,6 +121,10 @@ Lisp function does not specify a special indentation."
     (modify-syntax-entry ?\] ")[" table)
     table))
 
+(unless (fboundp 'setq-local)
+  (defmacro setq-local (var val)
+    `(set (make-local-variable ',var) ,val)))
+
 ;;;###autoload
 (define-derived-mode hy-mode prog-mode "Hy"
   "Major mode for editing Hy files."
