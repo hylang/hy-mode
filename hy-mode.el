@@ -64,7 +64,8 @@
                  ">>=" "|=" "^=" "&=" "setv" "setf" "def" "car" "first" "cdr" "rest"
                  "take" "drop" "print"))
               "\\)[ \n\r\t)]")
-     (1 font-lock-builtin-face))))
+     (1 font-lock-builtin-face))
+    ("\\<:[^ \r\n\t]+\\>" 0 font-lock-constant-face)))
 
 (defcustom hy-indent-specform
   '(("for" . 1)
