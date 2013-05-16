@@ -139,6 +139,8 @@ Lisp function does not specify a special indentation."
   (defmacro setq-local (var val)
     `(set (make-local-variable ',var) ,val)))
 
+(defvar hy-mode-hook nil)
+
 ;;;###autoload
 (define-derived-mode hy-mode prog-mode "Hy"
   "Major mode for editing Hy files."
@@ -156,7 +158,9 @@ Lisp function does not specify a special indentation."
   (setq-local comment-add 1)
   (setq-local inferior-lisp-program hy-mode-inferior-lisp-command)
   (setq-local indent-line-function 'lisp-indent-line)
-  (setq-local lisp-indent-function 'hy-indent-function))
+  (setq-local lisp-indent-function 'hy-indent-function)
+
+  (run-hooks 'hy-mode-hook))
 
 (set-keymap-parent hy-mode-map lisp-mode-shared-map)
 (define-key hy-mode-map (kbd "C-M-x")   'lisp-eval-defun)
