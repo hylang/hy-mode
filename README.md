@@ -18,7 +18,7 @@ In your init file, (usually `.emacs`), add this:
 
     ;; add the new dir to the load path
     (add-to-list 'load-path "~/.emacs.d/hy-mode")
-    (require hy-mode)
+    (require 'hy-mode)
 
 About Hy
 ========
