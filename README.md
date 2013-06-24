@@ -1,11 +1,15 @@
 hy-mode
 =======
 
-Major mode for Emacs for editing buffer written in the Hy language. This mode is only compatible with emacs24 and above.
+Major mode for Emacs for editing buffer written in the Hy language. This mode is
+only compatible with emacs24 and above.
 
 Installation
 ============
-To install, just copy hy-mode.el into a directory on your load-path. Alernatively, you could always modify your load path to include a new directory. For instance:
+
+To install, just copy hy-mode.el into a directory on your
+load-path. Alernatively, you could always modify your load path to include a new
+directory. For instance:
 
 $ mkdir ~/.emacs.d/hy-mode
 $ cp hy-mode.el ~/.emacs.d/hy-mode/hy-mode.el
