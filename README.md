@@ -11,8 +11,8 @@ To install, just copy hy-mode.el into a directory on your
 load-path. Alernatively, you could always modify your load path to include a new
 directory. For instance:
 
-$ mkdir ~/.emacs.d/hy-mode
-$ cp hy-mode.el ~/.emacs.d/hy-mode/hy-mode.el
+    $ mkdir ~/.emacs.d/hy-mode
+    $ cp hy-mode.el ~/.emacs.d/hy-mode/hy-mode.el
 
 In your init file, (usually `.emacs`), add this:
 
