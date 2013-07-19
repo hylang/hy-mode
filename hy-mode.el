@@ -62,7 +62,7 @@
                  "and" "or" "=" "!=" "<" "<=" ">" ">=" "is" "in" "is-not"
                  "is_not" "not-in" "not_in" "+" "%" "/" "//" "*" "**" "<<" ">>"
                  "|" "^" "&" "-" "+=" "/=" "//=" "*=" "-=" "_=" "%=" "**=" "<<="
-                 ">>=" "|=" "^=" "&=" "setv" "setf" "def" "car" "first" "cdr" "rest"
+                 ">>=" "|=" "^=" "&=" "setv" "def" "car" "first" "cdr" "rest"
                  "take" "drop" "print" "quasiquote" "unquote" "unquote-splice"))
               "\\)[ \n\r\t)]")
      (1 font-lock-builtin-face))
