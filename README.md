@@ -20,6 +20,19 @@ In your init file, (usually `.emacs`), add this:
     (add-to-list 'load-path "~/.emacs.d/hy-mode")
     (require 'hy-mode)
 
+Interacting with Hy from within Emacs
+=====================================
+
+When in hy-mode, you can launch a Hy REPL by launching a Lisp inferior process
+
+    M-x lisp-inferior-process
+
+From your hy-mode buffer you can use the following default keybindings:
+
++ `C-M-x`: send the whole buffer for evaluation in the REPL
++ `C-x C-e`: send the expression at current point for evaluation
++ `C-c C-z`: switch to the lisp buffer
+
 About Hy
 ========
 More information about Hy can be found at http://hylang.org
