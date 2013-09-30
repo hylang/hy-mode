@@ -29,7 +29,7 @@ When in hy-mode, you can launch a Hy REPL by launching a Lisp inferior process
 
 From your hy-mode buffer you can use the following default keybindings:
 
-+ `C-M-x`: send the whole buffer for evaluation in the REPL
++ `C-M-x`: send the whole function (top-level form) for evaluation in the REPL
 + `C-x C-e`: send the expression at current point for evaluation
 + `C-c C-z`: switch to the lisp buffer
 
