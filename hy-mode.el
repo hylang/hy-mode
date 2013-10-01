@@ -157,12 +157,16 @@ Lisp function does not specify a special indentation."
   (setq-local comment-add 1)
   (setq-local inferior-lisp-program hy-mode-inferior-lisp-command)
   (setq-local indent-line-function 'lisp-indent-line)
-  (setq-local lisp-indent-function 'hy-indent-function))
+  (setq-local lisp-indent-function 'hy-indent-function)
+  (setq-local inferior-lisp-load-command
+	      (concat "(import [hy.importer [import-file-to-module]])\n"
+		      "(import-file-to-module \"__main__\" \"%s\")\n")))
 
 (set-keymap-parent hy-mode-map lisp-mode-shared-map)
 (define-key hy-mode-map (kbd "C-M-x")   'lisp-eval-defun)
 (define-key hy-mode-map (kbd "C-x C-e") 'lisp-eval-last-sexp)
 (define-key hy-mode-map (kbd "C-c C-z") 'switch-to-lisp)
+(define-key hy-mode-map (kbd "C-c C-l") 'lisp-load-file)
 
 (provide 'hy-mode)
 
