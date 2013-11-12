@@ -66,7 +66,8 @@
                  "take" "drop" "print" "quasiquote" "unquote" "unquote-splice"))
               "\\)[ \n\r\t)]")
      (1 font-lock-builtin-face))
-    ("\\<:[^ \r\n\t]+\\>" 0 font-lock-constant-face)))
+    ("\\<:[^ \r\n\t]+\\>" 0 font-lock-constant-face)
+    ("\\<&[^ \r\n\t]+\\>" 0 font-lock-type-face)))
 
 (defcustom hy-indent-specform
   '(("for" . 1)
