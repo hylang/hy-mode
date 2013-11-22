@@ -40,7 +40,7 @@
 (defconst hy-font-lock-keywords
   `((,(concat "(\\("
               (regexp-opt '("defn" "defun" "defclass" "import"
-                            "defmacro" "require"))
+                            "defmacro" "require" "defmacro-alias"))
               "\\)\\>"
               ;; Spaces
               "[ \r\n\t]+"
@@ -63,7 +63,11 @@
                  "is_not" "not-in" "not_in" "+" "%" "/" "//" "*" "**" "<<" ">>"
                  "|" "^" "&" "-" "+=" "/=" "//=" "*=" "-=" "_=" "%=" "**=" "<<="
                  ">>=" "|=" "^=" "&=" "setv" "def" "car" "first" "cdr" "rest"
-                 "take" "drop" "print" "quasiquote" "unquote" "unquote-splice"))
+                 "take" "drop" "print" "quasiquote" "unquote" "unquote-splice"
+		 "take-while" "take-nth" "drop-while" "cycle" "dec" "distinct"
+		 "empty?" "even?" "filter" "float?" "inc" "instance?" "iterable?"
+		 "neg?" "odd?" "pos?" "remove" "repeat" "repeatedly" "second"
+		 "string?" "zero?"))
               "\\)[ \n\r\t)]")
      (1 font-lock-builtin-face))
     ("\\<:[^ \r\n\t]+\\>" 0 font-lock-constant-face)
