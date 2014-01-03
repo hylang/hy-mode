@@ -40,7 +40,8 @@
 (defconst hy-font-lock-keywords
   `((,(concat "(\\("
               (regexp-opt '("defn" "defun" "defclass" "import"
-                            "defmacro" "require" "defmacro-alias"))
+                            "defmacro" "require" "defmacro-alias"
+                            "defmacro/g!" "defreader"))
               "\\)\\>"
               ;; Spaces
               "[ \r\n\t]+"
@@ -53,7 +54,8 @@
                '("do" "for" "for*" "try" "throw" "raise" "progn" "catch"
                  "else" "finally" "except" "if" "unless" "when" "assert" "global"
                  "lambda" "fn" "yield" "with-decorator" "with_decorator" "with"
-                 "with*" "kwapply" "while" "let" "cond" "_>" "->" "_>>" "->>"))
+                 "with*" "kwapply" "while" "let" "cond" "_>" "->" "_>>" "->>"
+                 "with-gensym"))
               "\\)[ \n\r\t)]")
      (1 font-lock-keyword-face))
     (,(concat "(\\("
@@ -64,10 +66,11 @@
                  "|" "^" "&" "-" "+=" "/=" "//=" "*=" "-=" "_=" "%=" "**=" "<<="
                  ">>=" "|=" "^=" "&=" "setv" "def" "car" "first" "cdr" "rest"
                  "take" "drop" "print" "quasiquote" "unquote" "unquote-splice"
-		 "take-while" "take-nth" "drop-while" "cycle" "dec" "distinct"
-		 "empty?" "even?" "filter" "float?" "inc" "instance?" "iterable?"
-		 "neg?" "odd?" "pos?" "remove" "repeat" "repeatedly" "second"
-		 "string?" "zero?"))
+                 "take-while" "take-nth" "drop-while" "cycle" "dec" "distinct"
+                 "empty?" "even?" "filter" "float?" "inc" "instance?" "iterable?"
+                 "neg?" "odd?" "pos?" "remove" "repeat" "repeatedly" "second"
+                 "string?" "zero?" "del" "gensym" "macroexpand"
+                 "macroexpand-1" "nil?" "none?" "flatten"))
               "\\)[ \n\r\t)]")
      (1 font-lock-builtin-face))
     ("\\<:[^ \r\n\t]+\\>" 0 font-lock-constant-face)
