@@ -50,10 +50,10 @@
      (2 font-lock-function-name-face nil t))
     (,(concat "(\\("
               (regexp-opt
-               '("do" "for" "foreach" "try" "throw" "raise" "progn" "catch"
+               '("do" "for" "for*" "try" "throw" "raise" "progn" "catch"
                  "else" "finally" "except" "if" "unless" "when" "assert" "global"
                  "lambda" "fn" "yield" "with-decorator" "with_decorator" "with"
-                 "kwapply" "while" "let" "cond" "_>" "->" "_>>" "->>"))
+                 "with*" "kwapply" "while" "let" "cond" "_>" "->" "_>>" "->>"))
               "\\)[ \n\r\t)]")
      (1 font-lock-keyword-face))
     (,(concat "(\\("
@@ -75,7 +75,7 @@
 
 (defcustom hy-indent-specform
   '(("for" . 1)
-    ("foreach" . 1)
+    ("for*" . 1)
     ("while" . 1)
     ("except" . 1)
     ("catch" . 1)
