@@ -67,6 +67,26 @@ From your `hy-mode` buffer you can use the following default keybindings:
 + `C-c C-z`: switch to the lisp buffer
 + `C-c C-l`: load the file in REPL
 
+Other recommended settings
+==========================
+
+Since `hy-mode` is a lisp like mode, it can use the goodness from some
+minor modes used for lisp such as
+[smartparens](https://github.com/Fuco1/smartparens) or paredit minor
+modes which support excellent movement and navigation ability other
+than keeping the s-expressions balanced.
+
+```el
+; eg: Adding paredit minor mode
+(add-hook hy-mode-hook 'paredit-mode)
+
+; alternatively you could enable this to a bunch of lisp modes
+(dolist (lisp-mode '(scheme emacs-lisp lisp clojure hy))
+  (add-hook (intern (concat (symbol-name lisp-mode) "-mode-hook"))
+		'paredit-mode))
+
+```
+
 Special note for Windows users:
 -------------------------------
 
