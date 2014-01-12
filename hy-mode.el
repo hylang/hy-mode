@@ -163,6 +163,7 @@ Lisp function does not specify a special indentation."
   (setq-local comment-start-skip
               "\\(\\(^\\|[^\\\\\n]\\)\\(\\\\\\\\\\)*\\)\\(;+\\|#|\\) *")
   (setq-local comment-add 1)
+  (setq-local indent-tabs-mode nil)
   (setq-local inferior-lisp-program hy-mode-inferior-lisp-command)
   (setq-local indent-line-function 'lisp-indent-line)
   (setq-local lisp-indent-function 'hy-indent-function)
