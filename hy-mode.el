@@ -131,6 +131,26 @@ Lisp function does not specify a special indentation."
               ((string-match-p "\\`\\(?:\\S +/\\)?\\(def\\|with-\\|with_\\|fn\\|lambda\\)" function)
                (lisp-indent-defform state indent-point)))))))
 
+(defun hy-insert-closing (prefix default-close other-symbol-pair-list)
+  (insert default-close)
+  (unless prefix
+    (let ((open-pt (condition-case nil
+                       (scan-sexps (point) -1)
+                     (error (beep) nil))))
+      (when open-pt
+        (let ((open-char (aref (buffer-substring-no-properties
+                                open-pt (1+ open-pt))
+                               0)))
+          (let ((pair (assoc open-char  other-symbol-pair-list)))
+            (when pair
+              (delete-backward-char 1)
+              (insert (cdr pair)))))))))
+
+(defun hy-insert-closing-paren (&optional prefix)
+  (interactive "P")
+  (hy-insert-closing prefix ?\) '((?\[ . ?\]) (?\{ . ?\}))))
+
+
 ;;;###autoload
 (progn
   (add-to-list 'auto-mode-alist '("\\.hy\\'" . hy-mode))
@@ -176,7 +196,7 @@ Lisp function does not specify a special indentation."
 (define-key hy-mode-map (kbd "C-x C-e") 'lisp-eval-last-sexp)
 (define-key hy-mode-map (kbd "C-c C-z") 'switch-to-lisp)
 (define-key hy-mode-map (kbd "C-c C-l") 'lisp-load-file)
-
+(define-key hy-mode-map (kbd ")") 'hy-insert-closing-paren)
 (provide 'hy-mode)
 
 ;;; hy-mode.el ends here
