@@ -40,8 +40,8 @@
 (defconst hy-font-lock-keywords
   `((,(concat "(\\("
               (regexp-opt '("defn" "defun" "defclass" "import"
-                            "defmacro" "require" "defmacro-alias"
-                            "defmacro/g!" "defreader"))
+                            "defmacro" "require" "defmacro/g!"
+                            "defreader"))
               "\\)\\>"
               ;; Spaces
               "[ \r\n\t]+"
@@ -50,12 +50,24 @@
      (1 font-lock-keyword-face)
      (2 font-lock-function-name-face nil t))
     (,(concat "(\\("
+              (regexp-opt '("defmacro-alias" "defn-alias"
+                            "defun-alias"))
+              "\\)\\>"
+              ;; Spaces
+              "[ \r\n\t]+"
+              ;; Function/class name
+              "\\[\\([^]\r\n\t()]+\\)\\]"
+              )
+     (1 font-lock-keyword-face)
+     (2 font-lock-function-name-face nil t))
+    (,(concat "(\\("
               (regexp-opt
                '("do" "for" "for*" "try" "throw" "raise" "progn" "catch"
                  "else" "finally" "except" "if" "unless" "when" "assert" "global"
                  "lambda" "fn" "yield" "with-decorator" "with_decorator" "with"
                  "with*" "kwapply" "while" "let" "cond" "_>" "->" "_>>" "->>"
-                 "with-gensym"))
+                 "with-gensyms" "eval-and-compile" "loop" "recur"
+                 "if-not" "apply" "break" "continue"))
               "\\)[ \n\r\t)]")
      (1 font-lock-keyword-face))
     (,(concat "(\\("
@@ -70,7 +82,8 @@
                  "empty?" "even?" "filter" "float?" "inc" "instance?" "iterable?"
                  "neg?" "odd?" "pos?" "remove" "repeat" "repeatedly" "second"
                  "string?" "zero?" "del" "gensym" "macroexpand"
-                 "macroexpand-1" "nil?" "none?" "flatten"))
+                 "macroexpand-1" "nil?" "none?" "flatten" "integer?"
+                 "identity" "yield-from"))
               "\\)[ \n\r\t)]")
      (1 font-lock-builtin-face))
     ("\\<:[^ \r\n\t]+\\>" 0 font-lock-constant-face)
