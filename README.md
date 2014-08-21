@@ -78,7 +78,7 @@ than keeping the s-expressions balanced.
 
 ```el
 ; eg: Adding paredit minor mode
-(add-hook hy-mode-hook 'paredit-mode)
+(add-hook 'hy-mode-hook 'paredit-mode)
 
 ; alternatively you could enable this to a bunch of lisp modes
 (dolist (lisp-mode '(scheme emacs-lisp lisp clojure hy))
