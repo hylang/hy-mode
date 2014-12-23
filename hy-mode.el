@@ -40,7 +40,7 @@
 (defconst hy-font-lock-keywords
   `((,(concat "(\\("
               (regexp-opt '("defn" "defun" "defclass" "defmacro"
-                            "defmacro/g!" "defreader"))
+                            "defmacro/g!" "defreader" "defmain"))
               "\\)\\>"
               ;; Spaces
               "[ \r\n\t]+"
