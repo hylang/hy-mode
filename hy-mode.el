@@ -39,15 +39,24 @@
 
 (defconst hy-font-lock-keywords
   `((,(concat "(\\("
-              (regexp-opt '("defn" "defun" "defclass" "defmacro"
-                            "defmacro/g!" "defreader" "defmain"))
+              (regexp-opt '("defn" "defun" "defmacro" "defmacro/g!"
+                            "defreader" "defmain"))
               "\\)\\>"
               ;; Spaces
               "[ \r\n\t]+"
-              ;; Function/class name
+              ;; Function name
               "\\([^ \r\n\t()]+\\)")
      (1 font-lock-keyword-face)
      (2 font-lock-function-name-face nil t))
+    (,(concat "(\\("
+              (regexp-opt '("defclass"))
+              "\\)\\>"
+              ;; Spaces
+              "[ \r\n\t]+"
+              ;; Class name
+              "\\([^][ \r\n\t(){}]+\\)")
+     (1 font-lock-keyword-face)
+     (2 font-lock-type-face))
     (,(concat "(\\("
               (regexp-opt '("require" "import"))
               "\\)\\>"
