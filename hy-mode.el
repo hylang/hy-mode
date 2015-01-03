@@ -94,6 +94,7 @@
                  "identity" "yield-from"))
               "\\)[ \n\r\t)]")
      (1 font-lock-builtin-face))
+    ("^#!.*$" 0 font-lock-comment-face)  ; shebang line
     ("\\<:[^ \r\n\t]+\\>" 0 font-lock-constant-face)
     ("\\<&[^ \r\n\t]+\\>" 0 font-lock-type-face)))
 
