@@ -89,18 +89,24 @@
      (1 font-lock-keyword-face))
     (,(concat "(\\("
               (regexp-opt
-               '("get" "slice" "assoc" "," "quote" "eval" "list-comp" "not" "~"
-                 "and" "or" "=" "!=" "<" "<=" ">" ">=" "is" "in" "is-not"
-                 "is_not" "not-in" "not_in" "+" "%" "/" "//" "*" "**" "<<" ">>"
-                 "|" "^" "&" "-" "+=" "/=" "//=" "*=" "-=" "_=" "%=" "**=" "<<="
-                 ">>=" "|=" "^=" "&=" "setv" "def" "car" "first" "cdr" "rest"
-                 "take" "drop" "print" "quasiquote" "unquote" "unquote-splice"
-                 "take-while" "take-nth" "drop-while" "cycle" "dec" "distinct"
-                 "empty?" "even?" "filter" "float?" "inc" "instance?" "iterable?"
-                 "neg?" "odd?" "pos?" "remove" "repeat" "repeatedly" "second"
-                 "string?" "zero?" "del" "gensym" "macroexpand"
-                 "macroexpand-1" "nil?" "none?" "flatten" "integer?"
-                 "identity" "yield-from"))
+               '("!=" "%" "%=" "&" "&=" "*" "**" "**=" "*=" "*map" "+" "+=" "," "-"
+                 "-=" "/" "//" "//=" "/=" "<" "<<" "<<=" "<=" "=" ">" ">=" ">>" ">>="
+                 "^" "^=" "_=" "|" "|=" "~" "accumulate" "and" "assoc" "butlast"
+                 "calling-module-name" "car" "cdr" "chain" "coll?" "combinations"
+                 "compress" "cons" "cons?" "count" "cut" "cycle" "dec" "def" "del"
+                 "disassemble" "distinct" "drop" "drop-last" "drop-while" "empty?"
+                 "eval" "even?" "every?" "filter" "first" "flatten" "float?"
+                 "fraction" "gensym" "get" "group-by" "identity" "in" "inc" "input"
+                 "instance?" "integer" "integer-char?" "integer?" "interleave"
+                 "interpose" "is" "is-not" "is_not" "islice" "iterable?" "iterate"
+                 "iterator?" "keyword" "keyword?" "last" "list*" "list-comp"
+                 "macroexpand" "macroexpand-1" "map" "merge-with" "multicombinations"
+                 "name" "neg?" "nil?" "none?" "not" "not-in" "not_in" "nth" "numeric?"
+                 "odd?" "or" "partition" "permutations" "pos?" "print" "product"
+                 "quasiquote" "quote" "range" "read" "read-str" "reduce" "remove"
+                 "repeat" "repeatedly" "rest" "second" "setv" "slice" "some" "string"
+                 "string?" "symbol?" "take" "take-nth" "take-while" "tee" "unquote"
+                 "unquote-splice" "yield-from" "zero?" "zip" "zip-longest"))
               "\\)[ \n\r\t)]")
      (1 font-lock-builtin-face))
     (,(concat "\\<"
