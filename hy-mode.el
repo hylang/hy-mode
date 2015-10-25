@@ -40,7 +40,7 @@
 (defconst hy-font-lock-keywords
   `((,(concat "(\\("
               (regexp-opt '("defn" "defun" "defmacro" "defmacro/g!"
-                            "defreader" "defmain"))
+                            "defreader"))
               "\\)\\>"
               ;; Spaces
               "[ \r\n\t]+"
@@ -93,8 +93,8 @@
                  "-=" "/" "//" "//=" "/=" "<" "<<" "<<=" "<=" "=" ">" ">=" ">>" ">>="
                  "^" "^=" "_=" "|" "|=" "~" "accumulate" "and" "assoc" "butlast"
                  "calling-module-name" "car" "cdr" "chain" "coll?" "combinations"
-                 "compress" "cons" "cons?" "count" "cut" "cycle" "dec" "def" "del"
-                 "disassemble" "distinct" "drop" "drop-last" "drop-while" "empty?"
+                 "compress" "cons" "cons?" "count" "cut" "cycle" "dec" "def" "defmain"
+                 "del" "disassemble" "distinct" "drop" "drop-last" "drop-while" "empty?"
                  "eval" "even?" "every?" "filter" "first" "flatten" "float?"
                  "fraction" "gensym" "get" "group-by" "identity" "in" "inc" "input"
                  "instance?" "integer" "integer-char?" "integer?" "interleave"
