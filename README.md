@@ -80,10 +80,20 @@ than keeping the s-expressions balanced.
 ; eg: Adding paredit minor mode
 (add-hook 'hy-mode-hook 'paredit-mode)
 
+; Add smartparens-strict-mode
+(add-hook 'hy-mode-hook #'smartparens-strict-mode)
+
 ; alternatively you could enable this to a bunch of lisp modes
 (dolist (lisp-mode '(scheme emacs-lisp lisp clojure hy))
   (add-hook (intern (concat (symbol-name lisp-mode) "-mode-hook"))
 		'paredit-mode))
+
+```
+
+[RainbowDelimiters](https://github.com/Fanael/rainbow-delimiters) is another minor mode which highlights parentheses, brackets, and braces according to their depth. Each successive level is highlighted in a different color. This makes it easy to spot matching delimiters, orient yourself in the code, and tell which statements are at a given depth. Assuming you've already installed RainbowDelimiters you can enable it like this:
+
+```el
+(add-hook 'hy-mode-hook #'rainbow-delimiters-mode)
 
 ```
 
