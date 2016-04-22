@@ -1,7 +1,7 @@
 hy-mode
 =======
 
-Major mode for Emacs for editing buffer written in the Hy language. This mode
+Major mode for Emacs for editing buffer written in the [Hy language](http://docs.hylang.org/en/latest/). This mode
 is only compatible with Emacs 24 and above.
 
 
