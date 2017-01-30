@@ -210,7 +210,8 @@ Lisp function does not specify a special indentation."
   (setq-local lisp-indent-function 'hy-indent-function)
   (setq-local inferior-lisp-load-command
 	      (concat "(import [hy.importer [import-file-to-module]])\n"
-		      "(import-file-to-module \"__main__\" \"%s\")\n")))
+		      "(import-file-to-module \"__main__\" \"%s\")\n"))
+  (setenv "PYTHONIOENCODING" "UTF-8"))
 
 (set-keymap-parent hy-mode-map lisp-mode-shared-map)
 (define-key hy-mode-map (kbd "C-M-x")   'lisp-eval-defun)
