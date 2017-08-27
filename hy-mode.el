@@ -41,21 +41,34 @@
 
 ;;; Keywords
 
+(defconst hy--kwds-anaphorics
+  '("ap-if" "ap-each" "ap-each-while" "ap-map" "ap-map-when" "ap-filter"
+    "ap-reject" "ap-dotimes" "ap-first" "ap-last" "ap-reduce" "ap-pipe"
+    "ap-compose" "xi")
+
+  "Hy anaphoric contrib keywords.")
+
 (defconst hy--kwds-builtins
   '("*map" "accumulate" "and" "assoc" "butlast" "calling-module-name" "car"
-    "cdr" "chain" "coll?" "combinations" "compress" "cons" "cons?" "count" "cut"
-    "cycle" "dec" "def" "defmain" "del" "disassemble" "distinct" "drop"
-    "drop-last" "drop-while" "empty?" "eval" "even?" "every?" "filter" "first"
-    "flatten" "float?" "fraction" "gensym" "get" "group-by" "identity" "in"
+    "cdr" "chain" "coll?" "combinations" "comp" "complement" "compress" "cons"
+    "cons?" "constantly"
+    "count" "cut"
+    "cycle" "dec" "def" "defmain" "del" "dict-comp" "disassemble" "distinct"
+    "doto"
+    "drop"
+    "drop-last" "drop-while" "empty?" "even?" "every?" "filter" "first"
+    "flatten" "float?" "fraction" "genexpr" "gensym" "get" "group-by" "identity" "in"
     "inc" "input" "instance?" "integer" "integer-char?" "integer?" "interleave"
     "interpose" "is" "is-not" "is_not" "islice" "iterable?" "iterate"
-    "iterator?" "keyword" "keyword?" "last" "list*" "list-comp" "macroexpand"
-    "macroexpand-1" "map" "merge-with" "multicombinations" "name" "neg?" "nil?"
-    "none?" "not" "not-in" "not_in" "nth" "numeric?" "odd?" "or" "partition"
+    "iterator?" "juxt" "keyword" "keyword?" "last" "list*" "list-comp"
+    "macroexpand"
+    "macroexpand-1" "map" "merge-with" "multicombinations" "name" "neg?"
+    "none?" "not" "not-in" "nth" "numeric?" "odd?" "or" "partition"
     "permutations" "pos?" "print" "product" "quasiquote" "quote" "range" "read"
     "read-str" "reduce" "remove" "repeat" "repeatedly" "rest" "second" "setv"
+    "set-comp"
     "slice" "some" "string" "string?" "symbol?" "take" "take-nth" "take-while"
-    "tee" "unquote" "unquote-splice" "zero?" "zip" "zip-longest")
+    "tee" "unquote" "unquote-splice" "xor" "zero?" "zip" "zip-longest")
 
   "Hy builtin keywords.")
 
@@ -74,7 +87,7 @@
 (defconst hy--kwds-operators
   '("!=" "%" "%=" "&" "&=" "*" "**" "**=" "*=" "+" "+=" "," "-"
     "-=" "/" "//" "//=" "/=" "<" "<<" "<<=" "<=" "=" ">" ">=" ">>" ">>="
-    "^" "^=" "_=" "|" "|=" "~")
+    "^" "^=" "|" "|=" "~")
 
   "Hy operator keywords.")
 
@@ -84,10 +97,12 @@
     "for" "for*"
 
     ;; Threading
-    "_>" "->" "_>>" "->>" "as->" "as_>"
+    "->" "->>" "as->"
 
     ;; Flow control
-    "if" "if-not" "else" "unless" "when"
+    "return"
+    "if" "if*" "if-not" "lif" "lif-not"
+    "else" "unless" "when"
     "break" "continue"
     "while" "cond"
     "do" "progn"
@@ -96,17 +111,17 @@
     "lambda" "fn"
     "yield" "yield-from"
     "with" "with*"
-    "with-decorator" "with_decorator" "with-gensyms" "with_gensyms"
+    "with-decorator" "with-gensyms"
 
     ;; Error Handling
     "except" "try" "throw" "raise" "catch" "finally" "assert"
 
     ;; Misc
-    "global"
-    "eval-and-compile"
+    "global" "nonlocal"
+    "eval" "eval-and-compile" "eval-when-compile"
 
-    ;; Discontinued
-    "apply" "kwapply" "let")
+    ;; Discontinued in Master
+    "apply" "kwapply")
 
   "Hy special forms keywords.")
 
@@ -118,7 +133,8 @@
    (rx-to-string
     `(: word-start
         (or ,@hy--kwds-operators
-            ,@hy--kwds-builtins)
+            ,@hy--kwds-builtins
+            ,@hy--kwds-anaphorics)
         word-end))
 
    '(0 font-lock-builtin-face))

@@ -22,7 +22,7 @@ Need to investigate.
 Need to investigate.
 
 * Planned Updates
-** TODO Tag Macro highlighting
+** TODO Tag Macro highlighting (include #* and #** apply)
 ** TODO With decorator tag macro highlight next symbol
 ** TODO Update indent-specform with special forms like 'as->'
 ** TODO Function/Module docstrings use font-lock-doc-face not string-face
