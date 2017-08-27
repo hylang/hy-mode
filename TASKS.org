@@ -1,0 +1,32 @@
+* Tracked Issues
+** TODO #32: Indentation with dict/list starting with string
+
+Tentative fix breaks indenting on #@ reader macros.
+Once that is fixed the PR can be merged.
+
+** TODO #42: Smartparens tick/backtick
+
+1. Tick/Backtick should not duplicate.
+2. Considered brackets by smartparens.
+
+** TODO #43: Inferior Lisp history corrupted with extra =>
+
+Confirmed bug.
+
+** TODO #44: Macro with body indentation fix
+
+Need to investigate.
+
+** TODO #46: Inferior Lisp colored output
+
+Need to investigate.
+
+* Planned Updates
+** TODO Tag Macro highlighting
+** TODO With decorator tag macro highlight next symbol
+** TODO Update indent-specform with special forms like 'as->'
+** TODO Function/Module docstrings use font-lock-doc-face not string-face
+** TODO Is the 'Note for Windows Users' relevant anymore?
+** TODO Merge the pyvenv integration from Spacemacs python layer
+** TODO Merge the pytest integration from Spacemacs python layer
+** TODO Refactor hy-indent-function

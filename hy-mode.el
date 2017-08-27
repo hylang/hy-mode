@@ -1,11 +1,13 @@
-;;; hy-mode.el --- Major mode for Hy code
+;;; hy-mode.el --- Major mode for Hylang
 
 ;; Copyright © 2013 Julien Danjou <julien@danjou.info>
+;;           © 2017 Eric Kaschalk <ekaschalk@gmail.com>
 ;;
 ;; Authors: Julien Danjou <julien@danjou.info>
+;;          Eric Kaschalk <ekaschalk@gmail.com>
 ;; URL: http://github.com/hylang/hy-mode
 ;; Version: 1.0
-;; Keywords: languages, lisp
+;; Keywords: languages, lisp, python
 
 ;; hy-mode is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by
@@ -37,85 +39,213 @@
   :type 'string
   :group 'hy-mode)
 
-(defconst hy-font-lock-keywords
-  `((,(concat "(\\("
-              (regexp-opt '("defn" "defun" "defmacro" "defmacro/g!"
-                            "defreader"))
-              "\\)\\>"
-              ;; Spaces
-              "[ \r\n\t]+"
-              ;; Function name
-              "\\([^ \r\n\t()]+\\)")
-     (1 font-lock-keyword-face)
-     (2 font-lock-function-name-face nil t))
-    (,(concat "(\\("
-              (regexp-opt '("defclass"))
-              "\\)\\>"
-              ;; Spaces
-              "[ \r\n\t]+"
-              ;; Class name
-              "\\([^][ \r\n\t(){}]+\\)")
-     (1 font-lock-keyword-face)
-     (2 font-lock-type-face))
-    (,(concat "(\\("
-              (regexp-opt '("require" "import"))
-              "\\)\\>"
-              ;; Spaces
-              "[ \r\n\t]+"
-              ;; module list
-              "\\([^\\[()]+\\)")
-     (1 font-lock-keyword-face)
-     (2 font-lock-function-name-face nil t))
-    (,(concat "(\\("
-              (regexp-opt '("defmacro-alias" "defn-alias"
-                            "defun-alias"))
-              "\\)\\>"
-              ;; Spaces
-              "[ \r\n\t]+"
-              ;; Function/class name
-              "\\[\\([^]\r\n\t()]+\\)\\]"
-              )
-     (1 font-lock-keyword-face)
-     (2 font-lock-function-name-face nil t))
-    (,(concat "(\\("
-              (regexp-opt
-               '("do" "for" "for*" "try" "throw" "raise" "progn" "catch"
-                 "else" "finally" "except" "if" "unless" "when" "assert" "global"
-                 "lambda" "fn" "yield" "with-decorator" "with_decorator" "with"
-                 "with*" "kwapply" "while" "let" "cond" "_>" "->" "_>>" "->>"
-                 "with-gensyms" "eval-and-compile" "loop" "recur"
-                 "if-not" "apply" "break" "continue"))
-              "\\)[ \n\r\t)]")
-     (1 font-lock-keyword-face))
-    (,(concat "(\\("
-              (regexp-opt
-               '("!=" "%" "%=" "&" "&=" "*" "**" "**=" "*=" "*map" "+" "+=" "," "-"
-                 "-=" "/" "//" "//=" "/=" "<" "<<" "<<=" "<=" "=" ">" ">=" ">>" ">>="
-                 "^" "^=" "_=" "|" "|=" "~" "accumulate" "and" "assoc" "butlast"
-                 "calling-module-name" "car" "cdr" "chain" "coll?" "combinations"
-                 "compress" "cons" "cons?" "count" "cut" "cycle" "dec" "def" "defmain"
-                 "del" "disassemble" "distinct" "drop" "drop-last" "drop-while" "empty?"
-                 "eval" "even?" "every?" "filter" "first" "flatten" "float?"
-                 "fraction" "gensym" "get" "group-by" "identity" "in" "inc" "input"
-                 "instance?" "integer" "integer-char?" "integer?" "interleave"
-                 "interpose" "is" "is-not" "is_not" "islice" "iterable?" "iterate"
-                 "iterator?" "keyword" "keyword?" "last" "list*" "list-comp"
-                 "macroexpand" "macroexpand-1" "map" "merge-with" "multicombinations"
-                 "name" "neg?" "nil?" "none?" "not" "not-in" "not_in" "nth" "numeric?"
-                 "odd?" "or" "partition" "permutations" "pos?" "print" "product"
-                 "quasiquote" "quote" "range" "read" "read-str" "reduce" "remove"
-                 "repeat" "repeatedly" "rest" "second" "setv" "slice" "some" "string"
-                 "string?" "symbol?" "take" "take-nth" "take-while" "tee" "unquote"
-                 "unquote-splice" "yield-from" "zero?" "zip" "zip-longest"))
-              "\\)[ \n\r\t)]")
-     (1 font-lock-builtin-face))
-    (,(concat "\\<"
-              (regexp-opt '("true" "True" "false" "False" "nil" "None"))
-              "\\>")
-     (0 font-lock-constant-face))
-    ("^#!.*$" 0 font-lock-comment-face)  ; shebang line
-    ("\\<:[^ \r\n\t]+\\>" 0 font-lock-constant-face)
-    ("\\<&[^ \r\n\t]+\\>" 0 font-lock-type-face)))
+;;; Keywords
+
+(defconst hy--kwds-builtins
+  '("*map" "accumulate" "and" "assoc" "butlast" "calling-module-name" "car"
+    "cdr" "chain" "coll?" "combinations" "compress" "cons" "cons?" "count" "cut"
+    "cycle" "dec" "def" "defmain" "del" "disassemble" "distinct" "drop"
+    "drop-last" "drop-while" "empty?" "eval" "even?" "every?" "filter" "first"
+    "flatten" "float?" "fraction" "gensym" "get" "group-by" "identity" "in"
+    "inc" "input" "instance?" "integer" "integer-char?" "integer?" "interleave"
+    "interpose" "is" "is-not" "is_not" "islice" "iterable?" "iterate"
+    "iterator?" "keyword" "keyword?" "last" "list*" "list-comp" "macroexpand"
+    "macroexpand-1" "map" "merge-with" "multicombinations" "name" "neg?" "nil?"
+    "none?" "not" "not-in" "not_in" "nth" "numeric?" "odd?" "or" "partition"
+    "permutations" "pos?" "print" "product" "quasiquote" "quote" "range" "read"
+    "read-str" "reduce" "remove" "repeat" "repeatedly" "rest" "second" "setv"
+    "slice" "some" "string" "string?" "symbol?" "take" "take-nth" "take-while"
+    "tee" "unquote" "unquote-splice" "zero?" "zip" "zip-longest")
+
+  "Hy builtin keywords.")
+
+(defconst hy--kwds-constants
+  '("True" "False" "None" "nil")
+
+  "Hy constant keywords.")
+
+(defconst hy--kwds-defs
+  '("defn" "defun"
+    "defmacro" "defmacro/g!" "defmacro!"
+    "defreader" "defsharp" "deftag")
+
+  "Hy definition keywords.")
+
+(defconst hy--kwds-operators
+  '("!=" "%" "%=" "&" "&=" "*" "**" "**=" "*=" "+" "+=" "," "-"
+    "-=" "/" "//" "//=" "/=" "<" "<<" "<<=" "<=" "=" ">" ">=" ">>" ">>="
+    "^" "^=" "_=" "|" "|=" "~")
+
+  "Hy operator keywords.")
+
+(defconst hy--kwds-special-forms
+  '(;; Looping
+    "loop" "recur"
+    "for" "for*"
+
+    ;; Threading
+    "_>" "->" "_>>" "->>" "as->" "as_>"
+
+    ;; Flow control
+    "if" "if-not" "else" "unless" "when"
+    "break" "continue"
+    "while" "cond"
+    "do" "progn"
+
+    ;; Functional
+    "lambda" "fn"
+    "yield" "yield-from"
+    "with" "with*"
+    "with-decorator" "with_decorator" "with-gensyms" "with_gensyms"
+
+    ;; Error Handling
+    "except" "try" "throw" "raise" "catch" "finally" "assert"
+
+    ;; Misc
+    "global"
+    "eval-and-compile"
+
+    ;; Discontinued
+    "apply" "kwapply" "let")
+
+  "Hy special forms keywords.")
+
+;;; Font Locks
+;;;; Definitions
+
+(defconst hy--font-lock-kwds-builtins
+  (list
+   (rx-to-string
+    `(: word-start
+        (or ,@hy--kwds-operators
+            ,@hy--kwds-builtins)
+        word-end))
+
+   '(0 font-lock-builtin-face))
+
+  "Hy builtin keywords.")
+
+(defconst hy--font-lock-kwds-constants
+  (list
+   (rx-to-string
+    `(: (or ,@hy--kwds-constants)))
+
+   '(0 font-lock-constant-face))
+
+  "Hy constant keywords.")
+
+(defconst hy--font-lock-kwds-defs
+  (list
+   (rx-to-string
+    `(: (group-n 1 (or ,@hy--kwds-defs))
+        (1+ space)
+        (group-n 2 (1+ word))))
+
+   '(1 font-lock-keyword-face)
+   '(2 font-lock-function-name-face nil t))
+
+  "Hy definition keywords.")
+
+(defconst hy--font-lock-kwds-special-forms
+  (list
+   (rx-to-string
+    `(: word-start
+        (or ,@hy--kwds-special-forms)
+        word-end))
+
+   '(0 font-lock-keyword-face))
+
+  "Hy special forms keywords.")
+
+;;;; Static
+
+(defconst hy--font-lock-kwds-aliases
+  (list
+   (rx (group-n 1 (or "defmacro-alias" "defn-alias" "defun-alias"))
+       (1+ space)
+       "["
+       (group-n 2 (1+ anything))
+       "]")
+
+   '(1 font-lock-keyword-face)
+   '(2 font-lock-function-name-face nil t))
+
+  "Hy aliasing keywords.")
+
+(defconst hy--font-lock-kwds-class
+  (list
+   (rx (group-n 1 "defclass")
+       (1+ space)
+       (group-n 2 (1+ word)))
+
+   '(1 font-lock-keyword-face)
+   '(2 font-lock-type-face))
+
+  "Hy class keywords.")
+
+(defconst hy--font-lock-kwds-imports
+  (list
+   (rx (or "import" "require" ":as")
+       (or (1+ space) eol))
+
+   '(0 font-lock-keyword-face))
+
+  "Hy import keywords.")
+
+(defconst hy--font-lock-kwds-self
+  (list
+   (rx word-start
+       (group "self")
+       (or "." word-end))
+
+   '(1 font-lock-keyword-face))
+
+  "Hy self keyword.")
+
+;;;; Misc
+
+(defconst hy--font-lock-kwds-func-modifiers
+  (list
+   (rx word-start "&" (1+ word))
+
+   '(0 font-lock-type-face))
+
+  "Hy '&rest/&kwonly/...' styling.")
+
+(defconst hy--font-lock-kwds-kwargs
+  (list
+   (rx word-start ":" (1+ word))
+
+   '(0 font-lock-constant-face))
+
+  "Hy ':kwarg' styling.")
+
+(defconst hy--font-lock-kwds-shebang
+  (list
+   (rx buffer-start "#!" (0+ not-newline) eol)
+
+   '(0 font-lock-comment-face))
+
+  "Hy shebang line.")
+
+;;;; Grouped
+
+(defconst hy-font-lock-kwds
+  (list hy--font-lock-kwds-aliases
+        hy--font-lock-kwds-builtins
+        hy--font-lock-kwds-class
+        hy--font-lock-kwds-constants
+        hy--font-lock-kwds-defs
+        hy--font-lock-kwds-func-modifiers
+        hy--font-lock-kwds-imports
+        hy--font-lock-kwds-kwargs
+        hy--font-lock-kwds-self
+        hy--font-lock-kwds-shebang
+        hy--font-lock-kwds-special-forms)
+
+  "All Hy font lock keywords.")
+
+;;; Indentation
 
 (defcustom hy-indent-specform
   '(("for" . 1)
@@ -172,10 +302,7 @@ Lisp function does not specify a special indentation."
               ((string-match-p "\\`\\(?:\\S +/\\)?\\(def\\|with-\\|with_\\|fn\\|lambda\\)" function)
                (lisp-indent-defform state indent-point)))))))
 
-;;;###autoload
-(progn
-  (add-to-list 'auto-mode-alist '("\\.hy\\'" . hy-mode))
-  (add-to-list 'interpreter-mode-alist '("hy" . hy-mode)))
+;;; Syntax
 
 (defvar hy-mode-syntax-table
   (let ((table (copy-syntax-table lisp-mode-syntax-table)))
@@ -185,39 +312,70 @@ Lisp function does not specify a special indentation."
     (modify-syntax-entry ?\] ")[" table)
     table))
 
+;;; Hy-mode
+
 (unless (fboundp 'setq-local)
   (defmacro setq-local (var val)
     `(set (make-local-variable ',var) ,val)))
 
 ;;;###autoload
+(progn
+  (add-to-list 'auto-mode-alist '("\\.hy\\'" . hy-mode))
+  (add-to-list 'interpreter-mode-alist '("hy" . hy-mode)))
+
+;;;###autoload
 (define-derived-mode hy-mode prog-mode "Hy"
   "Major mode for editing Hy files."
   (setq font-lock-defaults
-        '(hy-font-lock-keywords
+        '(hy-font-lock-kwds
           nil nil
           (("+-*/.<>=!?$%_&~^:@" . "w")) ; syntax alist
           nil
           (font-lock-mark-block-function . mark-defun)
           (font-lock-syntactic-face-function
            . lisp-font-lock-syntactic-face-function)))
+  ;; Comments
   (setq-local comment-start ";")
   (setq-local comment-start-skip
               "\\(\\(^\\|[^\\\\\n]\\)\\(\\\\\\\\\\)*\\)\\(;+\\|#|\\) *")
   (setq-local comment-add 1)
+
+  ;; Indentation
   (setq-local indent-tabs-mode nil)
-  (setq-local inferior-lisp-program hy-mode-inferior-lisp-command)
   (setq-local indent-line-function 'lisp-indent-line)
   (setq-local lisp-indent-function 'hy-indent-function)
+
+  ;; Inferior Lisp Program
+  (setq-local inferior-lisp-program hy-mode-inferior-lisp-command)
   (setq-local inferior-lisp-load-command
-	      (concat "(import [hy.importer [import-file-to-module]])\n"
-		      "(import-file-to-module \"__main__\" \"%s\")\n"))
+              (concat "(import [hy.importer [import-file-to-module]])\n"
+                      "(import-file-to-module \"__main__\" \"%s\")\n"))
   (setenv "PYTHONIOENCODING" "UTF-8"))
+
+;;; Utilities
+
+;;;###autoload
+(defun hy-insert-pdb ()
+  "Import and set pdb trace at point."
+  (interactive)
+  (insert "(do (import pdb) (pdb.set-trace))"))
+
+;;;###autoload
+(defun hy-insert-pdb-threaded ()
+  "Import and set pdb trace at point for a threading macro."
+  (interactive)
+  (insert "((fn [x] (import pdb) (pdb.set-trace) x))"))
+
+;;; Keybindings
 
 (set-keymap-parent hy-mode-map lisp-mode-shared-map)
 (define-key hy-mode-map (kbd "C-M-x")   'lisp-eval-defun)
 (define-key hy-mode-map (kbd "C-x C-e") 'lisp-eval-last-sexp)
 (define-key hy-mode-map (kbd "C-c C-z") 'switch-to-lisp)
 (define-key hy-mode-map (kbd "C-c C-l") 'lisp-load-file)
+
+(define-key hy-mode-map (kbd "C-c C-t") 'hy-insert-pdb)
+(define-key hy-mode-map (kbd "C-c C-S-t") 'hy-insert-pdb-threaded)
 
 (provide 'hy-mode)
 

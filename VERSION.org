@@ -1,0 +1,20 @@
+* Version 1.0 - First tagged release
+** New maintainer - Hy-mode rewritten
+** Syntax highlighting changes
+*** DONE Keywords reflect master (defsharp/deftag, defmacro!, ...)
+    CLOSED: [2017-08-27 Sun 10:32]
+*** DONE 'self' now recognized as keyword
+    CLOSED: [2017-08-27 Sun 10:32]
+*** DONE Import top-level module names no longer highlighted
+    CLOSED: [2017-08-27 Sun 10:32]
+*** DONE Import ':as' now highlighted as keyword not function
+    CLOSED: [2017-08-27 Sun 10:32]
+*** DONE Import/shebang highlighting inconsistencies fixed
+    CLOSED: [2017-08-27 Sun 12:34]
+** New keybindings
+*** DONE 'C-c C-t' `hy-insert-pdb': Insert pdb trace at point
+    CLOSED: [2017-08-27 Sun 12:40]
+*** DONE 'C-c C-S-t' `hy-insert-pdb-threaded': Set trace within a thread
+    CLOSED: [2017-08-27 Sun 12:40]
+** Tasks now tracked in TASKS.org
+** Readme rewritten, converted to org-mode
