@@ -1,4 +1,6 @@
 * Version 1.1 - in progress
+** DONE Function/Class/Module docstrings font-lock-doc-face not string-face
+   CLOSED: [2017-08-27 Sun 18:10]
 ** DONE Synced all hy builtins, added anaphorics to highlighting
    CLOSED: [2017-08-27 Sun 16:07]
 
