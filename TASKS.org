@@ -6,6 +6,7 @@
 ** TODO Merge the pyvenv integration from Spacemacs python layer
 ** TODO Merge the pytest integration from Spacemacs python layer
 ** TODO Refactor hy-indent-function
+** TODO Syntax highlight missing pure-python builtins
 * Tracked Issues
 ** TODO #32: Indentation with dict/list starting with string
 

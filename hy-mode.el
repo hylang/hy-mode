@@ -68,9 +68,30 @@
   "Hy builtin keywords.")
 
 (defconst hy--kwds-constants
-  '("True" "False" "None" "nil")
+  '("True" "False" "None"
+    "Ellipsis"
+    "NotImplemented"
+    "nil"  ; For those that alias None as nil
+    )
 
   "Hy constant keywords.")
+
+(defconst hy--kwds-exceptions
+  '("ArithmeticError" "AssertionError" "AttributeError" "BaseException"
+    "DeprecationWarning" "EOFError" "EnvironmentError" "Exception"
+    "FloatingPointError" "FutureWarning" "GeneratorExit" "IOError"
+    "ImportError" "ImportWarning" "IndexError" "KeyError"
+    "KeyboardInterrupt" "LookupError" "MemoryError" "NameError"
+    "NotImplementedError" "OSError" "OverflowError"
+    "PendingDeprecationWarning" "ReferenceError" "RuntimeError"
+    "RuntimeWarning" "StopIteration" "SyntaxError" "SyntaxWarning"
+    "SystemError" "SystemExit" "TypeError" "UnboundLocalError"
+    "UnicodeDecodeError" "UnicodeEncodeError" "UnicodeError"
+    "UnicodeTranslateError" "UnicodeWarning" "UserWarning" "VMSError"
+    "ValueError" "Warning" "WindowsError" "ZeroDivisionError"
+    "BufferError" "BytesWarning" "IndentationError" "ResourceWarning" "TabError")
+
+  "Hy exception keywords.")
 
 (defconst hy--kwds-defs
   '("defn" "defun"
@@ -126,11 +147,11 @@
 (defconst hy--font-lock-kwds-builtins
   (list
    (rx-to-string
-    `(: word-start
+    `(: symbol-start
         (or ,@hy--kwds-operators
             ,@hy--kwds-builtins
             ,@hy--kwds-anaphorics)
-        word-end))
+        symbol-end))
 
    '(0 font-lock-builtin-face))
 
@@ -157,12 +178,23 @@
 
   "Hy definition keywords.")
 
+(defconst hy--font-lock-kwds-exceptions
+  (list
+   (rx-to-string
+    `(: symbol-start
+        (or ,@hy--kwds-exceptions)
+        symbol-end))
+
+   '(0 font-lock-type-face))
+
+  "Hy builtin keywords.")
+
 (defconst hy--font-lock-kwds-special-forms
   (list
    (rx-to-string
-    `(: word-start
+    `(: symbol-start
         (or ,@hy--kwds-special-forms)
-        word-end))
+        symbol-end))
 
    '(0 font-lock-keyword-face))
 
@@ -205,9 +237,9 @@
 
 (defconst hy--font-lock-kwds-self
   (list
-   (rx word-start
+   (rx symbol-start
        (group "self")
-       (or "." word-end))
+       (or "." symbol-end))
 
    '(1 font-lock-keyword-face))
 
@@ -217,7 +249,7 @@
 
 (defconst hy--font-lock-kwds-func-modifiers
   (list
-   (rx word-start "&" (1+ word))
+   (rx symbol-start "&" (1+ word))
 
    '(0 font-lock-type-face))
 
@@ -225,7 +257,7 @@
 
 (defconst hy--font-lock-kwds-kwargs
   (list
-   (rx word-start ":" (1+ word))
+   (rx symbol-start ":" (1+ word))
 
    '(0 font-lock-constant-face))
 
@@ -247,6 +279,7 @@
         hy--font-lock-kwds-class
         hy--font-lock-kwds-constants
         hy--font-lock-kwds-defs
+        hy--font-lock-kwds-exceptions
         hy--font-lock-kwds-func-modifiers
         hy--font-lock-kwds-imports
         hy--font-lock-kwds-kwargs
