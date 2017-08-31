@@ -63,7 +63,19 @@
     "pos?" "print" "product" "quasiquote" "quote" "range" "read" "read-str"
     "reduce" "remove" "repeat" "repeatedly" "rest" "second" "setv" "set-comp"
     "slice" "some" "string" "string?" "symbol?" "take" "take-nth" "take-while"
-    "tee" "unquote" "unquote-splice" "xor" "zero?" "zip" "zip-longest")
+    "tee" "unquote" "unquote-splice" "xor" "zero?" "zip" "zip-longest"
+
+    ;; Pure python builtins
+    "abs" "all" "any" "bin" "bool" "callable" "chr"
+    "compile" "complex" "delattr" "dict" "dir" "divmod" "enumerate"
+    "eval" "float" "format" "frozenset" "getattr" "globals" "hasattr"
+    "hash" "help" "hex" "id" "isinstance" "issubclass" "iter" "len"
+    "list" "locals" "max" "memoryview" "min" "next" "object" "oct" "open"
+    "ord" "pow" "repr" "reversed" "round" "set" "setattr"
+    "sorted" "str" "sum" "super" "tuple" "type" "vars"
+    "ascii" "bytearray" "bytes" "exec"
+    "--package--" "__package__" "--import--" "__import__"
+    "--all--" "__all__" "--doc--" "__doc__" "--name--" "__name__")
 
   "Hy builtin keywords.")
 
