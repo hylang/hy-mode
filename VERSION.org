@@ -1,6 +1,15 @@
 * Version 1.0.2 - in progress
 ** DONE Highlight variable names in setv/def (only first name)
    CLOSED: [2017-09-03 Sun 11:42]
+** DONE #32: Indentation with dict/list starting with string
+   CLOSED: [2017-09-03 Sun 16:01]
+
+Tentative fix breaks indenting on #@ reader macros.
+Once that is fixed the PR can be merged.
+
+** DONE #39: Make indentation rules match the Hy style guide
+   CLOSED: [2017-09-03 Sun 16:02]
+
 * Version 1.0.1 - Syntax Highlighting Finalized
 ** DONE Function/Class/Module docstrings font-lock-doc-face not string-face
    CLOSED: [2017-08-27 Sun 18:10]

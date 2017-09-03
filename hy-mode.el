@@ -354,6 +354,7 @@
   "All Hy font lock keywords.")
 
 ;;; Indentation
+;;;; Specform
 
 (defcustom hy-indent-specform
   '(("for" . 1)
@@ -364,28 +365,111 @@
     ("let" . 1)
     ("if" . 1)
     ("when" . 1)
+    ("lambda" . 1)
     ("unless" . 1))
   "How to indent specials specform."
   :group 'hy-mode)
 
+;;;; Normal Indent Calculation
+
+(defun hy-normal-indent (last-sexp)
+  (goto-char last-sexp)
+  (let ((last-sexp-start nil))
+    (if (ignore-errors
+          (while (string-match
+                  "[^[:blank:]]"
+                  (buffer-substring (line-beginning-position) (point)))
+            (setq last-sexp-start (prog1 (point)
+                                    (forward-sexp -1))))
+          t)
+        (current-column)
+      (let ((case-a (and last-sexp-start
+                         (< last-sexp-start (line-end-position)))))
+        (cond
+         ;; There's an arg after the function name, so align with it.
+         (case-a (goto-char last-sexp-start)
+                 (current-column))
+         ;; Not same line.
+         (t (+ 1 (current-column)))
+         ;; Finally, just align with the function name.
+         (t (current-column)))))))
+
+;;;; Hy indent function
+
 (defun hy-indent-function (indent-point state)
-  "This function is the normal value of the variable `lisp-indent-function' for `hy-mode'.
-It is used when indenting a line within a function call, to see
-if the called function says anything special about how to indent
-the line.
+  ;; Goto to the open-paren.
+  (goto-char (elt state 1))
+  ;; Maps, sets, vectors and reader conditionals.
+  (if (hy-not-function-form-p)
+      (1+ (current-column))
+    ;; Function or macro call.
+    (forward-char 1)
+    (let ((method (hy-find-indent-spec))
+          (last-sexp calculate-lisp-indent-last-sexp)
+          (containing-form-column (1- (current-column))))
+      (pcase method
+        ((or (pred integerp) `(,method))
+         (let ((pos -1))
+           (condition-case nil
+               (while (and (<= (point) indent-point)
+                           (not (eobp)))
+                 (forward-sexp 1)
+                 (cl-incf pos))
+             ;; If indent-point is _after_ the last sexp in the
+             ;; current sexp, we detect that by catching the
+             ;; `scan-error'. In that case, we should return the
+             ;; indentation as if there were an extra sexp at point.
+             (scan-error (cl-incf pos)))
+           (cond
+            ;; The first non-special arg. Rigidly reduce indentation.
+            ((= pos (1+ method))
+             (+ lisp-body-indent containing-form-column))
+            ;; Further non-special args, align with the arg above.
+            ((> pos (1+ method))
+             (hy-normal-indent last-sexp))  ;; NOTE
+            ;; Special arg. Rigidly indent with a large indentation.
+            (t
+             (+ (* 2 lisp-body-indent) containing-form-column)))))
 
-INDENT-POINT is the position at which the line being indented begins.
-Point is located at the point to indent under (for default indentation);
-STATE is the `parse-partial-sexp' state for that position.
+        ((pred functionp)
+         (funcall method indent-point state))
 
-This function returns either the indentation to use, or nil if the
-Lisp function does not specify a special indentation."
-  (let ((normal-indent (current-column)))
-    (goto-char (1+ (elt state 1)))
-    (parse-partial-sexp (point) calculate-lisp-indent-last-sexp 0 t)
+        ;; No indent spec, do the default.
+        (`nil
+         (let ((function (thing-at-point 'symbol)))
+           (cond
+            ;; Preserve useful alignment of :require (and friends) in `ns' forms.
+            ((and function (string-match "^:" function))
+             (hy-normal-indent last-sexp))
+            ;; This is should be identical to the :defn above.
+            ((and function
+                  (string-match "\\`\\(?:\\S +/\\)?\\(def\\|with-\\|fn\\|lambda\\)"
+                                function)
+                  (not (string-match "\\`default" (match-string 1 function))))
+             (+ lisp-body-indent containing-form-column))
+            ;; Finally, nothing special here, just respect the user's
+            ;; preference.
+            (t
+             (hy-normal-indent last-sexp)))))))))
+
+;;;; Find indent spec
+
+(defun hy-not-function-form-p ()
+  "Non-nil if form at point doesn't represent a function call."
+  (or (member (char-after) '(?\[ ?\{))
+      (save-excursion ;; Catch #?@ (:cljs ...)
+        (skip-chars-backward "\r\n[:blank:]")
+        (when (eq (char-before) ?@)
+          (forward-char -1))
+        (and (eq (char-before) ?\?)
+             (eq (char-before (1- (point))) ?\#)))
+      ;; Car of form is not a symbol.
+      (not (looking-at ".\\(?:\\sw\\|\\s_\\)"))))
+
+(defun hy-find-indent-spec ()
+  (save-excursion
     (if (and (elt state 2)
              (not (looking-at "\\sw\\|\\s_")))
-        ;; car of form doesn't seem to be a symbol
         (progn
           (if (not (> (save-excursion (forward-line 1) (point))
                       calculate-lisp-indent-last-sexp))
@@ -393,22 +477,10 @@ Lisp function does not specify a special indentation."
                      (beginning-of-line)
                      (parse-partial-sexp (point)
                                          calculate-lisp-indent-last-sexp 0 t)))
-          ;; Indent under the list or under the first sexp on the same
-          ;; line as calculate-lisp-indent-last-sexp.  Note that first
-          ;; thing on that line has to be complete sexp since we are
-          ;; inside the innermost containing sexp.
           (backward-prefix-chars))
-      (let* ((open-paren (elt state 1))
-             (function (buffer-substring (point)
-                                         (progn (forward-sexp 1) (point))))
-             (specform (cdr (assoc function hy-indent-specform))))
-        (cond ((member (char-after open-paren) '(?\[ ?\{))
-               (goto-char open-paren)
-               (1+ (current-column)))
-              (specform
-               (lisp-indent-specform specform state indent-point normal-indent))
-              ((string-match-p "\\`\\(?:\\S +/\\)?\\(def\\|with-\\|with_\\|fn\\|lambda\\)" function)
-               (lisp-indent-defform state indent-point)))))))
+      (let ((function (buffer-substring (point)
+                                        (progn (forward-sexp 1) (point)))))
+        (cdr (assoc function hy-indent-specform))))))
 
 ;;; Syntax
 
@@ -423,22 +495,22 @@ Lisp function does not specify a special indentation."
 ;;; Font Lock Docs
 
 (defun hy-string-in-doc-position-p (listbeg startpos)
-   "Return true if a doc string may occur at STARTPOS inside a list.
+  "Return true if a doc string may occur at STARTPOS inside a list.
 LISTBEG is the position of the start of the innermost list
 containing STARTPOS."
-   (if (= 1 startpos)  ; Uniquely identifies module docstring
-       t
-     (let* ((firstsym (and listbeg
-                           (save-excursion
-                             (goto-char listbeg)
-                             (and (looking-at
-                                   (eval-when-compile
-                                     (concat "([ \t\n]*\\("
-                                             lisp-mode-symbol-regexp "\\)")))
-                                  (match-string-no-properties 1))))))
+  (if (= 1 startpos)  ; Uniquely identifies module docstring
+      t
+    (let* ((firstsym (and listbeg
+                          (save-excursion
+                            (goto-char listbeg)
+                            (and (looking-at
+                                  (eval-when-compile
+                                    (concat "([ \t\n]*\\("
+                                            lisp-mode-symbol-regexp "\\)")))
+                                 (match-string-no-properties 1))))))
 
-       (or (member firstsym hy--kwds-defs)
-           (string= firstsym "defclass")))))
+      (or (member firstsym hy--kwds-defs)
+          (string= firstsym "defclass")))))
 
 (defun hy-font-lock-syntactic-face-function (state)
   "Return syntactic face function for the position represented by STATE.

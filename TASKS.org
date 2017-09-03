@@ -1,14 +1,9 @@
 * Planned Updates
+** TODO Cleanup indentation functions
 ** TODO Update indent-specform with special forms like 'as->'
 ** TODO Merge the pyvenv integration from Spacemacs python layer
 ** TODO Merge the pytest integration from Spacemacs python layer
-** TODO Refactor hy-indent-function
 * Tracked Issues
-** TODO #32: Indentation with dict/list starting with string
-
-Tentative fix breaks indenting on #@ reader macros.
-Once that is fixed the PR can be merged.
-
 ** TODO #42: Smartparens tick/backtick
 
 1. Tick/Backtick should not duplicate.
