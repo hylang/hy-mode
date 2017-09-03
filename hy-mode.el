@@ -354,7 +354,6 @@
   "All Hy font lock keywords.")
 
 ;;; Indentation
-;;;; Specform
 
 (defcustom hy-indent-specform
   '(("for" . 1)
@@ -368,182 +367,6 @@
     ("unless" . 1))
   "How to indent specials specform."
   :group 'hy-mode)
-
-;;;; Hy indent line
-
-(defun hy-indent-line (&optional _whole-exp)
-  "Indent current line as Lisp code.
-With argument, indent any additional lines of the same expression
-rigidly along with this one."
-  (interactive "P")
-  (let ((indent (calculate-hy-indent)) shift-amt
-	(pos (- (point-max) (point)))
-	(beg (progn (beginning-of-line) (point))))
-    (skip-chars-forward " \t")
-    (if (or (null indent) (looking-at "\\s<\\s<\\s<"))
-        (goto-char (- (point-max) pos))
-      (if (and (looking-at "\\s<") (not (looking-at "\\s<\\s<")))
-          ;; Single-semicolon comment lines should be indented
-          ;; as comment lines, not as code.
-          (progn (indent-for-comment) (forward-char -1))
-        (if (listp indent) (setq indent (car indent)))
-        (setq shift-amt (- indent (current-column)))
-        (if (zerop shift-amt)
-            nil
-          (delete-region beg (point))
-          (indent-to indent)))
-      ;; If initial point was within line's indentation,
-      ;; position after the indentation.  Else stay at same point in text.
-      (if (> (- (point-max) pos) (point))
-          (goto-char (- (point-max) pos))))))
-
-;;;; Calculate lisp indent
-
-(defun calculate-hy-indent (&optional parse-start)
-  "Return appropriate indentation for current line as Lisp code.
-In usual case returns an integer: the column to indent to.
-If the value is nil, that means don't change the indentation
-because the line starts inside a string.
-
-The value can also be a list of the form (COLUMN CONTAINING-SEXP-START).
-This means that following lines at the same level of indentation
-should not necessarily be indented the same as this line.
-Then COLUMN is the column to indent to, and CONTAINING-SEXP-START
-is the buffer position of the start of the containing expression."
-  (save-excursion
-    (beginning-of-line)
-    (let ((indent-point (point))
-          state
-          ;; setting this to a number inhibits calling hook
-          (desired-indent nil)
-          (retry t)
-          calculate-hy-indent-last-sexp containing-sexp)
-      (if parse-start
-          (goto-char parse-start)
-        (beginning-of-defun))
-      ;; Find outermost containing sexp
-      (while (< (point) indent-point)
-        (setq state (parse-partial-sexp (point) indent-point 0)))
-      ;; Find innermost containing sexp
-      (while (and retry
-                  state
-                  (> (elt state 0) 0))
-        (setq retry nil)
-        (setq calculate-hy-indent-last-sexp (elt state 2))
-        (setq containing-sexp (elt state 1))
-        ;; Position following last unclosed open.
-        (goto-char (1+ containing-sexp))
-        ;; Is there a complete sexp since then?
-        (if (and calculate-hy-indent-last-sexp
-                 (> calculate-hy-indent-last-sexp (point)))
-            ;; Yes, but is there a containing sexp after that?
-            (let ((peek (parse-partial-sexp calculate-hy-indent-last-sexp
-                                            indent-point 0)))
-              (if (setq retry (car (cdr peek))) (setq state peek)))))
-      (if retry
-          nil
-        ;; Innermost containing sexp found
-        (goto-char (1+ containing-sexp))
-        (if (not calculate-hy-indent-last-sexp)
-            ;; indent-point immediately follows open paren.
-            ;; Don't call hook.
-            (setq desired-indent (current-column))
-          ;; Find the start of first element of containing sexp.
-          (parse-partial-sexp (point) calculate-hy-indent-last-sexp 0 t)
-          (cond ((looking-at "\\s(")
-                 ;; First element of containing sexp is a list.
-                 ;; Indent under that list.
-                 )
-                ((> (save-excursion (forward-line 1) (point))
-                    calculate-hy-indent-last-sexp)
-                 ;; This is the first line to start within the containing sexp.
-                 ;; It's almost certainly a function call.
-                 (if (= (point) calculate-hy-indent-last-sexp)
-                     ;; Containing sexp has nothing before this line
-                     ;; except the first element.  Indent under that element.
-                     nil
-                   ;; Skip the first element, find start of second (the first
-                   ;; argument of the function call) and indent under.
-                   (progn (forward-sexp 1)
-                          (parse-partial-sexp (point)
-                                              calculate-hy-indent-last-sexp
-                                              0 t)))
-                 (backward-prefix-chars))
-                (t
-                 ;; Indent beneath first sexp on same line as
-                 ;; `calculate-hy-indent-last-sexp'.  Again, it's
-                 ;; almost certainly a function call.
-                 (goto-char calculate-hy-indent-last-sexp)
-                 (beginning-of-line)
-                 (parse-partial-sexp (point) calculate-hy-indent-last-sexp
-                                     0 t)
-                 (backward-prefix-chars)))))
-      ;; Point is at the point to indent under unless we are inside a string.
-      ;; Call indentation hook except when overridden by lisp-indent-offset
-      ;; or if the desired indentation has already been computed.
-      (let ((normal-indent (current-column)))
-        (cond ((elt state 3)
-               ;; Inside a string, don't change indentation.
-               nil)
-              ((and (integerp lisp-indent-offset) containing-sexp)
-               ;; Indent by constant offset
-               (goto-char containing-sexp)
-               (+ (current-column) lisp-indent-offset))
-              ;; in this case calculate-hy-indent-last-sexp is not nil
-              (calculate-hy-indent-last-sexp
-               (or
-                ;; try to align the parameters of a known function
-                (and lisp-indent-function
-                     (not retry)
-                     (funcall lisp-indent-function indent-point state))
-                ;; If the function has no special alignment
-                ;; or it does not apply to this argument,
-                ;; try to align a constant-symbol under the last
-                ;; preceding constant symbol, if there is such one of
-                ;; the last 2 preceding symbols, in the previous
-                ;; uncommented line.
-                (and (save-excursion
-                       (goto-char indent-point)
-                       (skip-chars-forward " \t")
-                       (looking-at ":"))
-                     ;; The last sexp may not be at the indentation
-                     ;; where it begins, so find that one, instead.
-                     (save-excursion
-                       (goto-char calculate-hy-indent-last-sexp)
-                       ;; Handle prefix characters and whitespace
-                       ;; following an open paren.  (Bug#1012)
-                       (backward-prefix-chars)
-                       (while (not (or (looking-back "^[ \t]*\\|([ \t]+"
-                                                     (line-beginning-position))
-                                       (and containing-sexp
-                                            (>= (1+ containing-sexp) (point)))))
-                         (forward-sexp -1)
-                         (backward-prefix-chars))
-                       (setq calculate-hy-indent-last-sexp (point)))
-                     (> calculate-hy-indent-last-sexp
-                        (save-excursion
-                          (goto-char (1+ containing-sexp))
-                          (parse-partial-sexp (point) calculate-hy-indent-last-sexp 0 t)
-                          (point)))
-                     (let ((parse-sexp-ignore-comments t)
-                           indent)
-                       (goto-char calculate-hy-indent-last-sexp)
-                       (or (and (looking-at ":")
-                                (setq indent (current-column)))
-                           (and (< (line-beginning-position)
-                                   (prog2 (backward-sexp) (point)))
-                                (looking-at ":")
-                                (setq indent (current-column))))
-                       indent))
-                ;; another symbols or constants not preceded by a constant
-                ;; as defined above.
-                normal-indent))
-              ;; in this case calculate-hy-indent-last-sexp is nil
-              (desired-indent)
-              (t
-               normal-indent))))))
-
-;;;; Hy indent function
 
 (defun hy-indent-function (indent-point state)
   "This function is the normal value of the variable `lisp-indent-function' for `hy-mode'.
@@ -559,19 +382,19 @@ This function returns either the indentation to use, or nil if the
 Lisp function does not specify a special indentation."
   (let ((normal-indent (current-column)))
     (goto-char (1+ (elt state 1)))
-    (parse-partial-sexp (point) calculate-hy-indent-last-sexp 0 t)
+    (parse-partial-sexp (point) calculate-lisp-indent-last-sexp 0 t)
     (if (and (elt state 2)
              (not (looking-at "\\sw\\|\\s_")))
         ;; car of form doesn't seem to be a symbol
         (progn
           (if (not (> (save-excursion (forward-line 1) (point))
-                      calculate-hy-indent-last-sexp))
-              (progn (goto-char calculate-hy-indent-last-sexp)
+                      calculate-lisp-indent-last-sexp))
+              (progn (goto-char calculate-lisp-indent-last-sexp)
                      (beginning-of-line)
                      (parse-partial-sexp (point)
-                                         calculate-hy-indent-last-sexp 0 t)))
+                                         calculate-lisp-indent-last-sexp 0 t)))
           ;; Indent under the list or under the first sexp on the same
-          ;; line as calculate-hy-indent-last-sexp.  Note that first
+          ;; line as calculate-lisp-indent-last-sexp.  Note that first
           ;; thing on that line has to be complete sexp since we are
           ;; inside the innermost containing sexp.
           (backward-prefix-chars))
@@ -582,7 +405,6 @@ Lisp function does not specify a special indentation."
         (cond ((member (char-after open-paren) '(?\[ ?\{))
                (goto-char open-paren)
                (1+ (current-column)))
-              ;; this occurs if function found in `hy-indent-specform'
               (specform
                (lisp-indent-specform specform state indent-point normal-indent))
               ((string-match-p "\\`\\(?:\\S +/\\)?\\(def\\|with-\\|with_\\|fn\\|lambda\\)" function)
@@ -665,9 +487,8 @@ Lisp font lock syntactic face function."
 
   ;; Indentation
   (setq-local indent-tabs-mode nil)
-  (setq-local indent-line-function 'hy-indent-line)
+  (setq-local indent-line-function 'lisp-indent-line)
   (setq-local lisp-indent-function 'hy-indent-function)
-  (setq-local lisp-indent-offset 2)
 
   ;; Inferior Lisp Program
   (setq-local inferior-lisp-program hy-mode-inferior-lisp-command)
