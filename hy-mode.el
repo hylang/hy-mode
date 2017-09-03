@@ -273,6 +273,16 @@
 
   "Hy self keyword.")
 
+(defconst hy--font-lock-kwds-tag-macros
+  (list
+   (rx "#"
+       (not (any "*" "@"))
+       (0+ word))
+
+   '(0 font-lock-function-name-face))
+
+  "Hylight tag macros, ie. `#tag-macro', so they stand out.")
+
 ;;;; Misc
 
 (defconst hy--font-lock-kwds-func-modifiers
@@ -324,6 +334,7 @@
         hy--font-lock-kwds-self
         hy--font-lock-kwds-shebang
         hy--font-lock-kwds-special-forms
+        hy--font-lock-kwds-tag-macros
         hy--font-lock-kwds-unpacking)
 
   "All Hy font lock keywords.")

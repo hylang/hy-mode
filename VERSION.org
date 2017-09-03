@@ -10,6 +10,8 @@
    CLOSED: [2017-08-31 Thu 15:58]
 ** DONE #* and #** unpacking highlighted as keywords
    CLOSED: [2017-09-03 Sun 10:33]
+** DONE Tag Macro highlighting
+   CLOSED: [2017-09-03 Sun 11:04]
 * Version 1.0 - First tagged release
 ** New maintainer - Hy-mode rewritten
 ** Syntax highlighting changes
