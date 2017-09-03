@@ -1,3 +1,6 @@
+* Version 1.0.2 - in progress
+** DONE Highlight variable names in setv/def (only first name)
+   CLOSED: [2017-09-03 Sun 11:42]
 * Version 1.0.1 - Syntax Highlighting Finalized
 ** DONE Function/Class/Module docstrings font-lock-doc-face not string-face
    CLOSED: [2017-08-27 Sun 18:10]
