@@ -159,7 +159,8 @@
 (defconst hy--font-lock-kwds-builtins
   (list
    (rx-to-string
-    `(: symbol-start
+    `(: (not (any "#"))
+        symbol-start
         (or ,@hy--kwds-operators
             ,@hy--kwds-builtins
             ,@hy--kwds-anaphorics)
@@ -298,6 +299,15 @@
 
   "Hy shebang line.")
 
+(defconst hy--font-lock-kwds-unpacking
+  (list
+   (rx (or "#*" "#**")
+       symbol-end)
+
+   '(0 font-lock-keyword-face))
+
+  "Hy #* arg and #** kwarg unpacking keywords.")
+
 ;;;; Grouped
 
 (defconst hy-font-lock-kwds
@@ -313,7 +323,8 @@
         hy--font-lock-kwds-kwargs
         hy--font-lock-kwds-self
         hy--font-lock-kwds-shebang
-        hy--font-lock-kwds-special-forms)
+        hy--font-lock-kwds-special-forms
+        hy--font-lock-kwds-unpacking)
 
   "All Hy font lock keywords.")
 
