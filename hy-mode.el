@@ -139,7 +139,7 @@
     "lambda" "fn"
     "yield" "yield-from"
     "with" "with*"
-    "with-decorator" "with-gensyms"
+    "with-gensyms"
 
     ;; Error Handling
     "except" "try" "throw" "raise" "catch" "finally" "assert"
@@ -199,7 +199,7 @@
 
    '(0 font-lock-type-face))
 
-  "Hy builtin keywords.")
+  "Hy exception keywords.")
 
 (defconst hy--font-lock-kwds-special-forms
   (list
@@ -237,6 +237,21 @@
    '(2 font-lock-type-face))
 
   "Hy class keywords.")
+
+(defconst hy--font-lock-kwds-decorators
+  (list
+   (rx
+    (or (: "#@"
+           (syntax open-parenthesis))
+        (: symbol-start
+           "with-decorator"
+           symbol-end
+           (1+ space)))
+    (1+ word))
+
+   '(0 font-lock-type-face))
+
+  "Hylight the symbol after `#@' or `with-decorator' macros.")
 
 (defconst hy--font-lock-kwds-imports
   (list
@@ -291,6 +306,7 @@
         hy--font-lock-kwds-class
         hy--font-lock-kwds-constants
         hy--font-lock-kwds-defs
+        hy--font-lock-kwds-decorators
         hy--font-lock-kwds-exceptions
         hy--font-lock-kwds-func-modifiers
         hy--font-lock-kwds-imports

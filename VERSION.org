@@ -8,6 +8,8 @@
    CLOSED: [2017-08-31 Thu 15:47]
 ** DONE Syntax highlight pure-python builtins
    CLOSED: [2017-08-31 Thu 15:58]
+** DONE With decorator tag macro highlight next symbol
+   CLOSED: [2017-09-03 Sun 10:19]
 * Version 1.0 - First tagged release
 ** New maintainer - Hy-mode rewritten
 ** Syntax highlighting changes

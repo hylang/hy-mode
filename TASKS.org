@@ -1,8 +1,6 @@
 * Planned Updates
 ** TODO Tag Macro highlighting (include #* and #** apply)
-** TODO With decorator tag macro highlight next symbol
 ** TODO Update indent-specform with special forms like 'as->'
-** TODO Is the 'Note for Windows Users' relevant anymore?
 ** TODO Merge the pyvenv integration from Spacemacs python layer
 ** TODO Merge the pytest integration from Spacemacs python layer
 ** TODO Refactor hy-indent-function
@@ -28,6 +26,11 @@ Need to investigate.
 ** TODO #46: Inferior Lisp colored output
 
 Need to investigate.
+
+** TODO #47: tab completion not working in inferior lisp
+
+Need to investigate.
+
 * Known Minor Bugs
 ** TODO Font-lock-doc-face entirely determined by parent sexp
 #+BEGIN_SRC lisp
@@ -41,3 +44,6 @@ This is rarely an issue as in cases like:
 (defn hi [] "docstring" ["1" "2"])
 #+END_SRC
 the 1 and 2 will use the correct face as the parent sexp is the list.
+
+* Questions
+** TODO Is the 'Note for Windows Users' relevant anymore?
