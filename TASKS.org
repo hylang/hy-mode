@@ -4,10 +4,6 @@
 ** TODO Merge the pyvenv integration from Spacemacs python layer
 ** TODO Merge the pytest integration from Spacemacs python layer
 * Tracked Issues
-** TODO #43: Inferior Lisp history corrupted with extra =>
-
-Confirmed bug.
-
 ** TODO #44: Macro with body indentation fix
 
 Need to investigate.

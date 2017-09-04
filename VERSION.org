@@ -16,6 +16,11 @@ Once that is fixed the PR can be merged.
 1. Tick/Backtick should not duplicate.
 2. Considered brackets by smartparens.
 
+** DONE #43: Inferior Lisp history corrupted with extra =>
+   CLOSED: [2017-09-03 Sun 22:33]
+
+Confirmed bug.
+
 * Version 1.0.1 - Syntax Highlighting Finalized
 ** DONE Function/Class/Module docstrings font-lock-doc-face not string-face
    CLOSED: [2017-08-27 Sun 18:10]
