@@ -457,67 +457,73 @@ Point is always at the start of a function."
       (1+ (current-column))
     ;; Function or macro call.
     (forward-char 1)
-    (let ((method (hy-find-indent-spec state))
-          (last-sexp calculate-lisp-indent-last-sexp)
-          (containing-form-column (1- (current-column))))
-      (pcase method
-        ((or (pred integerp) `(,method))
-         (let ((pos -1))
-           (condition-case nil
-               (while (and (<= (point) indent-point)
-                           (not (eobp)))
-                 (forward-sexp 1)
-                 (cl-incf pos))
-             ;; If indent-point is _after_ the last sexp in the
-             ;; current sexp, we detect that by catching the
-             ;; `scan-error'. In that case, we should return the
-             ;; indentation as if there were an extra sexp at point.
-             (scan-error (cl-incf pos)))
-           (cond
-            ;; The first non-special arg. Rigidly reduce indentation.
-            ((= pos (1+ method))
-             (+ lisp-body-indent containing-form-column))
-            ;; Further non-special args, align with the arg above.
-            ((> pos (1+ method))
-             (hy-normal-indent last-sexp))  ;; NOTE
-            ;; Special arg. Rigidly indent with a large indentation.
-            (t
-             (+ (* 2 lisp-body-indent) containing-form-column)))))
 
-        ((pred functionp)
-         (funcall method indent-point state))
+    ;; Handle special case that the funcall is the tuple constructor comma
+    ;; since , is not a sexp and wont be recognized when traversing backwards
+    (if (member (char-after (point)) '(?\,))
+        (+ 2 (current-column))
+      (let ((method (hy-find-indent-spec state))
+            (last-sexp calculate-lisp-indent-last-sexp)
+            (containing-form-column (1- (current-column))))
+        (pcase method
+          ((or (pred integerp) `(,method))
+           (let ((pos -1))
+             (condition-case nil
+                 (while (and (<= (point) indent-point)
+                             (not (eobp)))
+                   (forward-sexp 1)
+                   (cl-incf pos))
+               ;; If indent-point is _after_ the last sexp in the
+               ;; current sexp, we detect that by catching the
+               ;; `scan-error'. In that case, we should return the
+               ;; indentation as if there were an extra sexp at point.
+               (scan-error (cl-incf pos)))
+             (cond
+              ;; The first non-special arg. Rigidly reduce indentation.
+              ((= pos (1+ method))
+               (+ lisp-body-indent containing-form-column))
+              ;; Further non-special args, align with the arg above.
+              ((> pos (1+ method))
+               (hy-normal-indent last-sexp))  ;; NOTE
+              ;; Special arg. Rigidly indent with a large indentation.
+              (t
+               (+ (* 2 lisp-body-indent) containing-form-column)))))
 
-        ;; No indent spec, do the default.
-        (`nil
-         (let ((function (thing-at-point 'symbol)))
-           (cond
-            ;; Preserve useful alignment of :require (and friends) in `ns' forms.
-            ((and function (string-match "^:" function))
-             (hy-normal-indent last-sexp))
-            ;; This is should be identical to the :defn above.
-            ((and function
-                  (string-match "\\`\\(?:\\S +/\\)?\\(def\\|with-\\|fn\\|lambda\\)"
-                                function)
-                  (not (string-match "\\`default" (match-string 1 function))))
-             (+ lisp-body-indent containing-form-column))
-            ;; Finally, nothing special here, just respect the user's
-            ;; preference.
-            (t
-             (hy-normal-indent last-sexp)))))))))
+          ((pred functionp)
+           (funcall method indent-point state))
+
+          ;; No indent spec, do the default.
+          (`nil
+           (let ((function (thing-at-point 'symbol)))
+             (cond
+              ;; Preserve useful alignment of :require (and friends) in `ns' forms.
+              ((and function (string-match "^:" function))
+               (hy-normal-indent last-sexp))
+              ;; This is should be identical to the :defn above.
+              ((and function
+                    (string-match "\\`\\(?:\\S +/\\)?\\(def\\|with-\\|fn\\|lambda\\)"
+                                  function)
+                    (not (string-match "\\`default" (match-string 1 function))))
+               (+ lisp-body-indent containing-form-column))
+              ;; Finally, nothing special here, just respect the user's
+              ;; preference.
+              (t
+               (hy-normal-indent last-sexp))))))))))
 
 ;;;; Find indent spec
 
 (defun hy-not-function-form-p ()
   "Non-nil if form at point doesn't represent a function call."
-  (or (member (char-after) '(?\[ ?\{))
-      (save-excursion ;; Catch #?@ (:cljs ...)
-        (skip-chars-backward "\r\n[:blank:]")
-        (when (eq (char-before) ?@)
-          (forward-char -1))
-        (and (eq (char-before) ?\?)
-             (eq (char-before (1- (point))) ?\#)))
-      ;; Car of form is not a symbol.
-      (not (looking-at ".\\(?:\\sw\\|\\s_\\)"))))
+  (unless (member (char-after (1+ (point))) '(?\,))  ; tuple constructor special
+    (or (member (char-after) '(?\[ ?\{))
+        (save-excursion ;; Catch #?@ (:cljs ...)
+          (skip-chars-backward "\r\n[:blank:]")
+          (when (eq (char-before) ?@)
+            (forward-char -1))
+          (and (eq (char-before) ?\?)
+               (eq (char-before (1- (point))) ?\#)))
+        ;; Car of form is not a symbol.
+        (not (looking-at ".\\(?:\\sw\\|\\s_\\)")))))
 
 ;;; Syntax
 
