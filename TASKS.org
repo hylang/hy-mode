@@ -1,5 +1,6 @@
 * Planned Updates
 ** TODO Cleanup indentation functions
+** TODO The "#" character causes strange indentation
 ** TODO Update indent-specform with special forms like 'as->'
 ** TODO Merge the pyvenv integration from Spacemacs python layer
 ** TODO Merge the pytest integration from Spacemacs python layer
@@ -16,6 +17,7 @@ Need to investigate.
 
 Need to investigate.
 
+** TODO #49: Colored input in inferior-lisp
 * Known Minor Bugs
 ** TODO Font-lock-doc-face entirely determined by parent sexp
 #+BEGIN_SRC lisp
