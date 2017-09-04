@@ -8,6 +8,7 @@
 ;; URL: http://github.com/hylang/hy-mode
 ;; Version: 1.0
 ;; Keywords: languages, lisp, python
+;; Package-Requires: ((dash "2.13.0") (dash-functional "1.2.0") (s "1.11.0") (emacs "24"))
 
 ;; hy-mode is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by
@@ -28,6 +29,10 @@
 
 ;; Provides font-lock, indentation, and navigation for the Hy
 ;; language. (http://hylang.org)
+
+(require 'dash)
+(require 'dash-functional)
+(require 's)
 
 (defgroup hy-mode nil
   "A mode for Hy"
@@ -376,27 +381,47 @@
 
 ;;;; Normal Indent Calculation
 
+(defun hy--anything-before? (pos)
+  "Determine if chars before POS in current line."
+  (s-matches? (rx (not blank))
+              (buffer-substring (line-beginning-position) pos)))
+
+(defun hy--before-eol? (pos)
+  "Determine if POS is before line-end-position."
+  (when pos
+    (< pos (line-end-position))))
+
 (defun hy-normal-indent (last-sexp)
+  "Determine normal indentation column of LAST-SEXP.
+
+Example:
+ (a (b c d
+       e
+       f))
+
+1. Indent e => start at d -> c -> b.
+Then backwards-sexp will throw error trying to jump to a.
+Observe 'a' need not be on the same line as the ( will cause a match.
+Then we determine indentation based on whether there is an arg or not.
+
+2. Indenting f will go to e.
+Now since there is a prior sexp d but we have no sexps-before on same line,
+the loop will terminate without error and the prior lines indentation is it."
   (goto-char last-sexp)
-  (let ((last-sexp-start nil))
+  (-let [last-sexp-start nil]
     (if (ignore-errors
-          (while (string-match
-                  "[^[:blank:]]"
-                  (buffer-substring (line-beginning-position) (point)))
-            (setq last-sexp-start (prog1 (point)
-                                    (forward-sexp -1))))
+          (while (hy--anything-before? (point))
+            (setq last-sexp-start (prog1 (point) (backward-sexp))))
           t)
         (current-column)
-      (let ((case-a (and last-sexp-start
-                         (< last-sexp-start (line-end-position)))))
-        (cond
-         ;; There's an arg after the function name, so align with it.
-         (case-a (goto-char last-sexp-start)
-                 (current-column))
-         ;; Not same line.
-         (t (+ 1 (current-column)))
-         ;; Finally, just align with the function name.
-         (t (current-column)))))))
+      (cond
+       ;; There is an argument after the function, align with it
+       ((hy--before-eol? last-sexp-start)
+        (goto-char last-sexp-start) (current-column))
+
+       ;; Otherwise indent 1 after the start of the function name
+       (t
+        (1+ (current-column)))))))
 
 ;;;; Hy indent function
 
@@ -531,6 +556,22 @@ Lisp font lock syntactic face function."
                 font-lock-doc-face
               font-lock-string-face))))
     font-lock-comment-face))
+
+;;; Shell
+
+;; `python-shell-get-buffer'
+(defun hy-get-shell-buffer ())
+;; `run-python'
+;; `inferior-python-mode' derives from comint-mode
+(defmacro python-shell-with-shell-buffer (&rest body)
+  "Execute the forms in BODY with the shell buffer temporarily current.
+Signals an error if no shell buffer is available for current buffer."
+  (declare (indent 0) (debug t))
+  (let ((shell-process (make-symbol "shell-process")))
+    `(let ((,shell-process (python-shell-get-process-or-error)))
+       (with-current-buffer (process-buffer ,shell-process)
+         ,@body))))
+
 
 ;;; Hy-mode
 
