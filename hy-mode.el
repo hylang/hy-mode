@@ -54,13 +54,13 @@
     "cons?" "constantly" "count" "cut" "cycle" "dec" "def" "defmain" "del"
     "dict-comp" "disassemble" "distinct" "doto" "drop" "drop-last" "drop-while"
     "empty?" "even?" "every?" "filter" "first" "flatten" "float?" "fraction"
-    "genexpr" "gensym" "get" "group-by" "identity" "in" "inc" "input"
+    "genexpr" "gensym" "get" "group-by" "identity" "inc" "input"
     "instance?" "integer" "integer-char?" "integer?" "interleave" "interpose"
     "is" "is-not" "is_not" "islice" "iterable?" "iterate" "iterator?" "juxt"
     "keyword" "keyword?" "last" "list*" "list-comp" "macroexpand"
     "macroexpand-1" "map" "merge-with" "multicombinations" "name" "neg?" "none?"
-    "not-in" "nth" "numeric?" "odd?" "or" "partition" "permutations"
-    "pos?" "print" "product" "quasiquote" "quote" "range" "read" "read-str"
+    "nth" "numeric?" "odd?" "or" "partition" "permutations"
+    "pos?" "product" "quasiquote" "quote" "range" "read" "read-str"
     "reduce" "remove" "repeat" "repeatedly" "rest" "second" "setv" "set-comp"
     "slice" "some" "string" "string?" "symbol?" "take" "take-nth" "take-while"
     "tee" "unquote" "unquote-splice" "xor" "zero?" "zip" "zip-longest"
@@ -129,7 +129,6 @@
 
     ;; Flow control
     "return"
-    "not"
     "if" "if*" "if-not" "lif" "lif-not"
     "else" "unless" "when"
     "break" "continue"
@@ -144,6 +143,11 @@
 
     ;; Error Handling
     "except" "try" "throw" "raise" "catch" "finally" "assert"
+
+    ;; Special
+    "print"
+    "not"
+    "in" "not-in"
 
     ;; Misc
     "global" "nonlocal"
