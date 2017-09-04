@@ -527,6 +527,8 @@ Point is always at the start of a function."
     (modify-syntax-entry ?\} "){" table)
     (modify-syntax-entry ?\[ "(]" table)
     (modify-syntax-entry ?\] ")[" table)
+    (modify-syntax-entry ?~ "'" table)
+
     table))
 
 ;;; Font Lock Docs
@@ -587,6 +589,8 @@ Lisp font lock syntactic face function."
           (font-lock-mark-block-function . mark-defun)
           (font-lock-syntactic-face-function
            . hy-font-lock-syntactic-face-function)))
+
+  (setq-local ahs-include "^[0-9A-Za-z/_.,:;*+=&%|$#@!^?-~]+$")
 
   ;; Smartparens
   (when (fboundp 'sp-local-pair)
