@@ -10,6 +10,12 @@ Once that is fixed the PR can be merged.
 ** DONE #39: Make indentation rules match the Hy style guide
    CLOSED: [2017-09-03 Sun 16:02]
 
+** DONE #42: Smartparens tick/backtick
+   CLOSED: [2017-09-03 Sun 22:03]
+
+1. Tick/Backtick should not duplicate.
+2. Considered brackets by smartparens.
+
 * Version 1.0.1 - Syntax Highlighting Finalized
 ** DONE Function/Class/Module docstrings font-lock-doc-face not string-face
    CLOSED: [2017-08-27 Sun 18:10]

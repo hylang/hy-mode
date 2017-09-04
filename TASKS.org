@@ -4,11 +4,6 @@
 ** TODO Merge the pyvenv integration from Spacemacs python layer
 ** TODO Merge the pytest integration from Spacemacs python layer
 * Tracked Issues
-** TODO #42: Smartparens tick/backtick
-
-1. Tick/Backtick should not duplicate.
-2. Considered brackets by smartparens.
-
 ** TODO #43: Inferior Lisp history corrupted with extra =>
 
 Confirmed bug.

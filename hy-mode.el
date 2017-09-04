@@ -551,6 +551,10 @@ Lisp font lock syntactic face function."
           (font-lock-syntactic-face-function
            . hy-font-lock-syntactic-face-function)))
 
+  ;; Smartparens
+  (sp-local-pair '(hy-mode) "`" "`" :actions nil)
+  (sp-local-pair '(hy-mode) "'" "'" :actions nil)
+
   ;; Comments
   (setq-local comment-start ";")
   (setq-local comment-start-skip
