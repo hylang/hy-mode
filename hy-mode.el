@@ -365,7 +365,7 @@
 ;;; Indentation
 ;;;; Specform
 
-(defcustom hy-indent-specform
+(defconst hy-indent-specform
   '(("for" . 1)
     ("for*" . 1)
     ("while" . 1)
@@ -376,8 +376,7 @@
     ("when" . 1)
     ("lambda" . 1)
     ("unless" . 1))
-  "How to indent specials specform."
-  :group 'hy-mode)
+  "How to indent specials specform.")
 
 ;;;; Normal Indent Calculation
 
@@ -425,17 +424,28 @@ the loop will terminate without error and the prior lines indentation is it."
 (defun hy--start-of-last-sexp (state) (elt state 2))
 (defun hy--prior-sexp? (state) (number-or-marker-p (hy--start-of-last-sexp state)))
 
+(defun hy--at-name? ()
+  "Are we looking at a word or symbol?"
+  (looking-at (rx (or (syntax word) (syntax symbol)))))
+
 (defun hy--string-to-next-sexp ()
   "Move and get string from point to next sexp."
   (buffer-substring (point) (progn (forward-sexp) (point))))
 
-(defun hy-find-indent-spec ()
+(defun hy-find-indent-spec (state)
   "Return integer for special indentation of form or nil to use normal indent.
+
+Observe `calculate-lisp-indent-last-sexp' is bound by `calculate-lisp-indent',
+driven by `lisp-indent-function', to the last sexps indentation.
 
 Note that `hy-not-function-form-p' filters out forms that are lists and dicts.
 Point is always at the start of a function."
-  (unless (hy--prior-sexp? state)
-    (cdr (assoc (hy--string-to-next-sexp)))))
+  (save-excursion
+    (unless (and (hy--prior-sexp? state)
+                 (not (hy--at-name?)))
+      (-> (hy--string-to-next-sexp)
+         (assoc hy-indent-specform)
+         cdr))))
 
 ;;;; Hy indent function
 
@@ -447,7 +457,7 @@ Point is always at the start of a function."
       (1+ (current-column))
     ;; Function or macro call.
     (forward-char 1)
-    (let ((method (hy-find-indent-spec))
+    (let ((method (hy-find-indent-spec state))
           (last-sexp calculate-lisp-indent-last-sexp)
           (containing-form-column (1- (current-column))))
       (pcase method
