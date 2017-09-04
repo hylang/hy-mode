@@ -419,6 +419,24 @@ the loop will terminate without error and the prior lines indentation is it."
         (goto-char last-sexp-start)  ; Align with function argument
         (current-column)))))
 
+;;;; Hy find indent spec
+
+;; `parse-partial-sexp' returned state aliases
+(defun hy--start-of-last-sexp (state) (elt state 2))
+(defun hy--prior-sexp? (state) (number-or-marker-p (hy--start-of-last-sexp state)))
+
+(defun hy--string-to-next-sexp ()
+  "Move and get string from point to next sexp."
+  (buffer-substring (point) (progn (forward-sexp) (point))))
+
+(defun hy-find-indent-spec ()
+  "Return integer for special indentation of form or nil to use normal indent.
+
+Note that `hy-not-function-form-p' filters out forms that are lists and dicts.
+Point is always at the start of a function."
+  (unless (hy--prior-sexp? state)
+    (cdr (assoc (hy--string-to-next-sexp)))))
+
 ;;;; Hy indent function
 
 (defun hy-indent-function (indent-point state)
@@ -490,22 +508,6 @@ the loop will terminate without error and the prior lines indentation is it."
              (eq (char-before (1- (point))) ?\#)))
       ;; Car of form is not a symbol.
       (not (looking-at ".\\(?:\\sw\\|\\s_\\)"))))
-
-(defun hy-find-indent-spec ()
-  (save-excursion
-    (if (and (elt state 2)
-             (not (looking-at "\\sw\\|\\s_")))
-        (progn
-          (if (not (> (save-excursion (forward-line 1) (point))
-                      calculate-lisp-indent-last-sexp))
-              (progn (goto-char calculate-lisp-indent-last-sexp)
-                     (beginning-of-line)
-                     (parse-partial-sexp (point)
-                                         calculate-lisp-indent-last-sexp 0 t)))
-          (backward-prefix-chars))
-      (let ((function (buffer-substring (point)
-                                        (progn (forward-sexp 1) (point)))))
-        (cdr (assoc function hy-indent-specform))))))
 
 ;;; Syntax
 
