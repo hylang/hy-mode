@@ -25,6 +25,9 @@ Confirmed bug.
    CLOSED: [2017-09-04 Mon 09:30]
 ** DONE #50: support Symbol Highlight Transient State in Spacemacs
    CLOSED: [2017-09-04 Mon 14:48]
+** DONE Cleanup indentation functions
+   CLOSED: [2017-09-06 Wed 15:43]
+** DONE Symbols prefixed with ', ` and ~ now indented properly
 * Version 1.0.1 - Syntax Highlighting Finalized
 ** DONE Function/Class/Module docstrings font-lock-doc-face not string-face
    CLOSED: [2017-08-27 Sun 18:10]

@@ -562,6 +562,7 @@ Lisp font lock syntactic face function."
   ;; Fixes #43: inferior lisp history getting corrupted
   ;; Ideally change so original comint-stored-incomplete-input functionality
   ;; is preserved for terminal case, but not big deal.
+  ;; TODO This should only operate on hy mode comints!
   (advice-add 'comint-previous-input :before
               (lambda (&rest args) (setq-local comint-stored-incomplete-input "")))
 
