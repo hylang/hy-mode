@@ -365,20 +365,30 @@
 ;;; Indentation
 ;;;; Specform
 
-(defconst hy-indent-specform
-  '(("for" . 1)
-    ("for*" . 1)
-    ("while" . 1)
-    ("except" . 1)
-    ("catch" . 1)
-    ("let" . 1)
-    ("if" . 1)
-    ("when" . 1)
-    ("lambda" . 1)
-    ("unless" . 1))
-  "How to indent specials specform.")
+(defconst hy-indent-special-forms
+  '(:exact
+    ("if" "if-not"
+     "when" "unless"
+     "for" "for*"
+     "while"
+     "except" "catch")
 
-;;;; Normal Indent Calculation
+    :fuzzy
+    ("def"
+     "with"
+     "fn"
+     "lambda"))
+  "Special forms to indent 1.")
+
+;;;; Utilities
+
+;; Aliases for `parse-partial-sexp' value
+(defun hy--sexp-inermost-char (state)
+  (nth 1 state))
+(defun hy--start-of-last-sexp (state)
+  (nth 2 state))
+(defun hy--prior-sexp? (state)
+  (number-or-marker-p (hy--start-of-last-sexp state)))
 
 (defun hy--anything-before? (pos)
   "Determine if chars before POS in current line."
@@ -389,6 +399,12 @@
   "Determine if POS is before line-end-position."
   (when pos
     (< pos (line-end-position))))
+
+(defun hy--check-non-symbol-sexp (pos)
+  "Check for a non-symbol yet symbol-like (tuple constructor comma) at POS."
+  (member (char-after pos) '(?\,)))
+
+;;;; Normal Indent
 
 (defun hy-normal-indent (last-sexp)
   "Determine normal indentation column of LAST-SEXP.
@@ -418,122 +434,58 @@ the loop will terminate without error and the prior lines indentation is it."
         (goto-char last-sexp-start)  ; Align with function argument
         (current-column)))))
 
+;;;; Function or form
+
+(defun hy--not-function-form-p ()
+  "Non-nil if form at point doesn't represent a function call."
+  (unless (hy--check-non-symbol-sexp (1+ (point)))  ; tuple constructor special
+    (or (-contains? '(?\[ ?\{) (char-after))
+        (not (looking-at (rx anything  ; Skips form opener
+                             (or (syntax symbol) (syntax word))))))))
+
 ;;;; Hy find indent spec
 
-;; `parse-partial-sexp' returned state aliases
-(defun hy--start-of-last-sexp (state) (elt state 2))
-(defun hy--prior-sexp? (state) (number-or-marker-p (hy--start-of-last-sexp state)))
-
-(defun hy--at-name? ()
-  "Are we looking at a word or symbol?"
-  (looking-at (rx (or (syntax word) (syntax symbol)))))
-
-(defun hy--string-to-next-sexp ()
-  "Move and get string from point to next sexp."
-  (buffer-substring (point) (progn (forward-sexp) (point))))
-
-(defun hy-find-indent-spec (state)
+(defun hy--find-indent-spec (state)
   "Return integer for special indentation of form or nil to use normal indent.
 
-Observe `calculate-lisp-indent-last-sexp' is bound by `calculate-lisp-indent',
-driven by `lisp-indent-function', to the last sexps indentation.
-
-Note that `hy-not-function-form-p' filters out forms that are lists and dicts.
+Note that `hy--not-function-form-p' filters out forms that are lists and dicts.
 Point is always at the start of a function."
-  (save-excursion
-    (unless (and (hy--prior-sexp? state)
-                 (not (hy--at-name?)))
-      (-> (hy--string-to-next-sexp)
-         (assoc hy-indent-specform)
-         cdr))))
+  (-when-let
+      (function (and (hy--prior-sexp? state)
+                     (thing-at-point 'symbol)))
+
+    (or (-contains? (plist-get hy-indent-special-forms :exact)
+                    function)
+        (-some (-cut s-matches? <> function)
+               (plist-get hy-indent-special-forms :fuzzy)))))
 
 ;;;; Hy indent function
 
 (defun hy-indent-function (indent-point state)
-  ;; Goto to the open-paren.
-  (goto-char (elt state 1))
-  ;; Maps, sets, vectors and reader conditionals.
-  (if (hy-not-function-form-p)
-      (1+ (current-column))
-    ;; Function or macro call.
-    (forward-char 1)
+  "Indent at INDENT-POINT where STATE is `parse-partial-sexp' for INDENT-POINT."
+  (goto-char (hy--sexp-inermost-char state))
 
-    ;; Handle special case that the funcall is the tuple constructor comma
-    ;; since , is not a sexp and wont be recognized when traversing backwards
-    (if (member (char-after (point)) '(?\,))
-        (+ 2 (current-column))
-      (let ((method (hy-find-indent-spec state))
-            (last-sexp calculate-lisp-indent-last-sexp)
-            (containing-form-column (1- (current-column))))
-        (pcase method
-          ((or (pred integerp) `(,method))
-           (let ((pos -1))
-             (condition-case nil
-                 (while (and (<= (point) indent-point)
-                             (not (eobp)))
-                   (forward-sexp 1)
-                   (cl-incf pos))
-               ;; If indent-point is _after_ the last sexp in the
-               ;; current sexp, we detect that by catching the
-               ;; `scan-error'. In that case, we should return the
-               ;; indentation as if there were an extra sexp at point.
-               (scan-error (cl-incf pos)))
-             (cond
-              ;; The first non-special arg. Rigidly reduce indentation.
-              ((= pos (1+ method))
-               (+ lisp-body-indent containing-form-column))
-              ;; Further non-special args, align with the arg above.
-              ((> pos (1+ method))
-               (hy-normal-indent last-sexp))  ;; NOTE
-              ;; Special arg. Rigidly indent with a large indentation.
-              (t
-               (+ (* 2 lisp-body-indent) containing-form-column)))))
+  (if (hy--not-function-form-p)
+      (1+ (current-column))  ; Indent after [, {, ... is always 1
+    (forward-char 1)  ; Move to start of sexp
 
-          ((pred functionp)
-           (funcall method indent-point state))
+    (cond ((hy--check-non-symbol-sexp (point))  ; Comma tuple constructor
+           (+ 2 (current-column)))
 
-          ;; No indent spec, do the default.
-          (`nil
-           (let ((function (thing-at-point 'symbol)))
-             (cond
-              ;; Preserve useful alignment of :require (and friends) in `ns' forms.
-              ((and function (string-match "^:" function))
-               (hy-normal-indent last-sexp))
-              ;; This is should be identical to the :defn above.
-              ((and function
-                    (string-match "\\`\\(?:\\S +/\\)?\\(def\\|with-\\|fn\\|lambda\\)"
-                                  function)
-                    (not (string-match "\\`default" (match-string 1 function))))
-               (+ lisp-body-indent containing-form-column))
-              ;; Finally, nothing special here, just respect the user's
-              ;; preference.
-              (t
-               (hy-normal-indent last-sexp))))))))))
+          ((hy--find-indent-spec state)  ; Special form uses fixed indendation
+           (1+ (current-column)))
 
-;;;; Find indent spec
-
-(defun hy-not-function-form-p ()
-  "Non-nil if form at point doesn't represent a function call."
-  (unless (member (char-after (1+ (point))) '(?\,))  ; tuple constructor special
-    (or (member (char-after) '(?\[ ?\{))
-        (save-excursion ;; Catch #?@ (:cljs ...)
-          (skip-chars-backward "\r\n[:blank:]")
-          (when (eq (char-before) ?@)
-            (forward-char -1))
-          (and (eq (char-before) ?\?)
-               (eq (char-before (1- (point))) ?\#)))
-        ;; Car of form is not a symbol.
-        (not (looking-at ".\\(?:\\sw\\|\\s_\\)")))))
+          (t
+           (hy-normal-indent calculate-lisp-indent-last-sexp)))))
 
 ;;; Syntax
 
-(defvar hy-mode-syntax-table
+(defconst hy-mode-syntax-table
   (let ((table (copy-syntax-table lisp-mode-syntax-table)))
     (modify-syntax-entry ?\{ "(}" table)
     (modify-syntax-entry ?\} "){" table)
     (modify-syntax-entry ?\[ "(]" table)
     (modify-syntax-entry ?\] ")[" table)
-    (modify-syntax-entry ?~ "'" table)
 
     table))
 
@@ -574,10 +526,6 @@ Lisp font lock syntactic face function."
     font-lock-comment-face))
 
 ;;; Hy-mode
-
-(unless (fboundp 'setq-local)
-  (defmacro setq-local (var val)
-    `(set (make-local-variable ',var) ,val)))
 
 ;;;###autoload
 (progn
