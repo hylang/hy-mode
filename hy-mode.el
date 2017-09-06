@@ -406,7 +406,7 @@
 
 ;;;; Normal Indent
 
-(defun hy-normal-indent (last-sexp)
+(defun hy--normal-indent (last-sexp)
   "Determine normal indentation column of LAST-SEXP.
 
 Example:
@@ -426,7 +426,13 @@ the loop will terminate without error and the prior lines indentation is it."
   (-let [last-sexp-start nil]
     (if (ignore-errors
           (while (hy--anything-before? (point))
-            (setq last-sexp-start (prog1 (point) (backward-sexp))))
+            (setq last-sexp-start (prog1
+                                      ;; Indentation should ignore quote chars
+                                      (if (-contains? '(?\' ?\` ?\~)
+                                                      (char-before))
+                                          (1- (point))
+                                        (point))
+                                    (backward-sexp))))
           t)
         (current-column)
       (if (not (hy--anything-after? last-sexp-start))
@@ -476,18 +482,20 @@ Point is always at the start of a function."
            (1+ (current-column)))
 
           (t
-           (hy-normal-indent calculate-lisp-indent-last-sexp)))))
+           (hy--normal-indent calculate-lisp-indent-last-sexp)))))
 
 ;;; Syntax
 
 (defconst hy-mode-syntax-table
-  (let ((table (copy-syntax-table lisp-mode-syntax-table)))
+  (-let [table (copy-syntax-table lisp-mode-syntax-table)]
     (modify-syntax-entry ?\{ "(}" table)
     (modify-syntax-entry ?\} "){" table)
     (modify-syntax-entry ?\[ "(]" table)
     (modify-syntax-entry ?\] ")[" table)
+    (modify-syntax-entry ?\~ "'" table)
 
-    table))
+    table)
+  "Hy modes syntax table.")
 
 ;;; Font Lock Docs
 
