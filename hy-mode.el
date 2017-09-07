@@ -387,6 +387,11 @@
   (nth 1 state))
 (defun hy--start-of-last-sexp (state)
   (nth 2 state))
+(defun hy--in-string? (state)
+  (nth 3 state))
+(defun hy--start-of-string (state)
+  (nth 8 state))
+
 (defun hy--prior-sexp? (state)
   (number-or-marker-p (hy--start-of-last-sexp state)))
 
@@ -497,40 +502,27 @@ Point is always at the start of a function."
     table)
   "Hy modes syntax table.")
 
-;;; Font Lock Docs
+;;; Font Lock Syntactics
 
-(defun hy-string-in-doc-position-p (listbeg startpos)
-  "Return true if a doc string may occur at STARTPOS inside a list.
-LISTBEG is the position of the start of the innermost list
-containing STARTPOS."
-  (if (= 1 startpos)  ; Uniquely identifies module docstring
+(defun hy--string-in-doc-position? (state)
+  "Is STATE within a docstring?"
+  (if (= 1 (hy--start-of-string state))  ; Identify module docstring
       t
-    (let* ((firstsym (and listbeg
-                          (save-excursion
-                            (goto-char listbeg)
-                            (and (looking-at
-                                  (eval-when-compile
-                                    (concat "([ \t\n]*\\("
-                                            lisp-mode-symbol-regexp "\\)")))
-                                 (match-string-no-properties 1))))))
-
-      (or (member firstsym hy--kwds-defs)
-          (string= firstsym "defclass")))))
+    (-when-let* ((first-sexp (hy--sexp-inermost-char state))
+                 (function (save-excursion
+                             (goto-char (1+ first-sexp))
+                             (thing-at-point 'symbol))))
+      (s-matches? (rx "def" (not blank)) function))))  ; "def"=="setv"
 
 (defun hy-font-lock-syntactic-face-function (state)
   "Return syntactic face function for the position represented by STATE.
 STATE is a `parse-partial-sexp' state, and the returned function is the
-Lisp font lock syntactic face function."
-  (if (nth 3 state)
-      ;; This might be a (doc)string or a |...| symbol.
-      (let ((startpos (nth 8 state)))
-        (if (eq (char-after startpos) ?|)
-            ;; This is not a string, but a |...| symbol.
-            nil
-          (let ((listbeg (nth 1 state)))
-            (if (hy-string-in-doc-position-p listbeg startpos)
-                font-lock-doc-face
-              font-lock-string-face))))
+Lisp font lock syntactic face function. String is shorthand for either
+a string or comment."
+  (if (hy--in-string? state)
+      (if (hy--string-in-doc-position? state)
+          font-lock-doc-face
+        font-lock-string-face)
     font-lock-comment-face))
 
 ;;; Hy-mode
