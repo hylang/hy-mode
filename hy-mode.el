@@ -525,6 +525,83 @@ a string or comment."
         font-lock-string-face)
     font-lock-comment-face))
 
+;;; Autocompletion
+
+;; (do (import [hy.completer [Completer]]) (setv completer (Completer)))
+
+(defun hy-current-process ()
+  (get-buffer-process inferior-lisp-buffer))
+
+(defun hy-comint-redirect-results-list-from-process (process command regexp regexp-group)
+  "Execute `comint-redirect-results-list-from-process' with timeout for company."
+  (let ((output-buffer " *Comint Redirect Work Buffer*")
+        results)
+    (with-current-buffer (get-buffer-create output-buffer)
+      (erase-buffer)
+      (comint-redirect-send-command-to-process command
+                                               output-buffer process nil t)
+      ;; Wait for the process to complete
+      (set-buffer (process-buffer process))
+      (while (and (null comint-redirect-completed)
+                  (accept-process-output process nil 100 t)))
+      ;; Collect the output
+      (set-buffer output-buffer)
+      (goto-char (point-min))
+      ;; Skip past the command, if it was echoed
+      (and (looking-at command)
+           (forward-line))
+      (while (and (not (eobp))
+                  (re-search-forward regexp nil t))
+        (push (buffer-substring-no-properties
+               (match-beginning regexp-group)
+               (match-end regexp-group))
+              results))
+      (nreverse results))))
+
+(defun hy-get-matches (&optional str)
+  "Return matches for STR."
+  (hy-comint-redirect-results-list-from-process
+   (hy-current-process)
+   (concat
+    ;; Currently always importing, determine if can do at start
+    "(do (import [hy.completer [Completer]]) (setv completer (Completer))"
+    "(completer."
+    (cond ((s-starts-with? "#" str)  ; Hy not recording tag macros atm
+           "tag-matches")
+
+          ((s-contains? "." str)
+           "attr-matches")
+
+          (t
+           "global-matches"))
+    " \"" str "\")"
+    ")")
+   (rx "'"
+       (group (1+ (or word (any "!@#$%^&*-_+=?~`'<>,.\|"))))
+       "'"
+       (any "," "]"))  ; filters out "completer.global_matches('str')" from --spy
+   1))
+
+(defun hy-company (command &optional arg &rest ignored)
+  (interactive (list 'interactive))
+  (cl-case command
+    (interactive (company-begin-backend 'hy-company))
+    (prefix (company-grab-symbol))
+    (candidates (cons :async
+                      (lexical-let ((prfx arg))
+                        (lambda (cb)
+                          (let ((res (hy-get-matches prfx)))
+                            (funcall cb res))))))
+    ;; (meta (format "This value is named %s" arg))
+    ))
+
+;; (spacemacs|add-company-backends
+;;   :backends hy-company
+;;   :modes hy-mode)
+
+;; `inferior-python-mode'
+;; `python-shell-make-comint'
+
 ;;; Hy-mode
 
 ;;;###autoload
