@@ -1,4 +1,5 @@
 * Planned Updates
+** TODO Autocompletion - working, to-be fleshed out
 ** TODO Merge the pyvenv integration from Spacemacs python layer
 ** TODO Merge the pytest integration from Spacemacs python layer
 * Tracked Issues
@@ -32,5 +33,4 @@ the 1 and 2 will use the correct face as the parent sexp is the list.
 ** TODO Only first name is highlighted in setv/def
 * Questions
 ** TODO Is the 'Note for Windows Users' relevant anymore?
-** TODO The "#" character causes strange indentation
 ** TODO Update indent-specform with special forms like 'as->'
