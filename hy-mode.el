@@ -493,6 +493,8 @@ Point is always at the start of a function."
 
     ;; "," is treated as a symbol, the tuple constructor
     (modify-syntax-entry ?\, "_ p" table)
+    ;; "#" denotes tag macro, we include # in the symbol
+    (modify-syntax-entry ?\# "_ p" table)
 
     table)
   "Hy modes syntax table.")
