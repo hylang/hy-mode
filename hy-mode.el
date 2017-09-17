@@ -405,10 +405,6 @@
   (when pos
     (< pos (line-end-position))))
 
-(defun hy--check-non-symbol-sexp (pos)
-  "Check for a non-symbol yet symbol-like (tuple constructor comma) at POS."
-  (member (char-after pos) '(?\,)))
-
 ;;;; Normal Indent
 
 (defun hy--normal-indent (last-sexp)
@@ -449,10 +445,9 @@ the loop will terminate without error and the prior lines indentation is it."
 
 (defun hy--not-function-form-p ()
   "Non-nil if form at point doesn't represent a function call."
-  (unless (hy--check-non-symbol-sexp (1+ (point)))  ; tuple constructor special
-    (or (-contains? '(?\[ ?\{) (char-after))
-        (not (looking-at (rx anything  ; Skips form opener
-                             (or (syntax symbol) (syntax word))))))))
+  (or (-contains? '(?\[ ?\{) (char-after))
+      (not (looking-at (rx anything  ; Skips form opener
+                           (or (syntax symbol) (syntax word)))))))
 
 ;;;; Hy find indent spec
 
@@ -497,7 +492,9 @@ Point is always at the start of a function."
     (modify-syntax-entry ?\} "){" table)
     (modify-syntax-entry ?\[ "(]" table)
     (modify-syntax-entry ?\] ")[" table)
+
     (modify-syntax-entry ?\~ "'" table)
+    (modify-syntax-entry ?\, "_ p" table)
 
     table)
   "Hy modes syntax table.")
