@@ -367,8 +367,7 @@
 
 (defconst hy-indent-special-forms
   '(:exact
-    ("if" "if-not"
-     "when" "unless"
+    ("when" "unless"
      "for" "for*"
      "while"
      "except" "catch")
@@ -475,14 +474,9 @@ Point is always at the start of a function."
       (1+ (current-column))  ; Indent after [, {, ... is always 1
     (forward-char 1)  ; Move to start of sexp
 
-    (cond ((hy--check-non-symbol-sexp (point))  ; Comma tuple constructor
-           (+ 2 (current-column)))
-
-          ((hy--find-indent-spec state)  ; Special form uses fixed indendation
-           (1+ (current-column)))
-
-          (t
-           (hy--normal-indent calculate-lisp-indent-last-sexp)))))
+    (if (hy--find-indent-spec state)
+        (1+ (current-column))
+      (hy--normal-indent calculate-lisp-indent-last-sexp))))
 
 ;;; Syntax
 
@@ -493,7 +487,11 @@ Point is always at the start of a function."
     (modify-syntax-entry ?\[ "(]" table)
     (modify-syntax-entry ?\] ")[" table)
 
+    ;; Quote characters are prefixes
     (modify-syntax-entry ?\~ "'" table)
+    (modify-syntax-entry ?\@ "'" table)
+
+    ;; "," is treated as a symbol, the tuple constructor
     (modify-syntax-entry ?\, "_ p" table)
 
     table)
@@ -618,7 +616,7 @@ a string or comment."
           (font-lock-syntactic-face-function
            . hy-font-lock-syntactic-face-function)))
 
-  (setq-local ahs-include "^[0-9A-Za-z/_.,:;*+=&%|$#@!^?-~]+$")
+  (setq-local ahs-include "^[0-9A-Za-z/_.,:;*+=&%|$#@!^?-~\-]+$")
 
   ;; Smartparens
   (when (fboundp 'sp-local-pair)
