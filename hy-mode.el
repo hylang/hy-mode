@@ -404,6 +404,10 @@
   (when pos
     (< pos (line-end-position))))
 
+(defun hy--check-non-symbol-sexp (pos)
+  "Check for a non-symbol yet symbol-like (tuple constructor comma) at POS."
+  (member (char-after pos) '(?\, ?\|)))
+
 ;;;; Normal Indent
 
 (defun hy--normal-indent (last-sexp)
@@ -474,9 +478,14 @@ Point is always at the start of a function."
       (1+ (current-column))  ; Indent after [, {, ... is always 1
     (forward-char 1)  ; Move to start of sexp
 
-    (if (hy--find-indent-spec state)
-        (1+ (current-column))
-      (hy--normal-indent calculate-lisp-indent-last-sexp))))
+    (cond ((hy--check-non-symbol-sexp (point))  ; Comma tuple constructor
+           (+ 2 (current-column)))
+
+          ((hy--find-indent-spec state)  ; Special form uses fixed indendation
+           (1+ (current-column)))
+
+          (t
+           (hy--normal-indent calculate-lisp-indent-last-sexp)))))
 
 ;;; Syntax
 
@@ -495,6 +504,8 @@ Point is always at the start of a function."
     (modify-syntax-entry ?\, "_ p" table)
     ;; "#" denotes tag macro, we include # in the symbol
     (modify-syntax-entry ?\# "_ p" table)
+
+    (modify-syntax-entry ?\| "_ p" table)
 
     table)
   "Hy modes syntax table.")

@@ -5,6 +5,14 @@
    CLOSED: [2017-09-17 Sun 11:04]
 ** DONE Tuple indentation within brackets
    CLOSED: [2017-09-17 Sun 11:04]
+** DONE #52: back- slurp and barf don't recognize unquote-splice
+   CLOSED: [2017-09-17 Sun 11:10]
+** DONE Symbols now recognized with dashes
+   CLOSED: [2017-09-17 Sun 11:11]
+** DONE Symbols now recognized with dashes
+   CLOSED: [2017-09-17 Sun 11:11]
+** DONE #55: | behaves strangely
+   CLOSED: [2017-09-17 Sun 11:23]
 * Version 1.0.2 - Indentation finalized
 ** DONE Highlight variable names in setv/def (only first name)
    CLOSED: [2017-09-03 Sun 11:42]
