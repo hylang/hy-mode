@@ -13,6 +13,8 @@
    CLOSED: [2017-09-17 Sun 11:11]
 ** DONE #55: | behaves strangely
    CLOSED: [2017-09-17 Sun 11:23]
+** DONE #54: Bracket string syntax
+   CLOSED: [2017-09-20 Wed 16:15]
 * Version 1.0.2 - Indentation finalized
 ** DONE Highlight variable names in setv/def (only first name)
    CLOSED: [2017-09-03 Sun 11:42]

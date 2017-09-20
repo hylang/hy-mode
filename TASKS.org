@@ -16,6 +16,7 @@ Need to investigate.
 Need to investigate.
 
 ** TODO #49: Colored input in inferior-lisp
+** TODO #51: Inferior lisp backtick inserts apostrophe
 * Known Minor Bugs
 ** TODO Font-lock-doc-face entirely determined by parent sexp
 #+BEGIN_SRC lisp
@@ -31,6 +32,7 @@ This is rarely an issue as in cases like:
 the 1 and 2 will use the correct face as the parent sexp is the list.
 
 ** TODO Only first name is highlighted in setv/def
+** TODO When editing within bracket strings, smartparens throws warning
 * Questions
 ** TODO Is the 'Note for Windows Users' relevant anymore?
 ** TODO Update indent-specform with special forms like 'as->'
