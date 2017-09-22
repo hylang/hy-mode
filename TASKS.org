@@ -7,16 +7,10 @@
 
 Need to investigate.
 
-** TODO #46: Inferior Lisp colored output
-
-Need to investigate.
-
 ** TODO #47: tab completion not working in inferior lisp
 
 Need to investigate.
 
-** TODO #49: Colored input in inferior-lisp
-** TODO #51: Inferior lisp backtick inserts apostrophe
 * Known Minor Bugs
 ** TODO Font-lock-doc-face entirely determined by parent sexp
 #+BEGIN_SRC lisp

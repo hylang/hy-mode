@@ -645,9 +645,6 @@ a string or comment."
 ;;   :backends hy-company
 ;;   :modes hy-mode)
 
-;; `inferior-python-mode'
-;; `hy-shell-make-comint'
-
 ;;; Shell Integration
 
 (defconst hy-shell-buffer-name "Hy"
@@ -742,25 +739,6 @@ a string or comment."
              (+ start-pos i) (+ start-pos next-change) plist)
             (setq i next-change)))))))
 
-;; comint-send-input
-
-;; (defun hy-shell-comint-output-filter-function (output)
-;;   "Clean up the font-lock buffer after any OUTPUT."
-;;   (if (and (not (string= "" output))
-;;            ;; Is end of output and is not just a prompt.
-;;            (not (member
-;;                  (python-shell-comint-end-of-output-p
-;;                   (ansi-color-filter-apply output))
-;;                  '(nil 0))))
-;;       ;; If output is other than an input prompt then "real" output has
-;;       ;; been received and the font-lock buffer must be cleaned up.
-;;       (hy-shell-font-lock-cleanup-buffer)
-;;     ;; Otherwise just add a newline.
-;;     (hy-shell-font-lock-with-font-lock-buffer
-;;      (goto-char (point-max))
-;;      (newline)))
-;;   output)
-
 (defun hy-shell-font-lock-turn-on (&optional msg)
   "Turn on shell font-lock."
   (interactive "p")
@@ -770,23 +748,7 @@ a string or comment."
    (add-hook 'post-command-hook
              #'hy-shell-post-command-hook nil 'local)
    (add-hook 'kill-buffer-hook
-             #'hy-shell-kill-buffer nil 'local)
-
-   ;; (add-hook 'inferior-hy-mode-hook
-   ;;           'ansi-color-for-comint-mode-on)
-
-   ;; (set (make-local-variable 'comint-output-filter-functions)
-   ;; ;; (set (make-local-variable 'comint-preoutput-filter-functions)
-   ;;      '(
-   ;;        ;; ansi-color-apply
-   ;;        ansi-color-process-output
-   ;;        ;; ansi-color-filter-apply
-   ;;        ))
-   ;; (ansi-color-for-comint-mode-on)
-
-   ;; In order for this to have any effect, ‘ansi-color-process-output’ must
-   ;; be in ‘comint-output-filter-functions’.
-   ))
+             #'hy-shell-kill-buffer nil 'local)))
 
 (define-derived-mode inferior-hy-mode comint-mode "Inferior Hy"
   "Major mode for Hy inferior process."
@@ -794,41 +756,13 @@ a string or comment."
   (set (make-local-variable 'comint-prompt-read-only) t)
 
   (ansi-color-for-comint-mode-on)
-  ;; (set (make-local-variable 'comint-output-filter-functions)
-  ;; ;; (set (make-local-variable 'comint-preoutput-filter-functions)
-  ;;      '(
-  ;;        ;; ansi-color-apply
-  ;;        ;; ansi-color-process-output
-  ;;        ;; ansi-color-filter-apply
-  ;;        ))
-
-  ;; (set (make-local-variable 'comint-output-filter-functions)
-  (set (make-local-variable 'comint-preoutput-filter-functions)
-       '(
-         ;; ansi-color-apply
-         ;; ansi-color-process-output
-         ansi-color-filter-apply
-         ))
-
-  ;; (process-send-string "*Hy*" "(})")
-  ;; (accept-process-output (get-buffer-process "*Hy*") 1 nil t)
-
-  ;; edebug causes output to come otu
+  (set (make-local-variable 'comint-output-filter-functions)
+       '(ansi-color-process-output))
 
   (setq mode-line-process '(":%s"))
   (hy-shell-font-lock-turn-on))
 
 (defun hy-shell-make-comint (cmd proc-name &optional show internal)
-  "Create a Python shell comint buffer.
-CMD is the Python command to be executed and PROC-NAME is the
-process name the comint buffer will get.  After the comint buffer
-is created the `inferior-python-mode' is activated.  When
-optional argument SHOW is non-nil the buffer is shown.  When
-optional argument INTERNAL is non-nil this process is run on a
-buffer with a name that starts with a space, following the Emacs
-convention for temporary/internal buffers, and also makes sure
-the user is not queried for confirmation when the process is
-killed."
   (save-excursion
     (let* ((proc-buffer-name
             (format (if (not internal) "*%s*" " *%s*") proc-name)))
@@ -846,19 +780,19 @@ killed."
       proc-buffer-name)))
 
 (defun hy-shell-calculate-command ()
-  "Calculate the string used to execute the inferior Python process."
+  "Calculate the string used to execute the inferior Hy process."
   (format "%s %s"
           (shell-quote-argument hy-shell-interpreter)
           hy-shell-interpreter-args))
 
 (defun run-hy (&optional cmd dedicated show)
-  "Run an inferior Python process."
+  "Run an inferior Hy process."
   (interactive)
   (get-buffer-process
    (hy-shell-make-comint
     (or cmd (hy-shell-calculate-command))
     hy-shell-buffer-name
-    show)))
+    t)))
 
 ;;; Hy-mode
 
@@ -938,6 +872,8 @@ killed."
 (define-key hy-mode-map (kbd "C-x C-e") 'lisp-eval-last-sexp)
 (define-key hy-mode-map (kbd "C-c C-z") 'switch-to-lisp)
 (define-key hy-mode-map (kbd "C-c C-l") 'lisp-load-file)
+
+(define-key hy-mode-map (kbd "C-c C-e") 'run-hy)
 
 (define-key hy-mode-map (kbd "C-c C-t") 'hy-insert-pdb)
 (define-key hy-mode-map (kbd "C-c C-S-t") 'hy-insert-pdb-threaded)
