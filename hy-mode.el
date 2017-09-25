@@ -698,17 +698,17 @@ a string or comment."
 
 (defun hy-shell-get-or-create-buffer ()
   "Get or create a `hy-shell-buffer' for current inferior process."
-  (hy-shell-with-shell-buffer
-    (if hy-shell-buffer
-        hy-shell-buffer
-      (-let [process-name
-             (-> (current-buffer) get-buffer-process process-name)]
-        (generate-new-buffer process-name)))))
+  (if hy-shell-buffer
+      hy-shell-buffer
+    (hy-shell-with-shell-buffer
+     (-let [process-name
+            (-> (current-buffer) get-buffer-process process-name)]
+       (generate-new-buffer process-name)))))
 
 (defun hy-shell-buffer? ()
   "Is `hy-shell-buffer' set and does it exist?"
   (and hy-shell-buffer
-       (get-buffer hy-shell-buffer)))
+       (buffer-live-p hy-shell-buffer)))
 
 (defun hy-shell-kill-buffer ()
   "Kill a `hy-shell-buffer'."
@@ -823,6 +823,33 @@ a string or comment."
              (s-concat hy-shell-spy-delim hy-output)))
       string)))
 
+;;;; Send strings
+
+(defvar hy-shell--output-filter-in-progress nil
+  "Whether we are waiting for output in `hy-shell-send-string-no-output'.")
+
+(defun hy-shell-comint-end-of-output-p (string)
+  "Return non-nil if STRING ends with the input prompt."
+  (string-match (rx "=> " string-end) string))
+
+(defun hy-shell-output-filter (string)
+  "If STRING ends with input prompt then set filter in progress done."
+  (when (hy-shell-comint-end-of-output-p string)
+    (setq hy-shell--output-filter-in-progress nil))
+  "\n=> ")
+
+(defun hy-shell-send-string-no-output (string &optional process)
+  "Send STRING to PROCESS and inhibit output. Return the output."
+  (let ((process
+         (or process (hy-shell-get-process)))
+        (comint-preoutput-filter-functions
+         '(hy-shell-output-filter))
+        (hy-shell--output-filter-in-progress
+         t))
+    (comint-send-string process string)
+    (while hy-shell--output-filter-in-progress
+      (accept-process-output process))))
+
 ;;;; Shell creation
 
 (defun hy-shell-make-comint (cmd proc-name &optional show internal)
@@ -840,11 +867,10 @@ a string or comment."
             (inferior-hy-mode))
           (when show
             (display-buffer buffer))
-          (when internal
-            (set-process-query-on-exit-flag process nil))))
+          (if internal
+              (set-process-query-on-exit-flag process nil)
+            (setq hy-shell-buffer buffer))))
       proc-buffer-name)))
-
-"--control-codes"
 
 (defun hy-shell-calculate-interpreter-args ()
   "Calculate `hy-shell-interpreter-args' based on `--spy' flag."
@@ -971,6 +997,24 @@ CMD defaults to the result of `hy-shell-calculate-command'."
   (interactive)
   (insert "((fn [x] (import pdb) (pdb.set-trace) x))"))
 
+;;;###autoload
+(defun hy-shell-start-or-switch-to-shell ()
+  (interactive)
+  (if (hy-shell-buffer?)
+      (switch-to-buffer-other-window
+       (hy-shell-get-or-create-buffer))
+    (run-hy)))
+
+;;;###autoload
+(defun hy-eval-buffer ()
+  (interactive)
+  (-let [text
+         (buffer-string)]
+    (unless (hy-shell-buffer?)
+      (hy-shell-start))
+    (hy-shell-with-shell-buffer
+     (hy-shell-send-string-no-output text))))
+
 ;;;; Keybindings
 
 (set-keymap-parent hy-mode-map lisp-mode-shared-map)
@@ -979,7 +1023,8 @@ CMD defaults to the result of `hy-shell-calculate-command'."
 (define-key hy-mode-map (kbd "C-c C-z") 'switch-to-lisp)
 (define-key hy-mode-map (kbd "C-c C-l") 'lisp-load-file)
 
-(define-key hy-mode-map (kbd "C-c C-e") 'run-hy)
+(define-key hy-mode-map (kbd "C-c C-e") 'hy-shell-start-or-switch-to-shell)
+(define-key hy-mode-map (kbd "C-c C-b") 'hy-eval-buffer)
 
 (define-key hy-mode-map (kbd "C-c C-t") 'hy-insert-pdb)
 (define-key hy-mode-map (kbd "C-c C-S-t") 'hy-insert-pdb-threaded)

@@ -9,8 +9,6 @@
    CLOSED: [2017-09-17 Sun 11:10]
 ** DONE Symbols now recognized with dashes
    CLOSED: [2017-09-17 Sun 11:11]
-** DONE Symbols now recognized with dashes
-   CLOSED: [2017-09-17 Sun 11:11]
 ** DONE #55: | behaves strangely
    CLOSED: [2017-09-17 Sun 11:23]
 ** DONE #54: Bracket string syntax
@@ -24,6 +22,11 @@ Need to investigate.
    CLOSED: [2017-09-22 Fri 13:57]
 ** DONE #51: Inferior lisp backtick inserts apostrophe
    CLOSED: [2017-09-22 Fri 13:57]
+** DONE Highlight python spy output in shell
+** DONE Highlight line being currently entered in shell
+** DONE Proper run/switch to shell ", e i" or ", e e"
+** DONE Send to buffer shell command ", e b"
+** DONE lisp state shortcut in shell command ", ,"
 * Version 1.0.2 - Indentation finalized
 ** DONE Highlight variable names in setv/def (only first name)
    CLOSED: [2017-09-03 Sun 11:42]
