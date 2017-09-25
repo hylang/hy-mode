@@ -46,7 +46,9 @@
 (defconst hy-shell-interpreter "hy"
   "Default Hy interpreter name.")
 
-(defconst hy-shell-interpreter-args "--spy"
+;; (defconst hy-shell-interpreter-args "--spy"
+;;   "Default arguments for Hy interpreter.")
+(defconst hy-shell-interpreter-args "--spy --control-codes"
   "Default arguments for Hy interpreter.")
 
 ;; This command being phased out in favor of `run-hy'
@@ -880,24 +882,37 @@ CMD defaults to the result of `hy-shell-calculate-command'."
   (ansi-color-for-comint-mode-on)
   (setq-local comint-output-filter-functions '(ansi-color-process-output))
 
-  ;; (defun my-fontify-using-faces (text)
-  ;;   (let ((pos 0))
-  ;;     (while (setq next
-  ;;                  (next-single-property-change pos 'face text))
-  ;;       (put-text-property pos next
-  ;;                          'font-lock-face
-  ;;                          (get-text-property pos 'face text) text)
-  ;;       (setq pos next))
-  ;;     (add-text-properties 0 (length text) '(fontified t) text)
-  ;;     text))
 
-  ;; (defun test (string)
-  ;;   (with-temp-buffer
-  ;;     (let ((python-indent-guess-indent-offset nil))
-  ;;       (python-mode)
-  ;;       (insert (s-chop-suffix "=> " string))
-  ;;       (font-lock-default-fontify-buffer)
-  ;;       (s-concat (my-fontify-using-faces (buffer-string)) "=> "))))
+  (defconst hy--spy-delim-uuid "#cbb4fcbe-b6ba-4812-afa3-4a5ac7b20501")
+  ;; (defconst hy--spy-delim "\n---")
+  (defconst hy--spy-delim "")
+
+  (defun my-fontify-using-faces (text)
+    (let ((pos 0))
+      (while (setq next
+                   (next-single-property-change pos 'face text))
+        (put-text-property pos next
+                           'font-lock-face
+                           (get-text-property pos 'face text) text)
+        (setq pos next))
+      (add-text-properties 0 (length text) '(fontified t) text)
+      text))
+
+  (defun test (string)
+    (with-temp-buffer
+      (if (s-contains? hy--spy-delim-uuid string)
+          (-let ((python-indent-guess-indent-offset nil)
+                 ((python-block hy-output) (s-split hy--spy-delim-uuid string)))
+
+            ;; TODO if no block then dont insert
+            (python-mode)
+            (insert python-block)
+            (font-lock-default-fontify-buffer)
+            (-> (buffer-string)
+               my-fontify-using-faces
+               s-chomp
+               (s-concat hy--spy-delim hy-output)))
+        string)))
 
   (setq-local comint-preoutput-filter-functions
               '(
