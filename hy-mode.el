@@ -46,9 +46,7 @@
 (defconst hy-shell-interpreter "hy"
   "Default Hy interpreter name.")
 
-;; (defconst hy-shell-interpreter-args "--spy"
-;;   "Default arguments for Hy interpreter.")
-(defconst hy-shell-interpreter-args "--spy --control-codes"
+(defconst hy-shell-interpreter-args "--spy"
   "Default arguments for Hy interpreter.")
 
 ;; This command being phased out in favor of `run-hy'
@@ -56,6 +54,14 @@
   "The command used by `inferior-lisp-program'."
   :type 'string
   :group 'hy-mode)
+
+(defconst hy-shell-use-control-codes? nil
+  "Append `--control-codes' flag to `hy-shell-interpreter-args'?
+
+Requires recent version of Hy.")
+
+(defconst hy-shell-spy-delim ""
+  "If using `--spy' interpreter arg then delimit spy ouput.")
 
 ;;;; Indentation
 
@@ -671,6 +677,9 @@ a string or comment."
 (defvar hy-shell-buffer nil
   "The current shell buffer for Hy.")
 
+(defconst hy--spy-delim-uuid "#cbb4fcbe-b6ba-4812-afa3-4a5ac7b20501"
+  "UUID denoting end of python block in `--spy --control-categories' output")
+
 ;;;; Shell buffer utilities
 
 (defun hy-shell-format-process-name (proc-name &optional internal)
@@ -787,6 +796,33 @@ a string or comment."
    (add-hook 'kill-buffer-hook
              'hy-shell-kill-buffer nil 'local)))
 
+(defun hy-shell-faces-to-font-lock-faces (text)
+  "Goes through text setting 'face properties to 'font-lock-face."
+  (-let [pos 0]
+    (while (setq next (next-single-property-change pos 'face text))
+      (put-text-property pos next 'font-lock-face
+                         (get-text-property pos 'face text) text)
+      (setq pos next))
+    (add-text-properties 0 (length text) '(fontified t) text)
+    text))
+
+(defun hy-shell-font-lock-spy-output (string)
+  "Applies font-locking to hy outputted python blocks when `--spy' is enabled."
+  (with-temp-buffer
+    (if (s-contains? hy--spy-delim-uuid string)
+        (-let ((python-indent-guess-indent-offset
+                nil)
+               ((python-block hy-output)
+                (s-split hy--spy-delim-uuid string)))
+          (python-mode)
+          (insert python-block)
+          (font-lock-default-fontify-buffer)
+          (-> (buffer-string)
+             my-fontify-using-faces
+             s-chomp
+             (s-concat hy-shell-spy-delim hy-output)))
+      string)))
+
 ;;;; Shell creation
 
 (defun hy-shell-make-comint (cmd proc-name &optional show internal)
@@ -808,11 +844,20 @@ a string or comment."
             (set-process-query-on-exit-flag process nil))))
       proc-buffer-name)))
 
+"--control-codes"
+
+(defun hy-shell-calculate-interpreter-args ()
+  "Calculate `hy-shell-interpreter-args' based on `--spy' flag."
+  (if (and hy-shell-use-control-codes?
+           (s-contains? "--spy" hy-shell-interpreter-args))
+      (s-concat hy-shell-interpreter-args " --control-codes")
+    hy-shell-interpreter-args))
+
 (defun hy-shell-calculate-command ()
   "Calculate the string used to execute the inferior Hy process."
   (format "%s %s"
           (shell-quote-argument hy-shell-interpreter)
-          hy-shell-interpreter-args))
+          (hy-shell-calculate-interpreter-args)))
 
 (defun run-hy (&optional cmd)
   "Run an inferior Hy process.
@@ -880,45 +925,11 @@ CMD defaults to the result of `hy-shell-calculate-command'."
 
   ;; So errors are highlighted according to colorama python package
   (ansi-color-for-comint-mode-on)
-  (setq-local comint-output-filter-functions '(ansi-color-process-output))
-
-
-  (defconst hy--spy-delim-uuid "#cbb4fcbe-b6ba-4812-afa3-4a5ac7b20501")
-  ;; (defconst hy--spy-delim "\n---")
-  (defconst hy--spy-delim "")
-
-  (defun my-fontify-using-faces (text)
-    (let ((pos 0))
-      (while (setq next
-                   (next-single-property-change pos 'face text))
-        (put-text-property pos next
-                           'font-lock-face
-                           (get-text-property pos 'face text) text)
-        (setq pos next))
-      (add-text-properties 0 (length text) '(fontified t) text)
-      text))
-
-  (defun test (string)
-    (with-temp-buffer
-      (if (s-contains? hy--spy-delim-uuid string)
-          (-let ((python-indent-guess-indent-offset nil)
-                 ((python-block hy-output) (s-split hy--spy-delim-uuid string)))
-
-            ;; TODO if no block then dont insert
-            (python-mode)
-            (insert python-block)
-            (font-lock-default-fontify-buffer)
-            (-> (buffer-string)
-               my-fontify-using-faces
-               s-chomp
-               (s-concat hy--spy-delim hy-output)))
-        string)))
+  (setq-local comint-output-filter-functions
+              '(ansi-color-process-output))
 
   (setq-local comint-preoutput-filter-functions
-              '(
-                xterm-color-filter
-                ;; test
-                ))
+              '(xterm-color-filter hy-shell-font-lock-spy-output))
 
   ;; Choosing to always enable font lock for hy shells
   (hy-shell-font-lock-turn-on)
