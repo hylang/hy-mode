@@ -818,7 +818,7 @@ a string or comment."
           (insert python-block)
           (font-lock-default-fontify-buffer)
           (-> (buffer-string)
-             my-fontify-using-faces
+             hy-shell-faces-to-font-lock-faces
              s-chomp
              (s-concat hy-shell-spy-delim hy-output)))
       string)))
