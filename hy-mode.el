@@ -35,17 +35,27 @@
 (require 'dash-functional)
 (require 's)
 
-;;; Configuration
-
 (defgroup hy-mode nil
   "A mode for Hy"
   :prefix "hy-mode-"
   :group 'applications)
 
+;;; Configuration
+;;;; Inferior shell
+
+(defconst hy-shell-interpreter "hy"
+  "Default Hy interpreter name.")
+
+(defconst hy-shell-interpreter-args "--spy"
+  "Default arguments for Hy interpreter.")
+
+;; This command being phased out in favor of `run-hy'
 (defcustom hy-mode-inferior-lisp-command "hy"
   "The command used by `inferior-lisp-program'."
   :type 'string
   :group 'hy-mode)
+
+;;;; Indentation
 
 (defconst hy-indent-special-forms
   '(:exact
@@ -61,7 +71,7 @@
      "lambda"))
   "Special forms to always indent following line by +1.")
 
-;;; Syntax
+;;; Syntax Table
 
 (defconst hy-mode-syntax-table
   (-let [table
@@ -653,14 +663,8 @@ a string or comment."
 (defconst hy-shell-buffer-name "Hy"
   "Default buffer name for Hy interpreter.")
 
-(defconst hy-shell-interpreter "hy"
-  "Default Hy interpreter name.")
-
 (defconst hy-shell-internal-buffer-name "Hy Internal"
   "Default buffer name for the internal Hy process.")
-
-(defconst hy-shell-interpreter-args "--spy"
-  "Default arguments for Hy interpreter.")
 
 (defvar hy-shell-buffer nil
   "The current shell buffer for Hy.")
@@ -791,7 +795,8 @@ a string or comment."
         (-let* ((cmdlist (split-string-and-unquote cmd))
                 ((interpreter . args) cmdlist)
                 (buffer (apply 'make-comint-in-buffer
-                               proc-name proc-buffer-name interpreter nil args))
+                               proc-name proc-buffer-name interpreter nil
+                               args))
                 (process (get-buffer-process buffer)))
           (with-current-buffer buffer
             (inferior-hy-mode))
@@ -818,7 +823,7 @@ CMD defaults to the result of `hy-shell-calculate-command'."
      get-buffer-process))
 
 ;;; hy-mode and inferior-hy-mode
-;;;; Setup
+;;;; Hy-mode setup
 
 (defun hy--mode-setup-font-lock ()
   (setq font-lock-defaults
@@ -864,6 +869,8 @@ CMD defaults to the result of `hy-shell-calculate-command'."
               (concat "(import [hy.importer [import-file-to-module]])\n"
                       "(import-file-to-module \"__main__\" \"%s\")\n")))
 
+;;;; Inferior-hy-mode setup
+
 (defun hy--inferior-mode-setup ()
   (setq mode-line-process '(":%s"))
   (setq-local indent-tabs-mode nil)
@@ -872,6 +879,31 @@ CMD defaults to the result of `hy-shell-calculate-command'."
   ;; So errors are highlighted according to colorama python package
   (ansi-color-for-comint-mode-on)
   (setq-local comint-output-filter-functions '(ansi-color-process-output))
+
+  ;; (defun my-fontify-using-faces (text)
+  ;;   (let ((pos 0))
+  ;;     (while (setq next
+  ;;                  (next-single-property-change pos 'face text))
+  ;;       (put-text-property pos next
+  ;;                          'font-lock-face
+  ;;                          (get-text-property pos 'face text) text)
+  ;;       (setq pos next))
+  ;;     (add-text-properties 0 (length text) '(fontified t) text)
+  ;;     text))
+
+  ;; (defun test (string)
+  ;;   (with-temp-buffer
+  ;;     (let ((python-indent-guess-indent-offset nil))
+  ;;       (python-mode)
+  ;;       (insert (s-chop-suffix "=> " string))
+  ;;       (font-lock-default-fontify-buffer)
+  ;;       (s-concat (my-fontify-using-faces (buffer-string)) "=> "))))
+
+  (setq-local comint-preoutput-filter-functions
+              '(
+                xterm-color-filter
+                ;; test
+                ))
 
   ;; Choosing to always enable font lock for hy shells
   (hy-shell-font-lock-turn-on)
