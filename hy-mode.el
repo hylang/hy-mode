@@ -1006,7 +1006,7 @@ CMD defaults to the result of `hy-shell-calculate-command'."
     (run-hy)))
 
 ;;;###autoload
-(defun hy-eval-buffer ()
+(defun hy-shell-eval-buffer ()
   (interactive)
   (-let [text
          (buffer-string)]
@@ -1024,7 +1024,7 @@ CMD defaults to the result of `hy-shell-calculate-command'."
 (define-key hy-mode-map (kbd "C-c C-l") 'lisp-load-file)
 
 (define-key hy-mode-map (kbd "C-c C-e") 'hy-shell-start-or-switch-to-shell)
-(define-key hy-mode-map (kbd "C-c C-b") 'hy-eval-buffer)
+(define-key hy-mode-map (kbd "C-c C-b") 'hy-shell-eval-buffer)
 
 (define-key hy-mode-map (kbd "C-c C-t") 'hy-insert-pdb)
 (define-key hy-mode-map (kbd "C-c C-S-t") 'hy-insert-pdb-threaded)
