@@ -1011,9 +1011,21 @@ CMD defaults to the result of `hy-shell-calculate-command'."
   (-let [text
          (buffer-string)]
     (unless (hy-shell-buffer?)
-      (hy-shell-start))
+      (hy-shell-start-or-switch-to-shell))
     (hy-shell-with-shell-buffer
      (hy-shell-send-string-no-output text))))
+
+;;;###autoload
+(defun hy-shell-eval-region ()
+  (interactive)
+  (when (and (region-active-p)
+             (not (region-noncontiguous-p)))
+    (-let [text
+           (buffer-substring (region-beginning) (region-end))]
+      (unless (hy-shell-buffer?)
+        (hy-shell-start-or-switch-to-shell))
+      (hy-shell-with-shell-buffer
+       (hy-shell-send-string-no-output text)))))
 
 ;;;; Keybindings
 

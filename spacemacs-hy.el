@@ -13,6 +13,7 @@
   "'" 'hy-shell-start-or-switch-to-shell
   "ei" 'hy-shell-start-or-switch-to-shell
   "eb" 'hy-shell-eval-buffer
+  "er" 'hy-shell-eval-region
 
   "dd" 'hy-insert-pdb
   "dt" 'hy-insert-thread-pdb
