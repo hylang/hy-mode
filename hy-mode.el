@@ -627,7 +627,7 @@ a string or comment."
 (defun hy-get-matches (&optional str)
   "Return matches for STR."
   (hy-comint-redirect-results-list-from-process
-   (hy-current-process)
+   (hy-shell-get-internal-process)
    (concat
     ;; Currently always importing, determine if can do at start
     "(do (import [hy.completer [Completer]]) (setv completer (Completer))"
@@ -690,8 +690,14 @@ a string or comment."
 
 (defun hy-shell-get-process ()
   "Get the Hy process corresponding to `hy-shell-buffer-name'."
-  (->> hy-shell-buffer-name
+  (-> hy-shell-buffer-name
      hy-shell-format-process-name
+     get-buffer-process))
+
+(defun hy-shell-get-internal-process ()
+  "Get the Hy internal process corresponding to `hy-shell-internal-buffer-name'."
+  (-> hy-shell-internal-buffer-name
+     (hy-shell-format-process-name t)
      get-buffer-process))
 
 (defun hy-shell-get-or-create-buffer ()
@@ -895,11 +901,13 @@ CMD defaults to the result of `hy-shell-calculate-command'."
 
 (defun run-hy-internal ()
   "Start an inferior hy process in the background for autocompletion."
-  (-let [hy-shell-font-lock-enable
-         nil]
-    (-> (hy-shell-calculate-command)
-       (hy-shell-make-comint hy-shell-internal-buffer-name nil t)
-       get-buffer-process)))
+  (when (and (not (hy-shell-get-internal-process))
+             (executable-find "hy"))
+    (-let [hy-shell-font-lock-enable
+           nil]
+      (-> (hy-shell-calculate-command)
+         (hy-shell-make-comint hy-shell-internal-buffer-name nil t)
+         get-buffer-process))))
 
 ;;; hy-mode and inferior-hy-mode
 ;;;; Hy-mode setup
@@ -946,7 +954,10 @@ CMD defaults to the result of `hy-shell-calculate-command'."
   (setq-local inferior-lisp-program hy-mode-inferior-lisp-command)
   (setq-local inferior-lisp-load-command
               (concat "(import [hy.importer [import-file-to-module]])\n"
-                      "(import-file-to-module \"__main__\" \"%s\")\n")))
+                      "(import-file-to-module \"__main__\" \"%s\")\n"))
+
+  (run-hy-internal)
+  (add-hook 'pyvenv-post-activate-hooks 'run-hy-internal nil t))
 
 ;;;; Inferior-hy-mode setup
 
