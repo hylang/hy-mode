@@ -680,15 +680,13 @@ a string or comment."
 (defconst hy--spy-delim-uuid "#cbb4fcbe-b6ba-4812-afa3-4a5ac7b20501"
   "UUID denoting end of python block in `--spy --control-categories' output")
 
+(setq hy-shell-font-lock-enable t)
+
 ;;;; Shell buffer utilities
 
 (defun hy-shell-format-process-name (proc-name &optional internal)
   "Format a PROC-NAME with closing astericks."
-  (-let [formatted-name
-         (->> proc-name (s-prepend "*") (s-append "*"))]
-    (if internal
-        (s-prepend " " formatted-name)
-      formatted-name)))
+  (->> proc-name (s-prepend "*") (s-append "*")))
 
 (defun hy-shell-get-process ()
   "Get the Hy process corresponding to `hy-shell-buffer-name'."
@@ -895,6 +893,14 @@ CMD defaults to the result of `hy-shell-calculate-command'."
      (hy-shell-make-comint hy-shell-buffer-name t)
      get-buffer-process))
 
+(defun run-hy-internal ()
+  "Start an inferior hy process in the background for autocompletion."
+  (-let [hy-shell-font-lock-enable
+         nil]
+    (-> (hy-shell-calculate-command)
+       (hy-shell-make-comint hy-shell-internal-buffer-name nil t)
+       get-buffer-process)))
+
 ;;; hy-mode and inferior-hy-mode
 ;;;; Hy-mode setup
 
@@ -955,10 +961,11 @@ CMD defaults to the result of `hy-shell-calculate-command'."
               '(ansi-color-process-output))
 
   (setq-local comint-preoutput-filter-functions
-              '(xterm-color-filter hy-shell-font-lock-spy-output))
+              `(xterm-color-filter hy-shell-font-lock-spy-output))
 
   ;; Choosing to always enable font lock for hy shells
-  (hy-shell-font-lock-turn-on)
+  (when hy-shell-font-lock-enable
+    (hy-shell-font-lock-turn-on))
 
   ;; Fixes issue with "=>", no side effects from this advice
   (advice-add 'comint-previous-input :before
@@ -1007,6 +1014,7 @@ CMD defaults to the result of `hy-shell-calculate-command'."
 
 ;;;###autoload
 (defun hy-shell-eval-buffer ()
+  "Send the buffer to the shell, inhibiting output."
   (interactive)
   (-let [text
          (buffer-string)]
@@ -1017,6 +1025,7 @@ CMD defaults to the result of `hy-shell-calculate-command'."
 
 ;;;###autoload
 (defun hy-shell-eval-region ()
+  "Send highlighted region to shell, inhibiting output."
   (interactive)
   (when (and (region-active-p)
              (not (region-noncontiguous-p)))
