@@ -1,6 +1,12 @@
 (provide 'spacemacs-hy)
 
+;; Disable this unless using special branch
 (setq hy-shell-use-control-codes? t)
+
+;; Autocompletion now fit for use, not all symbols complete, hy bug
+(spacemacs|add-company-backends
+  :backends hy-company
+  :modes hy-mode)
 
 (spacemacs/declare-prefix-for-mode 'hy-mode "me" "eval")
 (spacemacs/declare-prefix-for-mode 'hy-mode "md" "debug")
