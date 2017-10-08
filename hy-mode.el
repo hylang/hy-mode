@@ -477,7 +477,7 @@ the loop will terminate without error and the prior lines indentation is it."
           (while (hy--anything-before? (point))
             (setq last-sexp-start (prog1
                                       ;; Indentation should ignore quote chars
-                                      (if (-contains? '(?\' ?\` ?\~)
+                                      (if (-contains? '(?\' ?\` ?\~ ?\#)
                                                       (char-before))
                                           (1- (point))
                                         (point))
