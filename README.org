@@ -1,95 +1,18 @@
-* hy-mode
+An Emacs major mode for [[http://docs.hylang.org/en/stable/][Hy, lisp python]] providing:
 
-Emacs major mode for [[http://docs.hylang.org/en/stable/][Hylang]], lispy python.
+1. Syntax Highlighting
+2. Auto-completion
+3. Shell integration
+4. New Hy constructs like bracket strings
 
-* Installation
-** via MELPA
+** Installation
 
-~hy-mode~ requires Emacs 24+ and is available in the MELPA repository.
+~hy-mode~ requires Emacs 24+ and is available in MELPA. For the most current set
+of features download use master.
 
-If MELPA isn't already in your sources:
+** Spacemacs Users
 
-#+BEGIN_SRC emacs-lisp
-(require 'package)
-(add-to-list 'package-archives
-             '("MELPA" . "https://melpa.org/packages/" ))
-#+END_SRC
+Hy-mode is in active development and Spacemacs does not reflect the most current work.
 
-Then run ~M-x package-refresh-contents~ to load the contents of the new
-repository, and `M-x package-install RET hy-mode RET` to install ~hy-mode~.
-
-** Manual
-
-To install, place ~hy-mode.el~ in your load path.
-
-In your init file add:
-
-#+BEGIN_SRC emacs-lisp
-(add-to-list 'load-path "~/.emacs.d/hy-mode")
-(require 'hy-mode)
-#+END_SRC
-
-* Interacting with Hy from within Emacs
-
-When in ~hy-mode~, you can launch a Hy REPL by launching a Lisp inferior
-process: ~M-x inferior-lisp~.
-
-You can customize the path (also special options to the REPL like `--spy`) to the
-Hy REPL by setting the variable ~hy-mode-inferior-lisp-command~ to point to Hy
-executable's path. This can be done via `M-x customize-group RET hy-mode` and
-setting ~hy-mode~ inferior Lisp command.
-
-Default keybindings:
-
-| Key Binding | Function                                                      |
-|-------------+---------------------------------------------------------------|
-| ~C-M-x~     | Send the function (top-level form) for evaluation in the REPL |
-| ~C-x C-e~   | Send the expression at current point for evaluation           |
-| ~C-c C-z~   | Switch to the lisp buffer                                     |
-| ~C-c C-l~   | Load the file in REPL                                         |
-| ~C-c C-t~   | Set pdb trace at point                                        |
-| ~C-c C-S-t~ | Set pdb trace for thread at point                             |
-
-* Other recommended settings
-
-Since `hy-mode` is a lisp like mode, it can use the goodness from some minor
-modes used for lisp such as [[https://github.com/Fuco1/smartparens][smartparens]] or paredit minor modes which support
-excellent movement and navigation ability other than keeping the s-expressions
-balanced.
-
-#+BEGIN_SRC emacs-lisp
-;; eg: Adding paredit minor mode
-(add-hook 'hy-mode-hook 'paredit-mode)
-
-;; Add smartparens-strict-mode
-(add-hook 'hy-mode-hook #'smartparens-strict-mode)
-
-;; alternatively you could enable this to a bunch of lisp modes
-(dolist (lisp-mode '(scheme emacs-lisp lisp clojure hy))
-  (add-hook (intern (concat (symbol-name lisp-mode) "-mode-hook"))
-		'paredit-mode))
-#+END_SRC
-
-[[https://github.com/Fanael/rainbow-delimiters][Rainbow Delimiters]] is another minor mode which highlights parentheses, brackets,
-and braces according to their depth. Each successive level is highlighted in a
-different color. This makes it easy to spot matching delimiters, orient yourself
-in the code, and tell which statements are at a given depth. Assuming you've
-already installed Rainbow Delimiters you can enable it like this:
-
-#+BEGIN_SRC emacs-lisp
-(add-hook 'hy-mode-hook #'rainbow-delimiters-mode)
-#+END_SRC
-
-* Special note for Windows users
-
-Depending on your ~PYTHONPATH~ and Emacs path settings, invoking inferior Lisp
-may not work by default. You may need to customize the path to Hy REPL to
-something like:
-
-#+BEGIN_SRC emacs-lisp
-(setq hy-mode-inferior-lisp-command "/path/to/python -i /path/to/hy-script.py")
-#+END_SRC
-
-* About Hy
-
-More information about Hy can be found at http://hylang.org.
+Require ~spacemacs-hy~ to enable auto-completion and bindings for the new shell
+functions. See that file for all available bindings.
