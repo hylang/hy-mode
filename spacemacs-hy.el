@@ -1,6 +1,12 @@
 (provide 'spacemacs-hy)
 
-(setq hy-shell-use-control-codes? t)
+;; Disable this unless using special branch
+(setq hy-shell-use-control-codes? nil)
+
+;; Autocompletion now fit for use, not all symbols complete, hy bug
+(spacemacs|add-company-backends
+  :backends hy-company
+  :modes hy-mode inferior-hy-mode)
 
 (spacemacs/declare-prefix-for-mode 'hy-mode "me" "eval")
 (spacemacs/declare-prefix-for-mode 'hy-mode "md" "debug")
@@ -16,7 +22,7 @@
   "er" 'hy-shell-eval-region
 
   "dd" 'hy-insert-pdb
-  "dt" 'hy-insert-thread-pdb
+  "dt" 'hy-insert-pdb-threaded
 
   "tA" 'spacemacs/python-test-pdb-all
   "ta" 'spacemacs/python-test-all
