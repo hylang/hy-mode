@@ -895,6 +895,31 @@ CMD defaults to the result of `hy-shell-calculate-command'."
      (hy-shell-make-comint hy-shell-buffer-name t)
      get-buffer-process))
 
+;;; Eldoc
+
+(defun hy--eldoc-get-inner-symbol ()
+  (save-excursion
+    (-when-let* ((state (syntax-ppss))
+                 (start-pos (hy--sexp-inermost-char state))
+                 (_ (progn (goto-char start-pos)
+                           (not (hy--not-function-form-p))))
+                 (function (progn (forward-char)
+                                  (thing-at-point 'symbol))))
+
+      (hy-shell-send-string-no-output (concat "(help " function ")")
+                                      )
+
+      function)))
+
+(defun hy-eldoc-documentation-function ()
+  (hy--eldoc-get-inner-symbol))
+
+;; (_ (s-equals? function "defn"))
+;; (symbol (progn (forward-sexp)
+;;                (forward-char)
+;;                (thing-at-point 'symbol))))
+;; symbol)))
+
 ;;; hy-mode and inferior-hy-mode
 ;;;; Hy-mode setup
 
@@ -942,6 +967,11 @@ CMD defaults to the result of `hy-shell-calculate-command'."
               (concat "(import [hy.importer [import-file-to-module]])\n"
                       "(import-file-to-module \"__main__\" \"%s\")\n")))
 
+(defun hy--mode-setup-eldoc ()
+  (make-local-variable 'eldoc-documentation-function)
+  (setq-local eldoc-documentation-function 'hy-eldoc-documentation-function)
+  (eldoc-mode +1))
+
 ;;;; Inferior-hy-mode setup
 
 (defun hy--inferior-mode-setup ()
@@ -977,6 +1007,7 @@ CMD defaults to the result of `hy-shell-calculate-command'."
 ;;;###autoload
 (define-derived-mode hy-mode prog-mode "Hy"
   "Major mode for editing Hy files."
+  (hy--mode-setup-eldoc)
   (hy--mode-setup-font-lock)
   (hy--mode-setup-smartparens)
   (hy--mode-setup-syntax)
