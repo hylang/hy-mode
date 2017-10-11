@@ -27,6 +27,7 @@ Need to investigate.
 ** DONE Proper run/switch to shell ", e i" or ", e e"
 ** DONE Send to buffer shell command ", e b"
 ** DONE lisp state shortcut in shell command ", ,"
+** DONE Eldoc support
 * Version 1.0.2 - Indentation finalized
 ** DONE Highlight variable names in setv/def (only first name)
    CLOSED: [2017-09-03 Sun 11:42]
