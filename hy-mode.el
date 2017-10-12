@@ -902,10 +902,19 @@ CMD defaults to the result of `hy-shell-calculate-command'."
                  (_ (progn (goto-char start-pos)
                            (not (hy--not-function-form-p))))
                  (function (progn (forward-char)
-                                  (thing-at-point 'symbol)))
-                 ;; TODO attribute methods like .format cause lexexception
-                 (_ (not (s-starts-with? "." function))))
-      function)))
+                                  (thing-at-point 'symbol))))
+
+      ;; Attribute method call (eg. ".format str") needs following sexp
+      (if (s-starts-with? "." function)
+          (when (ignore-errors (forward-sexp) (forward-char) t)
+            (pcase (char-after)
+              (?\[ (concat "list" function))
+              (?\{ (concat "dict" function))
+              (?\" (concat "str" function))
+              (_ (progn
+                   (forward-char)
+                   (concat (thing-at-point 'symbol) function)))))
+        function))))
 
 (defun hy-eldoc-documentation-function ()
   (when-let (function (hy--eldoc-get-inner-symbol))
