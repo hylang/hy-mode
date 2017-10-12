@@ -998,6 +998,7 @@ CMD defaults to the result of `hy-shell-calculate-command'."
 ;;;; Hy-mode setup
 
 (defun hy--mode-setup-font-lock ()
+  (setq-local font-lock-multiline t)
   (setq font-lock-defaults
         '(hy-font-lock-kwds
           nil nil
