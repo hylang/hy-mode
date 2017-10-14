@@ -859,27 +859,56 @@ CMD defaults to the result of `hy-shell-calculate-command'."
 ;;; Eldoc
 
 (defconst hy-eldoc-setup-code
-  "(import inspect)
-(defn get-help [obj]
+  "(import builtins)
+(import inspect)
+(import [hy.macros [-hy-macros]])
+
+(defn --get-help-python [obj]
   (try
-   (do (setv doc (inspect.getdoc obj))
-       (if (and (not doc) (callable obj))
-           (do
-               (setv target None)
-               (if (and (inspect.isclass obj)
-                        (hasattr obj \"__init__\"))
-                   (setv target obj.--init--
-                         objtype \"class\")
-                 (setv target obj
-                       objtype \"def\"))
-             (when target
-               (setv args (inspect.formatargspec
-                           #* (inspect.getargspec target))
-                     name obj.--name--
-                     doc (.format \"{} {}{}\" objtype name args))))
-         (setv doc (get (doc.splitlines) 0))))
-   (except [e Exception]
-           (setv doc (str))))
+    (do (when (isinstance obj str)
+          (setv obj (builtins.eval obj (globals))))
+        (setv doc (inspect.getdoc obj))
+        (if (and (not doc) (callable obj))
+            (do
+              (setv target None)
+              (if (and (inspect.isclass obj)
+                       (hasattr obj \"__init__\"))
+                  (setv target obj.--init--
+                        objtype \"class\")
+                  (setv target obj
+                        objtype \"def\"))
+              (when target
+                (setv args (inspect.formatargspec
+                             #* (inspect.getargspec target))
+                      name obj.--name--
+                      doc (.format \"{} {}{}\" objtype name args))))
+            (setv doc (get (doc.splitlines) 0))))
+    (except [e Exception]
+      (setv doc (str))))
+  doc)
+
+(defn --get-help-macros [obj]
+  (setv doc (str))
+  (try
+    (do
+      (setv obj (.replace obj \"-\" \"_\"))
+      (setv macros (get -hy-macros None))
+
+      (when (in obj macros)
+        (setv macro (get macros obj))
+
+        (setv doc (.format \"macro {obj} {args}\n{docs}\"
+                           :obj obj
+                           :args (inspect.formatargspec
+                                   #* (inspect.getargspec macro))
+                           :docs macro.--doc--))))
+    (except [e Exception]
+      (setv doc (str))))
+  doc)
+
+(defn --get-help [obj]
+  (setv doc (--get-help-python obj))
+  (unless doc (setv doc (--get-help-macros obj)))
   doc)"
   "Symbol introspection code to send to the internal process for eldoc.")
 
@@ -902,7 +931,7 @@ CMD defaults to the result of `hy-shell-calculate-command'."
       (buffer-substring-no-properties (point-min) (- (point-max) 4)))))
 
 (defun hy--eldoc-format-command (symbol)
-  (format "(try (get-help %s) (except [e Exception] (str)))" symbol))
+  (format "(try (--get-help \"%s\") (except [e Exception] (str)))" symbol))
 
 (defun hy--eldoc-get-inner-symbol ()
   (save-excursion
@@ -1170,6 +1199,7 @@ CMD defaults to the result of `hy-shell-calculate-command'."
 
 ;;;; Keybindings
 
+;; Spacemacs users please see spacemacs-hy, all bindings defined there
 (set-keymap-parent hy-mode-map lisp-mode-shared-map)
 (define-key hy-mode-map (kbd "C-M-x")   'lisp-eval-defun)
 (define-key hy-mode-map (kbd "C-x C-e") 'lisp-eval-last-sexp)
