@@ -768,17 +768,27 @@ a string or comment."
     (setq hy-shell--output-filter-in-progress nil))
   "\n=> ")
 
-(defun hy-shell-send-string-no-output (string &optional process)
-  "Send STRING to PROCESS and inhibit output. Return the output."
+(defun hy--shell-send-string (string &optional process)
+  "Internal shell send string functionality."
   (let ((process
          (or process (hy-shell-get-process)))
-        (comint-preoutput-filter-functions
-         '(hy-shell-output-filter))
         (hy-shell--output-filter-in-progress
          t))
     (comint-send-string process string)
     (while hy-shell--output-filter-in-progress
       (accept-process-output process))))
+
+(defun hy-shell-send-string-no-output (string &optional process)
+  "Send STRING to hy PROCESS. Return the output."
+  (-let [comint-preoutput-filter-functions
+         '(hy-shell-output-filter)]
+    (hy--shell-send-string string process)))
+
+(defun hy-shell-send-string (string &optional process)
+  "Send STRING to hy PROCESS and inhibit output. Return the output."
+  (-let [comint-output-filter-functions
+         '(hy-shell-output-filter)]
+    (hy--shell-send-string string process)))
 
 ;;;; Shell creation
 
@@ -1137,6 +1147,26 @@ CMD defaults to the result of `hy-shell-calculate-command'."
         (hy-shell-start-or-switch-to-shell))
       (hy-shell-with-shell-buffer
        (hy-shell-send-string-no-output text)))))
+
+(defun hy--current-form-string ()
+  "Get form containing current point as string."
+  (save-excursion
+    (-when-let* ((state (syntax-ppss))
+                 (start-pos (hy--sexp-inermost-char state)))
+      (goto-char start-pos)
+      (while (ignore-errors (forward-sexp)))
+
+      (concat (buffer-substring-no-properties start-pos (point)) "\n"))))
+
+;;;###autoload
+(defun hy-shell-eval-current-form ()
+  "Send form containing current point to shell."
+  (interactive)
+  (-when-let (text (hy--current-form-string))
+    (unless (hy-shell-buffer?)
+      (hy-shell-start-or-switch-to-shell))
+    (hy-shell-with-shell-buffer
+     (hy-shell-send-string text))))
 
 ;;;; Keybindings
 

@@ -20,6 +20,7 @@
   "ei" 'hy-shell-start-or-switch-to-shell
   "eb" 'hy-shell-eval-buffer
   "er" 'hy-shell-eval-region
+  "ec" 'hy-shell-eval-current-form
 
   "dd" 'hy-insert-pdb
   "dt" 'hy-insert-pdb-threaded
