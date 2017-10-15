@@ -913,6 +913,12 @@ CMD defaults to the result of `hy-shell-calculate-command'."
   doc)"
   "Symbol introspection code to send to the internal process for eldoc.")
 
+(defun hy--eldoc-chomp-output (text)
+  "Chomp prefixes and suffixes from eldoc process output."
+  (->> text
+     (s-chop-prefixes '("\"" "'"))
+     (s-chop-suffixes '("\"" "'"))))
+
 (defun hy--send-eldoc (command)
   "Send command for eldoc to internal process."
   (let ((output-buffer " *Comint Redirect Work Buffer*")
@@ -930,7 +936,8 @@ CMD defaults to the result of `hy-shell-calculate-command'."
       (set-buffer output-buffer)
 
       (if (>= (- (point-max) (point-min)) 4)
-          (buffer-substring-no-properties (point-min) (- (point-max) 4))
+          (hy--eldoc-chomp-output
+           (buffer-substring-no-properties (point-min) (- (point-max) 4)))
         ""))))
 
 (defun hy--eldoc-format-command (symbol)
@@ -965,14 +972,10 @@ CMD defaults to the result of `hy-shell-calculate-command'."
   (when-let (function (hy--eldoc-get-inner-symbol))
     (-let [result
            (-> function hy--eldoc-format-command hy--send-eldoc)]
-
       (when (s-equals? "" result)
         (setq result
               (-> function hy--eldoc-format-command-raw-obj hy--send-eldoc)))
-
-      (->> result
-         (s-chop-prefixes '("\"" "'"))
-         (s-chop-suffixes '("\"" "'"))))))
+      result)))
 
 ;;; Autocompletion
 
@@ -1107,7 +1110,7 @@ CMD defaults to the result of `hy-shell-calculate-command'."
   (setq-local indent-tabs-mode nil)
   (setq-local comint-prompt-read-only nil)
 
-  (setq-local comint-prompt-regexp (rx bol "=>" space))
+  ;; (setq-local comint-prompt-regexp (rx bol "=>" space))
 
   ;; So errors are highlighted according to colorama python package
   (ansi-color-for-comint-mode-on)
