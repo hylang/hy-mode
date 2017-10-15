@@ -846,6 +846,7 @@ CMD defaults to the result of `hy-shell-calculate-command'."
 
 (defun run-hy-internal ()
   "Start an inferior hy process in the background for autocompletion."
+  (interactive)
   (when (and (not (hy-shell-get-internal-process))
              (executable-find "hy"))
     (-let [hy-shell-font-lock-enable
@@ -928,10 +929,15 @@ CMD defaults to the result of `hy-shell-calculate-command'."
                   (accept-process-output process nil 100 t)))
       (set-buffer output-buffer)
 
-      (buffer-substring-no-properties (point-min) (- (point-max) 4)))))
+      (if (>= (- (point-max) (point-min)) 4)
+          (buffer-substring-no-properties (point-min) (- (point-max) 4))
+        ""))))
 
 (defun hy--eldoc-format-command (symbol)
   (format "(try (--get-help \"%s\") (except [e Exception] (str)))" symbol))
+
+(defun hy--eldoc-format-command-raw-obj (symbol)
+  (format "(try (--get-help %s) (except [e Exception] (str)))" symbol))
 
 (defun hy--eldoc-get-inner-symbol ()
   (save-excursion
@@ -957,11 +963,16 @@ CMD defaults to the result of `hy-shell-calculate-command'."
 
 (defun hy-eldoc-documentation-function ()
   (when-let (function (hy--eldoc-get-inner-symbol))
-    (->> function
-       hy--eldoc-format-command
-       hy--send-eldoc
-       (s-chop-prefixes '("\"" "'"))
-       (s-chop-suffixes '("\"" "'")))))
+    (-let [result
+           (-> function hy--eldoc-format-command hy--send-eldoc)]
+
+      (when (s-equals? "" result)
+        (setq result
+              (-> function hy--eldoc-format-command-raw-obj hy--send-eldoc)))
+
+      (->> result
+         (s-chop-prefixes '("\"" "'"))
+         (s-chop-suffixes '("\"" "'"))))))
 
 ;;; Autocompletion
 
@@ -1095,6 +1106,8 @@ CMD defaults to the result of `hy-shell-calculate-command'."
   (setq mode-line-process '(":%s"))
   (setq-local indent-tabs-mode nil)
   (setq-local comint-prompt-read-only nil)
+
+  (setq-local comint-prompt-regexp (rx bol "=>" space))
 
   ;; So errors are highlighted according to colorama python package
   (ansi-color-for-comint-mode-on)
