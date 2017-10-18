@@ -976,9 +976,17 @@ CMD defaults to the result of `hy-shell-calculate-command'."
       (if (s-starts-with? "." function)
           (when (ignore-errors (forward-sexp) (forward-char) t)
             (pcase (char-after)
+              ;; Can't send just .method to eldoc
+              (?\) (setq function nil))
+              (?\s (setq function nil))
+              (?\C-j (setq function nil))  ; newline
+
+              ;; Dot dsl doesn't work on literals
               (?\[ (concat "list" function))
               (?\{ (concat "dict" function))
               (?\" (concat "str" function))
+
+              ;; Otherwise complete the dot dsl
               (_ (progn
                    (forward-char)
                    (concat (thing-at-point 'symbol) function)))))
