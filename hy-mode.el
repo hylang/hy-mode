@@ -888,23 +888,39 @@ CMD defaults to the result of `hy-shell-calculate-command'."
       (setv doc (str))))
   doc)
 
+(defn lispy-argspec [argspec]
+  (setv args \"\")
+
+  (when argspec.args
+    (setv args (+ args (.join \" \" (map str.upper argspec.args)))))
+
+  (when argspec.varargs
+    (when args
+      (setv args (+ args \" \")))
+
+    (setv args (+ args \"&rest \" (.upper argspec.varargs))))
+
+  args)
+
+(defn first-line [text]
+  (-> text (.split \"\n\") first))
+
 (defn --get-help-macros [obj]
   (setv doc (str))
   (try
-    (do
-      (setv obj (.replace obj \"-\" \"_\"))
-      (setv macros (get -hy-macros None))
+   (do
+       (setv obj (.replace obj \"-\" \"_\"))
+       (setv macros (get -hy-macros None))
 
-      (when (in obj macros)
-        (setv macro (get macros obj))
+     (when (in obj macros)
+       (setv macro (get macros obj))
 
-        (setv doc (.format \"macro {obj} {args}\n{docs}\"
-                           :obj obj
-                           :args (inspect.formatargspec
-                                   #* (inspect.getargspec macro))
-                           :docs macro.--doc--))))
-    (except [e Exception]
-      (setv doc (str))))
+       (setv doc (.format \"{obj}: ({args}) - {docs}\"
+                          :obj (.replace obj \"_\" \"-\")
+                          :args (lispy-argspec (inspect.getargspec macro))
+                          :docs (first-line macro.--doc--)))))
+   (except [e Exception]
+           (setv doc (str))))
   doc)
 
 (defn --get-help [obj]
