@@ -831,7 +831,8 @@ a string or comment."
   (-let [process
          (hy-shell-get-internal-process)]
     (comint-send-string process
-                        (concat hy-eldoc-setup-code hy-company-setup-code))
+                        (concat hy-eldoc-setup-code
+                                hy-company-setup-code))
     (while (accept-process-output process nil 100 t))))
 
 (defun run-hy (&optional cmd)
@@ -864,52 +865,110 @@ CMD defaults to the result of `hy-shell-calculate-command'."
 (import inspect)
 (import [hy.macros [-hy-macros]])
 
-(defn --get-help-python [obj]
+
+(defn --HYDOC-format-argspec [argspec]
+  \"Lispy version of format argspec covering all defun kwords.\"
+  (setv docs \"\")
+
+  (defmacro add-docs [&rest forms]
+    `(do (when docs (setv docs (+ docs \" \")))
+         (setv docs (+ docs ~@forms))))
+
+  (defn format-args [&rest args]
+    (->> args
+       (map (fn [x] (-> x str (.replace \"_\" \"-\"))))
+       (.join \" \")))
+
+  (setv args argspec.args)
+  (setv defaults argspec.defaults)
+  (setv varargs argspec.varargs)
+  (setv varkw argspec.varkw)
+  (setv kwonlyargs argspec.kwonlyargs)
+  (setv kwonlydefaults argspec.kwonlydefaults)
+
+  (when (and args defaults)
+    (setv args (-> argspec.defaults
+                  len
+                  (drop-last argspec.args)
+                  list))
+    (setv defaults (-> args
+                      len
+                      (drop argspec.args)
+                      list)))
+
+  (when (and kwonlyargs kwonlydefaults)
+    (setv kwonlyargs (->> kwonlyargs
+                        (remove (fn [x] (in x (.keys kwonlydefaults))))
+                        list))
+    (setv kwonlydefaults (->> kwonlydefaults
+                            (.items)
+                            (*map (fn [k v] (.format \"[{} {}]\" k v)))
+                            list)))
+
+  (when args
+    (add-docs (format-args #* args)))
+  (when defaults
+    (add-docs \"&optional \"
+              (format-args #* defaults)))
+  (when varargs
+    (add-docs \"&rest \"
+              (format-args varargs)))
+  (when varkw
+    (add-docs \"&kwargs \"
+              (format-args varkw)))
+  (when kwonlyargs
+    (add-docs \"&kwonly \"
+              (format-args #* kwonlyargs)))
+  (when kwonlydefaults
+    (add-docs (if-not kwonlyargs \"&kwonly \" \"\")
+              (format-args #* kwonlydefaults)))
+
+  docs)
+
+(defn --HYDOC-format-eldoc-string [obj-name f]
+  \"Format an obj name for callable f.\"
+  (if f.--doc--
+      (.format \"{obj}: ({args}) - {docs}\"
+               :obj (.replace obj-name \"_\" \"-\")
+               :args (--HYDOC-format-argspec (inspect.getfullargspec f))
+               :docs (-> f.--doc-- (.splitlines) first))
+      (.format \"{obj}: ({args})\"
+               :obj (.replace obj-name \"_\" \"-\")
+               :args (--HYDOC-format-argspec (inspect.getfullargspec f)))))
+
+(defn --HYDOC-python-eldoc [obj]
+  \"Build eldoc string for python obj or string.
+
+Not all defuns can be argspeced - eg. C defuns.\"
   (try
     (do (when (isinstance obj str)
-          (setv obj (builtins.eval obj (globals))))
-        (setv doc (inspect.getdoc obj))
-        (if (and (not doc) (callable obj))
-            (do
-              (setv target None)
-              (if (and (inspect.isclass obj)
-                       (hasattr obj \"__init__\"))
-                  (setv target obj.--init--
-                        objtype \"class\")
-                  (setv target obj
-                        objtype \"def\"))
-              (when target
-                (setv args (inspect.formatargspec
-                             #* (inspect.getargspec target))
-                      name obj.--name--
-                      doc (.format \"{} {}{}\" objtype name args))))
-            (setv doc (get (doc.splitlines) 0))))
+          (setv obj (.eval builtins obj (globals))))
+        (setv doc (.getdoc inspect obj))
+        (try
+          (setv doc (--HYDOC-format-eldoc-string obj.--name-- obj))
+          (except [e TypeError]
+            (setv doc (->> doc
+                         (.splitlines)
+                         first
+                         (+ \"builtin: \"))))))
     (except [e Exception]
-      (setv doc (str))))
+      (setv doc \"\")))
   doc)
 
-(defn --get-help-macros [obj]
-  (setv doc (str))
+(defn --HYDOC-macro-eldoc [obj]
+  \"Get eldoc string for a macro.\"
   (try
-    (do
-      (setv obj (.replace obj \"-\" \"_\"))
-      (setv macros (get -hy-macros None))
+    (do (setv obj (.replace obj \"-\" \"_\"))
+        (setv macros (get -hy-macros None))
 
-      (when (in obj macros)
-        (setv macro (get macros obj))
+        (when (in obj macros)
+          (--HYDOC-format-eldoc-string obj (get macros obj))))
+    (except [e Exception] \"\")))
 
-        (setv doc (.format \"macro {obj} {args}\n{docs}\"
-                           :obj obj
-                           :args (inspect.formatargspec
-                                   #* (inspect.getargspec macro))
-                           :docs macro.--doc--))))
-    (except [e Exception]
-      (setv doc (str))))
-  doc)
-
-(defn --get-help [obj]
-  (setv doc (--get-help-python obj))
-  (unless doc (setv doc (--get-help-macros obj)))
+(defn --HYDOC [obj]
+  \"Get eldoc string for any obj.\"
+  (setv doc (--HYDOC-python-eldoc obj))
+  (unless doc (setv doc (--HYDOC-macro-eldoc obj)))
   doc)"
   "Symbol introspection code to send to the internal process for eldoc.")
 
@@ -941,10 +1000,10 @@ CMD defaults to the result of `hy-shell-calculate-command'."
         ""))))
 
 (defun hy--eldoc-format-command (symbol)
-  (format "(try (--get-help \"%s\") (except [e Exception] (str)))" symbol))
+  (format "(try (--HYDOC \"%s\") (except [e Exception] (str)))" symbol))
 
 (defun hy--eldoc-format-command-raw-obj (symbol)
-  (format "(try (--get-help %s) (except [e Exception] (str)))" symbol))
+  (format "(try (--HYDOC %s) (except [e Exception] (str)))" symbol))
 
 (defun hy--eldoc-get-inner-symbol ()
   (save-excursion
@@ -960,13 +1019,44 @@ CMD defaults to the result of `hy-shell-calculate-command'."
       (if (s-starts-with? "." function)
           (when (ignore-errors (forward-sexp) (forward-char) t)
             (pcase (char-after)
+              ;; Can't send just .method to eldoc
+              (?\) (setq function nil))
+              (?\s (setq function nil))
+              (?\C-j (setq function nil))  ; newline
+
+              ;; Dot dsl doesn't work on literals
               (?\[ (concat "list" function))
               (?\{ (concat "dict" function))
               (?\" (concat "str" function))
+
+              ;; Otherwise complete the dot dsl
               (_ (progn
                    (forward-char)
                    (concat (thing-at-point 'symbol) function)))))
         function))))
+
+(defun hy-eldoc-fontify-text (text)
+  "Fontify eldoc strings."
+  (unless (s-blank? text)
+    (-let [((_ . end))
+           (s-matched-positions-all (rx string-start
+                                        (1+ (not (any space ":")))
+                                        ":")
+                                    text)]
+      (add-face-text-property 0 end 'font-lock-keyword-face nil text)))
+
+  (-each
+      (s-matched-positions-all (rx symbol-start "&" (1+ word)) text)
+    (-lambda ((beg . end))
+      (add-face-text-property beg end 'font-lock-type-face nil text)))
+
+  (-each
+      (s-matched-positions-all (rx "`" (1+ (not space)) "`") text)
+    (-lambda ((beg . end))
+      (add-face-text-property beg end 'font-lock-constant-face nil text)
+      (add-face-text-property beg end 'bold-italic nil text)))
+
+  text)
 
 (defun hy-eldoc-documentation-function ()
   (when-let (function (hy--eldoc-get-inner-symbol))
@@ -975,7 +1065,7 @@ CMD defaults to the result of `hy-shell-calculate-command'."
       (when (s-equals? "" result)
         (setq result
               (-> function hy--eldoc-format-command-raw-obj hy--send-eldoc)))
-      result)))
+      (hy-eldoc-fontify-text result))))
 
 ;;; Autocompletion
 
