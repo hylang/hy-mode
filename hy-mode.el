@@ -1046,9 +1046,16 @@ Not all defuns can be argspeced - eg. C defuns.\"
       (add-face-text-property 0 end 'font-lock-keyword-face nil text)))
 
   (-each
-   (s-matched-positions-all (rx symbol-start "&" (1+ word)) text)
-   (-lambda ((beg . end))
-     (add-face-text-property beg end 'font-lock-type-face nil text)))
+      (s-matched-positions-all (rx symbol-start "&" (1+ word)) text)
+    (-lambda ((beg . end))
+      (add-face-text-property beg end 'font-lock-type-face nil text)))
+
+  (-each
+      (s-matched-positions-all (rx "`" (1+ (not space)) "`") text)
+    (-lambda ((beg . end))
+      (add-face-text-property beg end 'font-lock-constant-face nil text)
+      (add-face-text-property beg end 'bold-italic nil text)))
+
   text)
 
 (defun hy-eldoc-documentation-function ()
