@@ -1035,6 +1035,14 @@ Not all defuns can be argspeced - eg. C defuns.\"
                    (concat (thing-at-point 'symbol) function)))))
         function))))
 
+(defun hy-eldoc-fontify-text (text)
+  "Fontify eldoc strings."
+  (-each
+   (s-matched-positions-all (rx symbol-start "&" (1+ word)) text)
+   (-lambda ((beg . end))
+     (add-face-text-property beg end 'font-lock-type-face nil text)))
+  text)
+
 (defun hy-eldoc-documentation-function ()
   (when-let (function (hy--eldoc-get-inner-symbol))
     (-let [result
@@ -1042,7 +1050,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
       (when (s-equals? "" result)
         (setq result
               (-> function hy--eldoc-format-command-raw-obj hy--send-eldoc)))
-      result)))
+      (hy-eldoc-fontify-text result))))
 
 ;;; Autocompletion
 
