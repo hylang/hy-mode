@@ -1037,6 +1037,14 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
 (defun hy-eldoc-fontify-text (text)
   "Fontify eldoc strings."
+  (unless (s-blank? text)
+    (-let [((_ . end))
+           (s-matched-positions-all (rx string-start
+                                        (1+ (not (any space ":")))
+                                        ":")
+                                    text)]
+      (add-face-text-property 0 end 'font-lock-keyword-face nil text)))
+
   (-each
    (s-matched-positions-all (rx symbol-start "&" (1+ word)) text)
    (-lambda ((beg . end))
