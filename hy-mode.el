@@ -975,14 +975,14 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defun hy--eldoc-chomp-output (text)
   "Chomp prefixes and suffixes from eldoc process output."
   (->> text
-     (s-chop-prefixes '("\"" "'"))
-     (s-chop-suffixes '("\"" "'"))))
+     (s-chop-suffixes '("\n=> " "=> "))
+     (s-chop-prefixes '("\"" "'" "\"'" "'\""))
+     (s-chop-suffixes '("\"" "'" "\"'" "'\""))))
 
 (defun hy--send-eldoc (command)
   "Send command for eldoc to internal process."
   (let ((output-buffer " *Comint Redirect Work Buffer*")
-        (process (hy-shell-get-internal-process))
-        results)
+        (process (hy-shell-get-internal-process)))
     (with-current-buffer (get-buffer-create output-buffer)
       (erase-buffer)
 
@@ -994,10 +994,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
                   (accept-process-output process nil 100 t)))
       (set-buffer output-buffer)
 
-      (if (>= (- (point-max) (point-min)) 4)
-          (hy--eldoc-chomp-output
-           (buffer-substring-no-properties (point-min) (- (point-max) 4)))
-        ""))))
+      (hy--eldoc-chomp-output (buffer-string)))))
 
 (defun hy--eldoc-format-command (symbol)
   (format "(try (--HYDOC \"%s\") (except [e Exception] (str)))" symbol))
