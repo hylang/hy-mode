@@ -1037,13 +1037,11 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
 (defun hy-eldoc-fontify-text (text)
   "Fontify eldoc strings."
-  (unless (s-blank? text)
-    (-let [((_ . end))
-           (s-matched-positions-all (rx string-start
-                                        (1+ (not (any space ":")))
-                                        ":")
-                                    text)]
-      (add-face-text-property 0 end 'font-lock-keyword-face nil text)))
+  (-each
+      (s-matched-positions-all (rx string-start (1+ (not (any space ":"))) ":")
+                               text)
+    (-lambda ((beg . end))
+      (add-face-text-property beg end 'font-lock-keyword-face nil text)))
 
   (-each
       (s-matched-positions-all (rx symbol-start "&" (1+ word)) text)
@@ -1062,7 +1060,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
   (when-let (function (hy--eldoc-get-inner-symbol))
     (-let [result
            (-> function hy--eldoc-format-command hy--send-eldoc)]
-      (when (s-equals? "" result)
+      (when (s-blank? result)
         (setq result
               (-> function hy--eldoc-format-command-raw-obj hy--send-eldoc)))
       (hy-eldoc-fontify-text result))))
@@ -1198,7 +1196,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defun hy--inferior-mode-setup ()
   (setq mode-line-process '(":%s"))
   (setq-local indent-tabs-mode nil)
-  (setq-local comint-prompt-read-only nil)
+  (setq-local comint-prompt-read-only t)
 
   ;; (setq-local comint-prompt-regexp (rx bol "=>" space))
 
