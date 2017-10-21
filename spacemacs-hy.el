@@ -28,7 +28,9 @@
   "tA" 'spacemacs/python-test-pdb-all
   "ta" 'spacemacs/python-test-all
   "tM" 'spacemacs/python-test-pdb-module
-  "tm" 'spacemacs/python-test-module)
+  "tm" 'spacemacs/python-test-module
+
+  "hh" 'hy-describe-thing-at-point)  ; Otherwise known as shift-K
 
 (spacemacs/set-leader-keys-for-major-mode 'inferior-hy-mode
   "," 'lisp-state-toggle-lisp-state)

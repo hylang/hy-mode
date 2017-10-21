@@ -859,12 +859,12 @@ CMD defaults to the result of `hy-shell-calculate-command'."
         (hy--shell-send-internal-setup-code)))))
 
 ;;; Eldoc
+;;;; Setup Code
 
 (defconst hy-eldoc-setup-code
   "(import builtins)
 (import inspect)
 (import [hy.macros [-hy-macros]])
-
 
 (defn --HYDOC-format-argspec [argspec]
   \"Lispy version of format argspec covering all defun kwords.\"
@@ -925,52 +925,58 @@ CMD defaults to the result of `hy-shell-calculate-command'."
 
   docs)
 
-(defn --HYDOC-format-eldoc-string [obj-name f]
+(defn --HYDOC-format-eldoc-string [obj-name f &optional full]
   \"Format an obj name for callable f.\"
   (if f.--doc--
-      (.format \"{obj}: ({args}) - {docs}\"
+      (.format \"{obj}: ({args}){docs}\"
                :obj (.replace obj-name \"_\" \"-\")
                :args (--HYDOC-format-argspec (inspect.getfullargspec f))
-               :docs (-> f.--doc-- (.splitlines) first))
+               :docs (if full
+                         (->> f.--doc-- (.splitlines) (.join \"\n\") (+ \"\n\"))
+                         (+ \" - \" (->> f.--doc-- (.splitlines) first))))
       (.format \"{obj}: ({args})\"
                :obj (.replace obj-name \"_\" \"-\")
                :args (--HYDOC-format-argspec (inspect.getfullargspec f)))))
 
-(defn --HYDOC-python-eldoc [obj]
+(defn --HYDOC-python-eldoc [obj &optional full]
   \"Build eldoc string for python obj or string.
 
 Not all defuns can be argspeced - eg. C defuns.\"
   (try
     (do (when (isinstance obj str)
           (setv obj (.eval builtins obj (globals))))
-        (setv doc (.getdoc inspect obj))
+        (setv full-doc (.getdoc inspect obj))
+        (setv doc full-doc)
         (try
-          (setv doc (--HYDOC-format-eldoc-string obj.--name-- obj))
+          (setv doc (--HYDOC-format-eldoc-string obj.--name-- obj
+                                                :full full))
           (except [e TypeError]
-            (setv doc (->> doc
-                         (.splitlines)
-                         first
-                         (+ \"builtin: \"))))))
+            (setv doc (->> doc (.splitlines) first (+ \"builtin: \")))
+            (when full
+              (setv doc (+ doc \"\n\"
+                           (->> full-doc (.splitlines) rest (.join \"\"))))))))
     (except [e Exception]
       (setv doc \"\")))
   doc)
 
-(defn --HYDOC-macro-eldoc [obj]
+(defn --HYDOC-macro-eldoc [obj &optional full]
   \"Get eldoc string for a macro.\"
   (try
     (do (setv obj (.replace obj \"-\" \"_\"))
         (setv macros (get -hy-macros None))
 
         (when (in obj macros)
-          (--HYDOC-format-eldoc-string obj (get macros obj))))
+          (--HYDOC-format-eldoc-string obj (get macros obj) :full full)))
     (except [e Exception] \"\")))
 
-(defn --HYDOC [obj]
+(defn --HYDOC [obj &optional full]
   \"Get eldoc string for any obj.\"
-  (setv doc (--HYDOC-python-eldoc obj))
-  (unless doc (setv doc (--HYDOC-macro-eldoc obj)))
+  (setv doc (--HYDOC-python-eldoc obj :full full))
+  (unless doc (setv doc (--HYDOC-macro-eldoc obj :full full)))
   doc)"
   "Symbol introspection code to send to the internal process for eldoc.")
+
+;;;; Utilities
 
 (defun hy--eldoc-chomp-output (text)
   "Chomp prefixes and suffixes from eldoc process output."
@@ -1002,6 +1008,14 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defun hy--eldoc-format-command-raw-obj (symbol)
   (format "(try (--HYDOC %s) (except [e Exception] (str)))" symbol))
 
+(defun hy--thing-at-point-command (symbol)
+  (format "(try (--HYDOC \"%s\" :full True) (except [e Exception] (str)))"
+          symbol))
+
+(defun hy--thing-at-point-command-raw-obj (symbol)
+  (format "(try (--HYDOC %s :full True) (except [e Exception] (str)))"
+          symbol))
+
 (defun hy--eldoc-get-inner-symbol ()
   (save-excursion
     (-when-let* ((_ (hy-shell-get-internal-process))
@@ -1032,7 +1046,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
                    (concat (thing-at-point 'symbol) function)))))
         function))))
 
-(defun hy-eldoc-fontify-text (text)
+(defun hy--eldoc-fontify-text (text)
   "Fontify eldoc strings."
   (-each
       (s-matched-positions-all (rx string-start (1+ (not (any space ":"))) ":")
@@ -1053,6 +1067,8 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
   text)
 
+;;;; Documentation Function
+
 (defun hy-eldoc-documentation-function ()
   (when-let (function (hy--eldoc-get-inner-symbol))
     (-let [result
@@ -1060,7 +1076,27 @@ Not all defuns can be argspeced - eg. C defuns.\"
       (when (s-blank? result)
         (setq result
               (-> function hy--eldoc-format-command-raw-obj hy--send-eldoc)))
-      (hy-eldoc-fontify-text result))))
+      (hy--eldoc-fontify-text result))))
+
+;;;; Describe thing at point
+
+(defun hy--docs-for-thing-at-point ()
+  (-when-let (function (thing-at-point 'symbol))
+    (-let [result
+           (-> function hy--thing-at-point-command hy--send-eldoc)]
+      (when (s-blank? result)
+        (setq result
+              (-> function hy--thing-at-point-command-raw-obj hy--send-eldoc)))
+      (hy--eldoc-fontify-text result))))
+
+(defun hy-describe-thing-at-point ()
+  "Implement shift-k docs lookup for `spacemacs/evil-smart-doc-lookup'."
+  (interactive)
+  (-when-let* ((text (hy--docs-for-thing-at-point))
+               (doc-buffer "*Hyconda*"))
+    (with-current-buffer (get-buffer-create doc-buffer)
+      (switch-to-buffer-other-window doc-buffer)
+      (insert text))))
 
 ;;; Autocompletion
 
