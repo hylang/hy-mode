@@ -1090,7 +1090,20 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defun hy--docs-for-thing-at-point ()
   "Mirrors `hy-eldoc-documentation-function' formatted for a buffer, not a msg."
   (-> (thing-at-point 'symbol)
-     (hy--eldoc-get-docs t)))
+     (hy--eldoc-get-docs t)
+     hy--format-docs-for-buffer))
+
+(defun hy--format-docs-for-buffer (text)
+  "Format raw hydoc TEXT for inserting into hyconda buffer."
+  (when text
+    (-let [kwarg-newline-regexp
+           (rx ","
+               (1+ (not (any "," ")")))
+               (group-n 1 "\\\n")
+               (1+ (not (any "," ")"))))]
+      (--> text
+         (s-replace "\\n" "\n" it)
+         (replace-regexp-in-string kwarg-newline-regexp "newline" it nil t 1)))))
 
 (defun hy-describe-thing-at-point ()
   "Implement shift-k docs lookup for `spacemacs/evil-smart-doc-lookup'."
@@ -1098,8 +1111,16 @@ Not all defuns can be argspeced - eg. C defuns.\"
   (-when-let* ((text (hy--docs-for-thing-at-point))
                (doc-buffer "*Hyconda*"))
     (with-current-buffer (get-buffer-create doc-buffer)
+      (erase-buffer)
       (switch-to-buffer-other-window doc-buffer)
-      (insert text))))
+
+      (insert text)
+      (goto-char (point-min))
+      (forward-line)
+
+      (insert "------\n")
+
+      (fill-region (point) (point-max)))))
 
 ;;; Autocompletion
 
