@@ -445,18 +445,6 @@ will indent special. Exact forms require the symbol and def exactly match.")
   "If TEXT is non-blank, return TEXT else nil."
   (and (not (s-blank? text)) text))
 
-;;;; Display
-
-(defun hy--faces-to-font-lock-faces (text)
-  "Goes through text setting 'face properties to 'font-lock-face."
-  (-let [pos 0]
-    (while (setq next (next-single-property-change pos 'face text))
-      (put-text-property pos next 'font-lock-face
-                         (get-text-property pos 'face text) text)
-      (setq pos next))
-    (add-text-properties 0 (length text) '(fontified t) text)
-    text))
-
 ;;; Indentation
 ;;;; Utilities
 
@@ -634,46 +622,48 @@ a string or comment."
 
 ;;;; Shell buffer utilities
 
-(defun hy-shell-format-process-name (proc-name &optional internal)
+(defun hy--shell-format-process-name (proc-name)
   "Format a PROC-NAME with closing astericks."
   (->> proc-name (s-prepend "*") (s-append "*")))
 
-(defun hy-shell-get-process ()
-  "Get the Hy process corresponding to `hy-shell-buffer-name'."
-  (-> hy-shell-buffer-name
-     hy-shell-format-process-name
-     get-buffer-process))
+(defun hy-shell-get-process (&optional internal)
+  "Get process corr. to `hy-shell-buffer-name'/`hy-shell-internal-buffer-name'."
+  (-> (if internal hy-shell-internal-buffer-name hy-shell-buffer-name)
+      hy--shell-format-process-name
+      get-buffer-process))
 
-(defun hy-shell-get-internal-process ()
-  "Get the Hy internal process corresponding to `hy-shell-internal-buffer-name'."
-  (-> hy-shell-internal-buffer-name
-     (hy-shell-format-process-name t)
-     get-buffer-process))
+(defun hy--shell-current-buffer-process ()
+  "Get process associated with current buffer."
+  (get-buffer-process (current-buffer)))
 
-(defun hy-shell-get-or-create-buffer ()
-  "Get or create a `hy-shell-buffer' for current inferior process."
+(defun hy--shell-current-buffer-a-process? ()
+  "Is `current-buffer' a live process?"
+  (process-live-p (hy--shell-current-buffer-process)))
+
+(defun hy--shell-get-or-create-buffer ()
+  "Get or create `hy-shell-buffer' buffer for current hy shell process."
   (if hy-shell-buffer
       hy-shell-buffer
-    (hy-shell-with-shell-buffer
-     (-let [process-name
-            (-> (current-buffer) get-buffer-process process-name)]
-       (generate-new-buffer process-name)))))
+    (hy--shell-with-shell-buffer
+     (-let [proc-name
+            (process-name (hy--shell-current-buffer-process))]
+       (generate-new-buffer proc-name)))))
 
-(defun hy-shell-buffer? ()
+(defun hy--shell-buffer? ()
   "Is `hy-shell-buffer' set and does it exist?"
   (and hy-shell-buffer
        (buffer-live-p hy-shell-buffer)))
 
-(defun hy-shell-kill-buffer ()
-  "Kill a `hy-shell-buffer'."
-  (when (hy-shell-buffer?)
+(defun hy--shell-kill-buffer ()
+  "Kill `hy-shell-buffer'."
+  (when (hy--shell-buffer?)
     (kill-buffer hy-shell-buffer)
     (when (derived-mode-p 'inferior-hy-mode)
       (setq hy-shell-buffer nil))))
 
 ;;;; Shell macros
 
-(defmacro hy-shell-with-shell-buffer (&rest forms)
+(defmacro hy--shell-with-shell-buffer (&rest forms)
   "Execute FORMS in the shell buffer."
   (-let [shell-process
          (gensym)]
@@ -682,75 +672,70 @@ a string or comment."
        (with-current-buffer (process-buffer ,shell-process)
          ,@forms))))
 
-(defmacro hy-shell-with-font-locked-shell-buffer (&rest forms)
-  "Execute FORMS in the shell buffer with font-lock on."
-  `(hy-shell-with-shell-buffer
+(defmacro hy--shell-with-font-locked-shell-buffer (&rest forms)
+  "Execute FORMS in the shell buffer with font-lock turned on."
+  `(hy--shell-with-shell-buffer
     (save-current-buffer
-      (unless (hy-shell-buffer?)
-        (setq hy-shell-buffer (hy-shell-get-or-create-buffer)))
-
+      (unless (hy--shell-buffer?)
+        (setq hy-shell-buffer (hy--shell-get-or-create-buffer)))
       (set-buffer hy-shell-buffer)
 
-      (unless (font-lock-mode)
-        (font-lock-mode 1))
-      (unless (derived-mode-p 'hy-mode)
-        (hy-mode))
+      (unless (font-lock-mode) (font-lock-mode 1))
+      (unless (derived-mode-p 'hy-mode) (hy-mode))
 
       ,@forms)))
 
 ;;;; Font locking
 
-(defun hy-shell-post-command-hook ()
-  "Fontify the current line in `hy-shell-buffer' for `post-command-hook'."
-  (-let [(_ . prompt-end)
-         comint-last-prompt]
-    (when (and prompt-end
-               (> (point) prompt-end)
-               (-> (current-buffer) get-buffer-process process-live-p))
-      (let* ((input (buffer-substring-no-properties
-                     prompt-end (point-max)))
+(defun hy--shell-faces-to-font-lock-faces (text &optional start-pos)
+  "Set all 'face in TEXT to 'font-lock-face optionally starting at START-POS."
+  (let ((pos 0)
+        (start-pos (or start-pos 0)))
+    (while (and (/= pos (length text))
+                (setq next (next-single-property-change pos 'face text)))
+      (let* ((plist (text-properties-at pos text))
+             (plist (-if-let (face (plist-get plist 'face))
+                        (progn (plist-put plist 'face nil)  ; Swap face
+                               (plist-put plist 'font-lock-face face))
+                      plist)))
+        (set-text-properties (+ start-pos pos) (+ start-pos next) plist)
+        (setq pos next)))))
+
+(defun hy--shell-fontify-prompt-post-command-hook ()
+  "Fontify just the current line in `hy-shell-buffer' for `post-command-hook'.
+
+Constantly extracts current prompt text and executes and manages applying
+`hy--shell-faces-to-font-lock-faces' to the text."
+  (-when-let* (((_ . prompt-end) comint-last-prompt)
+               (_ (and prompt-end
+                       (> (point) prompt-end)  ; new command is being entered
+                       (hy--shell-current-buffer-a-process?))))  ; process alive?
+      (let* ((input (buffer-substring-no-properties prompt-end (point-max)))
              (deactivate-mark nil)
-             (start-pos prompt-end)
              (buffer-undo-list t)
              (font-lock-buffer-pos nil)
-             (replacement
-              (hy-shell-with-font-locked-shell-buffer
-               (delete-region (line-beginning-position) (point-max))
-               (setq font-lock-buffer-pos (point))
-               (insert input)
-               (funcall 'font-lock-ensure)
-               (buffer-substring font-lock-buffer-pos
-                                 (point-max))))
-             (replacement-length (length replacement))
-             (i 0))
-        ;; Inject text properties to get input fontified.
-        (while (/= i replacement-length)
-          (let* ((plist (text-properties-at i replacement))
-                 (plist (-let [face
-                               (plist-get plist 'face)]
-                          (if (not face)
-                              plist
-                            (plist-put plist 'face nil)
-                            (plist-put plist 'font-lock-face face))))
-                 (next-change (or (next-property-change i replacement)
-                                  replacement-length))
-                 (text-begin (+ start-pos i))
-                 (text-end (+ start-pos next-change)))
+             (text (hy--shell-with-font-locked-shell-buffer
+                    (delete-region (line-beginning-position) (point-max))
+                    (setq font-lock-buffer-pos (point))
+                    (insert input)
+                    (font-lock-ensure)
+                    (buffer-substring font-lock-buffer-pos (point-max)))))
+        (hy--shell-faces-to-font-lock-faces text prompt-end))))
 
-            (set-text-properties text-begin text-end plist)
-            (setq i next-change)))))))
-
-(defun hy-shell-font-lock-turn-on ()
+(defun hy--shell-font-lock-turn-on ()
   "Turn on fontification of current line for hy shell."
-  (hy-shell-with-shell-buffer
-   (hy-shell-kill-buffer)
-   (setq-local hy-shell-buffer nil)
-   (add-hook 'post-command-hook
-             'hy-shell-post-command-hook nil 'local)
-   (add-hook 'kill-buffer-hook
-             'hy-shell-kill-buffer nil 'local)))
+  (hy--shell-with-shell-buffer
+   (hy--shell-kill-buffer)
 
-(defun hy-shell-font-lock-spy-output (string)
+   ;; Required - I don't understand why killing doesn't capture the end nil setq
+   (setq-local hy-shell-buffer nil)
+
+   (add-hook 'post-command-hook
+             'hy--shell-fontify-prompt-post-command-hook nil 'local)
+   (add-hook 'kill-buffer-hook
+             'hy--shell-kill-buffer nil 'local)))
+
+(defun hy--shell-font-lock-spy-output (string)
   "Applies font-locking to hy outputted python blocks when `--spy' is enabled."
   (with-temp-buffer
     (if (s-contains? hy--shell-spy-delim-uuid string)
@@ -762,32 +747,27 @@ a string or comment."
           (insert python-block)
           (font-lock-default-fontify-buffer)
           (-> (buffer-string)
-             hy--faces-to-font-lock-faces
+             hy--shell-faces-to-font-lock-faces
              s-chomp
              (s-concat hy-shell-spy-delim hy-output)))
       string)))
 
 ;;;; Send strings
 
-(defun hy-shell-comint-end-of-output-p (string)
-  "Return non-nil if STRING ends with the input prompt."
-  (string-match (rx "=> " string-end) string))
+(defun hy--shell-end-of-output? (string)
+  "Return non-nil if STRING ends with the prompt."
+  (s-matches? comint-prompt-regexp string))
 
-(defun hy-shell-output-filter (string)
+(defun hy--shell-output-filter (string)
   "If STRING ends with input prompt then set filter in progress done."
-  (when (hy-shell-comint-end-of-output-p string)
+  (when (hy--shell-end-of-output? string)
     (setq hy--shell-output-filter-in-progress nil))
   "\n=> ")
 
 (defun hy--shell-send-string (string &optional process internal)
   "Internal implementation of shell send string functionality."
-  (let ((process
-         (or process
-             (if internal
-                 (hy-shell-get-internal-process)
-               (hy-shell-get-process))))
-        (hy--shell-output-filter-in-progress
-         t))
+  (let ((process (or process (hy-shell-get-process internal)))
+        (hy--shell-output-filter-in-progress t))
     (comint-send-string process string)
     (while hy--shell-output-filter-in-progress
       (accept-process-output process))))
@@ -795,12 +775,12 @@ a string or comment."
 (defun hy-shell-send-string-no-output (string &optional process internal)
   "Send STRING to hy PROCESS. Return the output."
   (-let [comint-preoutput-filter-functions
-         '(hy-shell-output-filter)]
+         '(hy--shell-output-filter)]
     (hy--shell-send-string string process internal)))
 
 (defun hy-shell-send-string-internal (string)
   "Send STRING to internal hy shell process."
-  (hy-shell-send-string-no-output string nil t))
+  (hy-shell-send-string-no-output string nil 'internal))
 
 (defun hy--shell-send-internal-setup-code ()
   "Send setup code for autocompletion and eldoc to hy internal process."
@@ -810,69 +790,79 @@ a string or comment."
 (defun hy-shell-send-string (string &optional process)
   "Send STRING to hy PROCESS and inhibit printing output. Return the output."
   (-let [comint-output-filter-functions
-         '(hy-shell-output-filter)]
+         '(hy--shell-output-filter)]
     (hy--shell-send-string string process)))
 
 ;;;; Shell creation
 
-(defun hy-shell-make-comint (cmd proc-name &optional show internal)
-  "Create a comint process PROC-NAME using CMD optionally INTERNAL and SHOW."
-  (save-excursion
-    (-let [proc-buffer-name
-           (hy-shell-format-process-name proc-name internal)]
-      (unless (comint-check-proc proc-buffer-name)
-        (-let* ((cmdlist (split-string-and-unquote cmd))
-                ((interpreter . args) cmdlist)
-                (buffer (apply 'make-comint-in-buffer
-                               proc-name proc-buffer-name interpreter nil
-                               args))
-                (process (get-buffer-process buffer)))
-          (with-current-buffer buffer
-            (inferior-hy-mode))
-          (when show
-            (display-buffer buffer))
-          (if internal
-              (set-process-query-on-exit-flag process nil)
-            (setq hy-shell-buffer buffer))))
-      proc-buffer-name)))
-
-(defun hy-shell-calculate-interpreter-args ()
+(defun hy--shell-calculate-interpreter-args ()
   "Calculate `hy-shell-interpreter-args' based on `--spy' flag."
   (if (and hy-shell-use-control-codes?
            (s-contains? "--spy" hy-shell-interpreter-args))
       (s-concat hy-shell-interpreter-args " --control-codes")
     hy-shell-interpreter-args))
 
-(defun hy-shell-calculate-command (&optional internal)
+(defun hy--shell-calculate-command (&optional internal)
   "Calculate the string used to execute the inferior Hy process."
   (format "%s %s"
           (shell-quote-argument hy-shell-interpreter)
           (if internal
               ""
-            (hy-shell-calculate-interpreter-args))))
+            (hy--shell-calculate-interpreter-args))))
 
-(defun run-hy (&optional cmd)
-  "Run an inferior Hy process.
+(defun hy--shell-make-comint (cmd proc-name &optional show internal)
+  "Create and return comint process PROC-NAME with CMD, opt. INTERNAL and SHOW."
+  (-when-let* ((proc-buffer-name
+                (hy--shell-format-process-name proc-name))
+               (_
+                (not (comint-check-proc proc-buffer-name)))
+               (cmdlist
+                (split-string-and-unquote cmd))
+               (buffer
+                (apply 'make-comint-in-buffer proc-name proc-buffer-name
+                       (car cmdlist) nil (cdr cmdlist)))
+               (process
+                (get-buffer-process buffer)))
+    (with-current-buffer buffer
+      (inferior-hy-mode))
+    (when show
+      (display-buffer buffer))
+    (if internal
+        (set-process-query-on-exit-flag process nil)
+      (setq hy-shell-buffer buffer))
+    proc-buffer-name))
 
-CMD defaults to the result of `hy-shell-calculate-command'."
-  (interactive)
-  (-> (or cmd
-         (hy-shell-calculate-command))
-     (hy-shell-make-comint hy-shell-buffer-name t)
-     get-buffer-process))
+;;;; Run Shell
 
 (defun run-hy-internal ()
   "Start an inferior hy process in the background for autocompletion."
   (interactive)
-  (when (and (not (hy-shell-get-internal-process))
+  (unless (executable-find "hy")
+    (message "Hy not found, activate a virtual environment with Hy to use Eldoc,
+Anaconda, and other hy-mode features."))
+
+  (when (and (not (hy-shell-get-process 'internal))
              (executable-find "hy"))
     (-let [hy--shell-font-lock-enable
            nil]
       (prog1
-          (-> (hy-shell-calculate-command t)
-             (hy-shell-make-comint hy-shell-internal-buffer-name nil t)
+          (-> (hy--shell-calculate-command 'internal)
+             (hy--shell-make-comint hy-shell-internal-buffer-name nil 'internal)
              get-buffer-process)
-        (hy--shell-send-internal-setup-code)))))
+        (hy--shell-send-internal-setup-code)
+        (message "Hy internal process successfully started")))))
+
+(defun run-hy (&optional cmd)
+  "Run an inferior Hy process.
+
+CMD defaults to the result of `hy--shell-calculate-command'."
+  (interactive)
+  (unless (executable-find "hy")
+    (message "Hy not found, activate a virtual environment with Hy."))
+
+  (-> (or cmd (hy--shell-calculate-command))
+     (hy--shell-make-comint hy-shell-buffer-name 'show)
+     get-buffer-process))
 
 ;;; Eldoc
 ;;;; Setup Code
@@ -1004,7 +994,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defun hy--eldoc-send (command)
   "Send command for eldoc to internal process."
   (let ((output-buffer " *Comint Redirect Work Buffer*")
-        (process (hy-shell-get-internal-process)))
+        (process (hy-shell-get-process 'internal)))
     (with-current-buffer (get-buffer-create output-buffer)
       (erase-buffer)
 
@@ -1027,7 +1017,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defun hy--eldoc-get-inner-symbol ()
   "Traverse and inspect innermost sexp and return formatted string for eldoc."
   (save-excursion
-    (-when-let* ((_ (hy-shell-get-internal-process))
+    (-when-let* ((_ (hy-shell-get-process 'internal))
                  (state (syntax-ppss))
                  (start-pos (hy--sexp-inermost-char state))
                  (_ (progn (goto-char start-pos)
@@ -1176,9 +1166,9 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
 (defun hy--company-get-matches (&optional str)
   "Return matches for STR."
-  (when (hy-shell-get-internal-process)
+  (when (hy-shell-get-process 'internal)
     (hy--company-send-extract-matches
-     (hy-shell-get-internal-process)
+     (hy-shell-get-process 'internal)
      (concat
       "(completer."
       (cond ((s-starts-with? "#" str)  ; Hy not recording tag macros atm
@@ -1272,20 +1262,20 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defun hy--inferior-mode-setup ()
   (setq mode-line-process '(":%s"))
   (setq-local indent-tabs-mode nil)
+
+  ;; Comint config
   (setq-local comint-prompt-read-only t)
+  (setq-local comint-prompt-regexp (rx bol "=>" space))
 
-  ;; (setq-local comint-prompt-regexp (rx bol "=>" space))
-
-  ;; So errors are highlighted according to colorama python package
+  ;; Highlight errors according to colorama python package
   (ansi-color-for-comint-mode-on)
-  (setq-local comint-output-filter-functions
-              '(ansi-color-process-output))
+  (setq-local comint-output-filter-functions '(ansi-color-process-output))
 
   ;; Don't startup font lock for internal processes
   (when hy--shell-font-lock-enable
     (setq-local comint-preoutput-filter-functions
-                `(xterm-color-filter hy-shell-font-lock-spy-output))
-    (hy-shell-font-lock-turn-on))
+                `(xterm-color-filter hy--shell-font-lock-spy-output))
+    (hy--shell-font-lock-turn-on))
 
   ;; Fixes issue with "=>", no side effects from this advice
   (advice-add 'comint-previous-input :before
@@ -1328,9 +1318,9 @@ Not all defuns can be argspeced - eg. C defuns.\"
 ;;;###autoload
 (defun hy-shell-start-or-switch-to-shell ()
   (interactive)
-  (if (hy-shell-buffer?)
+  (if (hy--shell-buffer?)
       (switch-to-buffer-other-window
-       (hy-shell-get-or-create-buffer))
+       (hy--shell-get-or-create-buffer))
     (run-hy)))
 
 ;;;###autoload
@@ -1339,9 +1329,9 @@ Not all defuns can be argspeced - eg. C defuns.\"
   (interactive)
   (-let [text
          (buffer-string)]
-    (unless (hy-shell-buffer?)
+    (unless (hy--shell-buffer?)
       (hy-shell-start-or-switch-to-shell))
-    (hy-shell-with-shell-buffer
+    (hy--shell-with-shell-buffer
      (hy-shell-send-string-no-output text))))
 
 ;;;###autoload
@@ -1352,9 +1342,9 @@ Not all defuns can be argspeced - eg. C defuns.\"
              (not (region-noncontiguous-p)))
     (-let [text
            (buffer-substring (region-beginning) (region-end))]
-      (unless (hy-shell-buffer?)
+      (unless (hy--shell-buffer?)
         (hy-shell-start-or-switch-to-shell))
-      (hy-shell-with-shell-buffer
+      (hy--shell-with-shell-buffer
        (hy-shell-send-string-no-output text)))))
 
 (defun hy--current-form-string ()
@@ -1372,9 +1362,9 @@ Not all defuns can be argspeced - eg. C defuns.\"
   "Send form containing current point to shell."
   (interactive)
   (-when-let (text (hy--current-form-string))
-    (unless (hy-shell-buffer?)
+    (unless (hy--shell-buffer?)
       (hy-shell-start-or-switch-to-shell))
-    (hy-shell-with-shell-buffer
+    (hy--shell-with-shell-buffer
      (hy-shell-send-string text))))
 
 ;;;; Keybindings
