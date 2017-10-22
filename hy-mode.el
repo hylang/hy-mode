@@ -58,10 +58,6 @@ Keep nil unless using specific Hy branch.")
 (defvar hy-shell-spy-delim ""
   "If using `--spy' interpreter arg then delimit spy ouput by this string.")
 
-(defvar hy-mode-inferior-lisp-command "hy"
-  ;; This command being phased out in favor of `run-hy'
-  "The command used by `inferior-lisp-program'. Use `run-hy' instead.")
-
 ;;;; Indentation
 
 (defvar hy-indent-special-forms
@@ -444,6 +440,16 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defun hy--str-or-nil (text)
   "If TEXT is non-blank, return TEXT else nil."
   (and (not (s-blank? text)) text))
+
+(defun hy--current-form-string ()
+  "Get form containing current point as string."
+  (save-excursion
+    (-when-let* ((state (syntax-ppss))
+                 (start-pos (hy--sexp-inermost-char state)))
+      (goto-char start-pos)
+      (while (ignore-errors (forward-sexp)))
+
+      (concat (buffer-substring-no-properties start-pos (point)) "\n"))))
 
 ;;; Indentation
 ;;;; Utilities
@@ -1161,7 +1167,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
     ;; Get match-data-1 for each match
     (-select-column 1 matches)))
 
-(defun hy-company (command &optional arg &rest ignored)
+(defun company-hy (command &optional arg &rest ignored)
   (interactive (list 'interactive))
   (cl-case command
     (interactive (company-begin-backend 'hy-company))
@@ -1171,108 +1177,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
                       (lambda (callback)
                         (->> arg (hy--company-candidates) (funcall callback)))))))
 
-;;; hy-mode and inferior-hy-mode
-;;;; Hy-mode setup
-
-(defun hy--mode-setup-font-lock ()
-  (setq-local font-lock-multiline t)
-  (setq font-lock-defaults
-        '(hy-font-lock-kwds
-          nil nil
-          (("+-*/.<>=!?$%_&~^:@" . "w"))  ; syntax alist
-          nil
-          (font-lock-mark-block-function . mark-defun)
-          (font-lock-syntactic-face-function  ; Differentiates (doc)strings
-           . hy-font-lock-syntactic-face-function))))
-
-(defun hy--mode-setup-syntax ()
-  ;; Bracket string literals require context sensitive highlighting
-  (setq-local syntax-propertize-function 'hy-syntax-propertize-function)
-
-  ;; AutoHighlightSymbol needs adjustment for symbol recognition
-  (setq-local ahs-include "^[0-9A-Za-z/_.,:;*+=&%|$#@!^?-~\-]+$")
-
-  ;; Lispy comment syntax
-  (setq-local comment-start ";")
-  (setq-local comment-start-skip
-              "\\(\\(^\\|[^\\\\\n]\\)\\(\\\\\\\\\\)*\\)\\(;+\\|#|\\) *")
-  (setq-local comment-add 1)
-
-  ;; Lispy indent with hy-specialized indentation
-  (setq-local indent-tabs-mode nil)
-  (setq-local indent-line-function 'lisp-indent-line)
-  (setq-local lisp-indent-function 'hy-indent-function))
-
-(defun hy--mode-setup-smartparens ()
-  "Setup smartparens, if active, pairs for Hy."
-  (when (fboundp 'sp-local-pair)
-    (sp-local-pair '(hy-mode) "`" "`" :actions nil)
-    (sp-local-pair '(hy-mode) "'" "'" :actions nil)
-    (sp-local-pair '(inferior-hy-mode) "`" "" :actions nil)
-    (sp-local-pair '(inferior-hy-mode) "'" "" :actions nil)))
-
-(defun hy--mode-setup-inferior ()
-  (setenv "PYTHONIOENCODING" "UTF-8")
-
-  (setq-local inferior-lisp-program hy-mode-inferior-lisp-command)
-  (setq-local inferior-lisp-load-command
-              (concat "(import [hy.importer [import-file-to-module]])\n"
-                      "(import-file-to-module \"__main__\" \"%s\")\n"))
-
-  ;; TODO Should fail silently if hy executable not found on this call
-  (run-hy-internal)
-  (add-hook 'pyvenv-post-activate-hooks 'run-hy-internal nil t))
-
-(defun hy--mode-setup-eldoc ()
-  (make-local-variable 'eldoc-documentation-function)
-  (setq-local eldoc-documentation-function 'hy-eldoc-documentation-function)
-  (eldoc-mode +1))
-
-;;;; Inferior-hy-mode setup
-
-(defun hy--inferior-mode-setup ()
-  (setq mode-line-process '(":%s"))
-  (setq-local indent-tabs-mode nil)
-
-  ;; Comint config
-  (setq-local comint-prompt-read-only t)
-  (setq-local comint-prompt-regexp (rx bol "=>" space))
-
-  ;; Highlight errors according to colorama python package
-  (ansi-color-for-comint-mode-on)
-  (setq-local comint-output-filter-functions '(ansi-color-process-output))
-
-  ;; Don't startup font lock for internal processes
-  (when hy--shell-font-lock-enable
-    (setq-local comint-preoutput-filter-functions
-                `(xterm-color-filter hy--shell-font-lock-spy-output))
-    (hy--shell-font-lock-turn-on))
-
-  ;; Fixes issue with "=>", no side effects from this advice
-  (advice-add 'comint-previous-input :before
-              (lambda (&rest args) (setq-local comint-stored-incomplete-input ""))))
-
-;;;; Core
-
-(add-to-list 'auto-mode-alist '("\\.hy\\'" . hy-mode))
-(add-to-list 'interpreter-mode-alist '("hy" . hy-mode))
-
-;;;###autoload
-(define-derived-mode inferior-hy-mode comint-mode "Inferior Hy"
-  "Major mode for Hy inferior process."
-  (hy--inferior-mode-setup))
-
-;;;###autoload
-(define-derived-mode hy-mode prog-mode "Hy"
-  "Major mode for editing Hy files."
-  (hy--mode-setup-eldoc)
-  (hy--mode-setup-font-lock)
-  (hy--mode-setup-smartparens)
-  (hy--mode-setup-syntax)
-  (hy--mode-setup-inferior))
-
 ;;; Keybindings
-;;;; Utilities
 
 ;;;###autoload
 (defun hy-insert-pdb ()
@@ -1318,16 +1223,6 @@ Not all defuns can be argspeced - eg. C defuns.\"
       (hy--shell-with-shell-buffer
        (hy-shell-send-string-no-output text)))))
 
-(defun hy--current-form-string ()
-  "Get form containing current point as string."
-  (save-excursion
-    (-when-let* ((state (syntax-ppss))
-                 (start-pos (hy--sexp-inermost-char state)))
-      (goto-char start-pos)
-      (while (ignore-errors (forward-sexp)))
-
-      (concat (buffer-substring-no-properties start-pos (point)) "\n"))))
-
 ;;;###autoload
 (defun hy-shell-eval-current-form ()
   "Send form containing current point to shell."
@@ -1338,15 +1233,102 @@ Not all defuns can be argspeced - eg. C defuns.\"
     (hy--shell-with-shell-buffer
      (hy-shell-send-string text))))
 
-;;;; Keybindings
+;;; hy-mode and inferior-hy-mode
+;;;; Hy-mode setup
+
+(defun hy--mode-setup-eldoc ()
+  (make-local-variable 'eldoc-documentation-function)
+  (setq-local eldoc-documentation-function 'hy-eldoc-documentation-function)
+  (eldoc-mode +1))
+
+(defun hy--mode-setup-font-lock ()
+  (setq-local font-lock-multiline t)
+  (setq font-lock-defaults
+        '(hy-font-lock-kwds
+          nil nil
+          (("+-*/.<>=!?$%_&~^:@" . "w"))  ; syntax alist
+          nil
+          (font-lock-mark-block-function . mark-defun)
+          (font-lock-syntactic-face-function  ; Differentiates (doc)strings
+           . hy-font-lock-syntactic-face-function))))
+
+(defun hy--mode-setup-inferior ()
+  ;; (add-to-list 'company-backends 'company-hy)
+  (setenv "PYTHONIOENCODING" "UTF-8")
+
+  (run-hy-internal)
+  (add-hook 'pyvenv-post-activate-hooks 'run-hy-internal nil t))
+
+(defun hy--mode-setup-syntax ()
+  ;; Bracket string literals require context sensitive highlighting
+  (setq-local syntax-propertize-function 'hy-syntax-propertize-function)
+
+  ;; AutoHighlightSymbol needs adjustment for symbol recognition
+  (setq-local ahs-include "^[0-9A-Za-z/_.,:;*+=&%|$#@!^?-~\-]+$")
+
+  ;; Lispy comment syntax
+  (setq-local comment-start ";")
+  (setq-local comment-start-skip
+              "\\(\\(^\\|[^\\\\\n]\\)\\(\\\\\\\\\\)*\\)\\(;+\\|#|\\) *")
+  (setq-local comment-add 1)
+
+  ;; Lispy indent with hy-specialized indentation
+  (setq-local indent-tabs-mode nil)
+  (setq-local indent-line-function 'lisp-indent-line)
+  (setq-local lisp-indent-function 'hy-indent-function))
+
+(defun hy--mode-setup-smartparens ()
+  "Setup smartparens, if active, pairs for Hy."
+  (when (fboundp 'sp-local-pair)
+    (sp-local-pair '(hy-mode) "`" "`" :actions nil)
+    (sp-local-pair '(hy-mode) "'" "'" :actions nil)
+    (sp-local-pair '(inferior-hy-mode) "`" "" :actions nil)
+    (sp-local-pair '(inferior-hy-mode) "'" "" :actions nil)))
+
+;;;; Inferior-hy-mode setup
+
+(defun hy--inferior-mode-setup ()
+  ;; Comint config
+  (setq mode-line-process '(":%s"))
+  (setq-local indent-tabs-mode nil)
+  (setq-local comint-prompt-read-only t)
+  (setq-local comint-prompt-regexp (rx bol "=>" space))
+
+  ;; Highlight errors according to colorama python package
+  (ansi-color-for-comint-mode-on)
+  (setq-local comint-output-filter-functions '(ansi-color-process-output))
+
+  ;; Don't startup font lock for internal processes
+  (when hy--shell-font-lock-enable
+    (setq-local comint-preoutput-filter-functions
+                `(xterm-color-filter hy--shell-font-lock-spy-output))
+    (hy--shell-font-lock-turn-on))
+
+  ;; Fixes issue with "=>", no side effects from this advice
+  (advice-add 'comint-previous-input :before
+              (lambda (&rest args) (setq-local comint-stored-incomplete-input ""))))
+
+;;; Core
+
+(add-to-list 'auto-mode-alist '("\\.hy\\'" . hy-mode))
+(add-to-list 'interpreter-mode-alist '("hy" . hy-mode))
+
+;;;###autoload
+(define-derived-mode inferior-hy-mode comint-mode "Inferior Hy"
+  "Major mode for Hy inferior process."
+  (hy--inferior-mode-setup))
+
+;;;###autoload
+(define-derived-mode hy-mode prog-mode "Hy"
+  "Major mode for editing Hy files."
+  (hy--mode-setup-eldoc)
+  (hy--mode-setup-font-lock)
+  (hy--mode-setup-inferior)
+  (hy--mode-setup-smartparens)
+  (hy--mode-setup-syntax))
 
 ;; Spacemacs users please see spacemacs-hy, all bindings defined there
 (set-keymap-parent hy-mode-map lisp-mode-shared-map)
-(define-key hy-mode-map (kbd "C-M-x")   'lisp-eval-defun)
-(define-key hy-mode-map (kbd "C-x C-e") 'lisp-eval-last-sexp)
-(define-key hy-mode-map (kbd "C-c C-z") 'switch-to-lisp)
-(define-key hy-mode-map (kbd "C-c C-l") 'lisp-load-file)
-
 (define-key hy-mode-map (kbd "C-c C-e") 'hy-shell-start-or-switch-to-shell)
 (define-key hy-mode-map (kbd "C-c C-b") 'hy-shell-eval-buffer)
 
