@@ -1130,71 +1130,46 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
 (defconst hy-company-setup-code
   "(import [hy.completer [Completer]])
-(setv completer (Completer))"
+(setv --HYCOMPANY (Completer))"
   "Autocompletion setup code to send to the internal process.")
 
-(defun hy--company-send-extract-matches (process command regexp regexp-group)
-  "Modified `comint-redirect-results-list-from-process' for company."
-  (let ((output-buffer " *Comint Redirect Work Buffer*")
-        results)
-    (with-current-buffer (get-buffer-create output-buffer)
-      (erase-buffer)
-      (comint-redirect-send-command-to-process command
-                                               output-buffer process nil t)
-      ;; Wait for the process to complete
-      (set-buffer (process-buffer process))
-      (while (and (null comint-redirect-completed)
-                  (accept-process-output process nil 100 t)))
-      ;; Collect the output
-      (set-buffer output-buffer)
+(defconst hy--company-regexp
+  (rx "'"
+      (group (1+ (or word (any "!@#$%^&*-_+=?~`'<>,.\|"))))
+      "'"
+      (any "," "]"))
+  "Regex to extra candidates from --HYCOMPANY.")
 
-      (goto-char (point-min))
-      ;; Skip past the command, if it was echoed
-      (and (looking-at command)
-           (forward-line))
-      (while (and (not (eobp))
-                  (re-search-forward regexp nil t))
-        (push (buffer-substring-no-properties
-               (match-beginning regexp-group)
-               (match-end regexp-group))
-              results))
-      (nreverse results))))
+(defun hy--company-format-str (string)
+  "Format STRING to send to hy for completion candidates."
+  (when string
+    (format "(.%s --HYCOMPANY \"%s\")"
+            (cond ((s-starts-with? "#" string)  ; Hy not recording tag macros atm
+                   "tag-matches")
+                  ((s-contains? "." string)
+                   "attr-matches")
+                  (t
+                   "global-matches"))
+            string)))
 
-(defun hy--company-get-matches (&optional str)
-  "Return matches for STR."
-  (when (hy-shell-get-process 'internal)
-    (hy--company-send-extract-matches
-     (hy-shell-get-process 'internal)
-     (concat
-      "(completer."
-      (cond ((s-starts-with? "#" str)  ; Hy not recording tag macros atm
-             "tag-matches")
+(defun hy--company-candidates (string)
+  "Get candidates for completion of STRING."
+  (-when-let* ((command (hy--company-format-str string))
+               (candidates (hy--shell-send-async command))
+               (matches (s-match-strings-all hy--company-regexp candidates)))
 
-            ((s-contains? "." str)
-             "attr-matches")
-
-            (t
-             "global-matches"))
-      " \"" str "\")"
-      )
-     (rx "'"
-         (group (1+ (or word (any "!@#$%^&*-_+=?~`'<>,.\|"))))
-         "'"
-         (any "," "]"))
-     1)))
+    ;; Get match-data-1 for each match
+    (-select-column 1 matches)))
 
 (defun hy-company (command &optional arg &rest ignored)
   (interactive (list 'interactive))
   (cl-case command
     (interactive (company-begin-backend 'hy-company))
     (prefix (company-grab-symbol))
+
     (candidates (cons :async
-                      (lexical-let ((prfx arg))
-                        (lambda (cb)
-                          (let ((res (hy--company-get-matches prfx)))
-                            (funcall cb res))))))
-    ;; (meta (format "This value is named %s" arg))
-    ))
+                      (lambda (callback)
+                        (->> arg (hy--company-candidates) (funcall callback)))))))
 
 ;;; hy-mode and inferior-hy-mode
 ;;;; Hy-mode setup
