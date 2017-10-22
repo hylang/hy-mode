@@ -1,4 +1,4 @@
-;;; hy-mode.el --- Major mode for Hylang
+;;; hy-mode.el --- Major mode for Hylang -*- lexical-binding: t -*-
 
 ;; Copyright © 2013 Julien Danjou <julien@danjou.info>
 ;;           © 2017 Eric Kaschalk <ekaschalk@gmail.com>
@@ -779,24 +779,36 @@ a string or comment."
     (setq hy--shell-output-filter-in-progress nil))
   "\n=> ")
 
-(defun hy--shell-send-string (string &optional process)
-  "Internal shell send string functionality."
+(defun hy--shell-send-string (string &optional process internal)
+  "Internal implementation of shell send string functionality."
   (let ((process
-         (or process (hy-shell-get-process)))
+         (or process
+             (if internal
+                 (hy-shell-get-internal-process)
+               (hy-shell-get-process))))
         (hy--shell-output-filter-in-progress
          t))
     (comint-send-string process string)
     (while hy--shell-output-filter-in-progress
       (accept-process-output process))))
 
-(defun hy-shell-send-string-no-output (string &optional process)
+(defun hy-shell-send-string-no-output (string &optional process internal)
   "Send STRING to hy PROCESS. Return the output."
   (-let [comint-preoutput-filter-functions
          '(hy-shell-output-filter)]
-    (hy--shell-send-string string process)))
+    (hy--shell-send-string string process internal)))
+
+(defun hy-shell-send-string-internal (string)
+  "Send STRING to internal hy shell process."
+  (hy-shell-send-string-no-output string nil t))
+
+(defun hy--shell-send-internal-setup-code ()
+  "Send setup code for autocompletion and eldoc to hy internal process."
+  (hy-shell-send-string-internal (concat hy-eldoc-setup-code
+                                         hy-company-setup-code)))
 
 (defun hy-shell-send-string (string &optional process)
-  "Send STRING to hy PROCESS and inhibit output. Return the output."
+  "Send STRING to hy PROCESS and inhibit printing output. Return the output."
   (-let [comint-output-filter-functions
          '(hy-shell-output-filter)]
     (hy--shell-send-string string process)))
@@ -838,14 +850,6 @@ a string or comment."
           (if internal
               ""
             (hy-shell-calculate-interpreter-args))))
-
-(defun hy--shell-send-internal-setup-code ()
-  (-let [process
-         (hy-shell-get-internal-process)]
-    (comint-send-string process
-                        (concat hy-eldoc-setup-code
-                                hy-company-setup-code))
-    (while (accept-process-output process nil 100 t))))
 
 (defun run-hy (&optional cmd)
   "Run an inferior Hy process.
@@ -1143,8 +1147,8 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (setv completer (Completer))"
   "Autocompletion setup code to send to the internal process.")
 
-(defun hy--company-redirect-results-list-from-process (process command regexp regexp-group)
-  "Execute `comint-redirect-results-list-from-process' with timeout for company."
+(defun hy--company-send-extract-matches (process command regexp regexp-group)
+  "Modified `comint-redirect-results-list-from-process' for company."
   (let ((output-buffer " *Comint Redirect Work Buffer*")
         results)
     (with-current-buffer (get-buffer-create output-buffer)
@@ -1173,7 +1177,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defun hy--company-get-matches (&optional str)
   "Return matches for STR."
   (when (hy-shell-get-internal-process)
-    (hy--company-redirect-results-list-from-process
+    (hy--company-send-extract-matches
      (hy-shell-get-internal-process)
      (concat
       "(completer."
