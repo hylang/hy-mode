@@ -46,26 +46,25 @@
 (defconst hy-shell-interpreter "hy"
   "Default Hy interpreter name.")
 
-(defconst hy-shell-interpreter-args "--spy"
+(defvar hy-shell-interpreter-args "--spy"
   "Default arguments for Hy interpreter.")
 
-;; This command being phased out in favor of `run-hy'
-(defcustom hy-mode-inferior-lisp-command "hy"
-  "The command used by `inferior-lisp-program'."
-  :type 'string
-  :group 'hy-mode)
-
-(defconst hy-shell-use-control-codes? nil
+(defvar hy-shell-use-control-codes? nil
   "Append `--control-codes' flag to `hy-shell-interpreter-args'?
 
-Requires recent version of Hy.")
+Requires recent version of Hy and `hy-shell-interpreter-args' to contain `--spy'.
+Keep nil unless using specific Hy branch.")
 
-(defconst hy-shell-spy-delim ""
-  "If using `--spy' interpreter arg then delimit spy ouput.")
+(defvar hy-shell-spy-delim ""
+  "If using `--spy' interpreter arg then delimit spy ouput by this string.")
+
+(defvar hy-mode-inferior-lisp-command "hy"
+  ;; This command being phased out in favor of `run-hy'
+  "The command used by `inferior-lisp-program'. Use `run-hy' instead.")
 
 ;;;; Indentation
 
-(defconst hy-indent-special-forms
+(defvar hy-indent-special-forms
   '(:exact
     ("when" "unless"
      "for" "for*"
@@ -77,7 +76,10 @@ Requires recent version of Hy.")
      "with"
      "fn"
      "lambda"))
-  "Special forms to always indent following line by +1.")
+  "Special forms to always indent following line by +1.
+
+Fuzzy forms require match at start of symbol (eg. with-something)
+will indent special. Exact forms require the symbol and def exactly match.")
 
 ;;; Syntax Table
 
@@ -103,7 +105,7 @@ Requires recent version of Hy.")
     (modify-syntax-entry ?\# "_ p" table)
 
     table)
-  "Hy modes syntax table.")
+  "Hy mode's syntax table.")
 
 ;;; Keywords
 
@@ -420,11 +422,10 @@ Requires recent version of Hy.")
         hy--font-lock-kwds-tag-macros
         hy--font-lock-kwds-unpacking
         hy--font-lock-kwds-variables)
-
   "All Hy font lock keywords.")
 
-;;; Indentation
-;;;; Utilities
+;;; Utilities
+;;;; Sexp Navigation
 
 ;; Aliases for `parse-partial-sexp' value
 (defun hy--sexp-inermost-char (state)
@@ -435,9 +436,29 @@ Requires recent version of Hy.")
   (nth 3 state))
 (defun hy--start-of-string (state)
   (nth 8 state))
-
 (defun hy--prior-sexp? (state)
   (number-or-marker-p (hy--start-of-last-sexp state)))
+
+;;;; General purpose
+
+(defun hy--str-or-nil (text)
+  "If TEXT is non-blank, return TEXT else nil."
+  (and (not (s-blank? text)) text))
+
+;;;; Display
+
+(defun hy--faces-to-font-lock-faces (text)
+  "Goes through text setting 'face properties to 'font-lock-face."
+  (-let [pos 0]
+    (while (setq next (next-single-property-change pos 'face text))
+      (put-text-property pos next 'font-lock-face
+                         (get-text-property pos 'face text) text)
+      (setq pos next))
+    (add-text-properties 0 (length text) '(fontified t) text)
+    text))
+
+;;; Indentation
+;;;; Utilities
 
 (defun hy--anything-before? (pos)
   "Determine if chars before POS in current line."
@@ -552,8 +573,7 @@ Point is always at the start of a function."
 
 In particular this implements bracket string literals.
 START and END are the limits with which to search for bracket strings passed
-and determined by `font-lock-mode' internals when making an edit to a buffer.
-"
+and determined by `font-lock-mode' internals when making an edit to a buffer."
   (save-excursion
     (goto-char start)
 
@@ -603,10 +623,14 @@ a string or comment."
 (defvar hy-shell-buffer nil
   "The current shell buffer for Hy.")
 
-(defconst hy--spy-delim-uuid "#cbb4fcbe-b6ba-4812-afa3-4a5ac7b20501"
-  "UUID denoting end of python block in `--spy --control-categories' output")
+(defvar hy--shell-output-filter-in-progress nil
+  "Whether we are waiting for output in `hy-shell-send-string-no-output'.")
 
-(setq hy-shell-font-lock-enable t)
+(defvar hy--shell-font-lock-enable t
+  "Whether the shell should font-lock the current line.")
+
+(defconst hy--shell-spy-delim-uuid "#cbb4fcbe-b6ba-4812-afa3-4a5ac7b20501"
+  "UUID denoting end of python block in `--spy --control-categories' output")
 
 ;;;; Shell buffer utilities
 
@@ -726,37 +750,24 @@ a string or comment."
    (add-hook 'kill-buffer-hook
              'hy-shell-kill-buffer nil 'local)))
 
-(defun hy-shell-faces-to-font-lock-faces (text)
-  "Goes through text setting 'face properties to 'font-lock-face."
-  (-let [pos 0]
-    (while (setq next (next-single-property-change pos 'face text))
-      (put-text-property pos next 'font-lock-face
-                         (get-text-property pos 'face text) text)
-      (setq pos next))
-    (add-text-properties 0 (length text) '(fontified t) text)
-    text))
-
 (defun hy-shell-font-lock-spy-output (string)
   "Applies font-locking to hy outputted python blocks when `--spy' is enabled."
   (with-temp-buffer
-    (if (s-contains? hy--spy-delim-uuid string)
+    (if (s-contains? hy--shell-spy-delim-uuid string)
         (-let ((python-indent-guess-indent-offset
                 nil)
                ((python-block hy-output)
-                (s-split hy--spy-delim-uuid string)))
+                (s-split hy--shell-spy-delim-uuid string)))
           (python-mode)
           (insert python-block)
           (font-lock-default-fontify-buffer)
           (-> (buffer-string)
-             hy-shell-faces-to-font-lock-faces
+             hy--faces-to-font-lock-faces
              s-chomp
              (s-concat hy-shell-spy-delim hy-output)))
       string)))
 
 ;;;; Send strings
-
-(defvar hy-shell--output-filter-in-progress nil
-  "Whether we are waiting for output in `hy-shell-send-string-no-output'.")
 
 (defun hy-shell-comint-end-of-output-p (string)
   "Return non-nil if STRING ends with the input prompt."
@@ -765,17 +776,17 @@ a string or comment."
 (defun hy-shell-output-filter (string)
   "If STRING ends with input prompt then set filter in progress done."
   (when (hy-shell-comint-end-of-output-p string)
-    (setq hy-shell--output-filter-in-progress nil))
+    (setq hy--shell-output-filter-in-progress nil))
   "\n=> ")
 
 (defun hy--shell-send-string (string &optional process)
   "Internal shell send string functionality."
   (let ((process
          (or process (hy-shell-get-process)))
-        (hy-shell--output-filter-in-progress
+        (hy--shell-output-filter-in-progress
          t))
     (comint-send-string process string)
-    (while hy-shell--output-filter-in-progress
+    (while hy--shell-output-filter-in-progress
       (accept-process-output process))))
 
 (defun hy-shell-send-string-no-output (string &optional process)
@@ -793,6 +804,7 @@ a string or comment."
 ;;;; Shell creation
 
 (defun hy-shell-make-comint (cmd proc-name &optional show internal)
+  "Create a comint process PROC-NAME using CMD optionally INTERNAL and SHOW."
   (save-excursion
     (-let [proc-buffer-name
            (hy-shell-format-process-name proc-name internal)]
@@ -850,7 +862,7 @@ CMD defaults to the result of `hy-shell-calculate-command'."
   (interactive)
   (when (and (not (hy-shell-get-internal-process))
              (executable-find "hy"))
-    (-let [hy-shell-font-lock-enable
+    (-let [hy--shell-font-lock-enable
            nil]
       (prog1
           (-> (hy-shell-calculate-command t)
@@ -985,7 +997,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
      (s-chop-prefixes '("\"" "'" "\"'" "'\""))
      (s-chop-suffixes '("\"" "'" "\"'" "'\""))))
 
-(defun hy--send-eldoc (command)
+(defun hy--eldoc-send (command)
   "Send command for eldoc to internal process."
   (let ((output-buffer " *Comint Redirect Work Buffer*")
         (process (hy-shell-get-internal-process)))
@@ -1001,10 +1013,6 @@ Not all defuns can be argspeced - eg. C defuns.\"
       (set-buffer output-buffer)
 
       (-> (buffer-string) hy--eldoc-chomp-output hy--str-or-nil))))
-
-(defun hy--str-or-nil (text)
-  "If TEXT is non-blank, return TEXT else nil."
-  (and (not (s-blank? text)) text))
 
 (defun hy--eldoc-format-command (symbol &optional full raw)
   "Inspect SYMBOL with hydoc, optionally include FULL docs for a buffer."
@@ -1079,13 +1087,15 @@ Not all defuns can be argspeced - eg. C defuns.\"
   "Get eldoc or optionally buffer-formatted docs for `obj'."
   (when obj
     (hy--eldoc-fontify-text
-     (or (-> obj (hy--eldoc-format-command full) hy--send-eldoc)
-         (-> obj (hy--eldoc-format-command full t) hy--send-eldoc)))))
+     (or (-> obj (hy--eldoc-format-command full) hy--eldoc-send)
+         (-> obj (hy--eldoc-format-command full t) hy--eldoc-send)))))
 
 (defun hy-eldoc-documentation-function ()
   "Drives `eldoc-mode', retrieves eldoc msg string for inner-most symbol."
   (-> (hy--eldoc-get-inner-symbol)
      hy--eldoc-get-docs))
+
+;;; Describe thing at point
 
 (defun hy--docs-for-thing-at-point ()
   "Mirrors `hy-eldoc-documentation-function' formatted for a buffer, not a msg."
@@ -1268,7 +1278,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
               '(ansi-color-process-output))
 
   ;; Don't startup font lock for internal processes
-  (when hy-shell-font-lock-enable
+  (when hy--shell-font-lock-enable
     (setq-local comint-preoutput-filter-functions
                 `(xterm-color-filter hy-shell-font-lock-spy-output))
     (hy-shell-font-lock-turn-on))
