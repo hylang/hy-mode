@@ -981,7 +981,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defun hy--eldoc-chomp-output (text)
   "Chomp prefixes and suffixes from eldoc process output."
   (->> text
-     (s-chop-suffixes '("\n=> " "=> "))
+     (s-chop-suffixes '("\n=> " "=> " "\n"))
      (s-chop-prefixes '("\"" "'" "\"'" "'\""))
      (s-chop-suffixes '("\"" "'" "\"'" "'\""))))
 
