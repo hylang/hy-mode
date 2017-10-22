@@ -793,6 +793,20 @@ Constantly extracts current prompt text and executes and manages applying
          '(hy--shell-output-filter)]
     (hy--shell-send-string string process)))
 
+(defun hy--shell-send-async (string)
+  "Send STRING to internal hy process asynchronously."
+  (let ((output-buffer " *Comint Hy Redirect Work Buffer*")
+        (proc (hy-shell-get-process 'internal)))
+    (with-current-buffer (get-buffer-create output-buffer)
+      (erase-buffer)
+      (comint-redirect-send-command-to-process string output-buffer proc nil t)
+
+      (set-buffer (process-buffer proc))
+      (while (and (null comint-redirect-completed)
+                  (accept-process-output proc nil 100 t)))
+      (set-buffer output-buffer)
+      (buffer-string))))
+
 ;;;; Shell creation
 
 (defun hy--shell-calculate-interpreter-args ()
@@ -838,8 +852,8 @@ Constantly extracts current prompt text and executes and manages applying
   "Start an inferior hy process in the background for autocompletion."
   (interactive)
   (unless (executable-find "hy")
-    (message "Hy not found, activate a virtual environment with Hy to use Eldoc,
-Anaconda, and other hy-mode features."))
+    (message "Hy not found, activate a virtual environment containing Hy to use
+Eldoc, Anaconda, and other hy-mode features."))
 
   (when (and (not (hy-shell-get-process 'internal))
              (executable-find "hy"))
@@ -991,22 +1005,9 @@ Not all defuns can be argspeced - eg. C defuns.\"
      (s-chop-prefixes '("\"" "'" "\"'" "'\""))
      (s-chop-suffixes '("\"" "'" "\"'" "'\""))))
 
-(defun hy--eldoc-send (command)
-  "Send command for eldoc to internal process."
-  (let ((output-buffer " *Comint Redirect Work Buffer*")
-        (process (hy-shell-get-process 'internal)))
-    (with-current-buffer (get-buffer-create output-buffer)
-      (erase-buffer)
-
-      (comint-redirect-send-command-to-process
-       command output-buffer process nil t)
-
-      (set-buffer (process-buffer process))
-      (while (and (null comint-redirect-completed)
-                  (accept-process-output process nil 100 t)))
-      (set-buffer output-buffer)
-
-      (-> (buffer-string) hy--eldoc-chomp-output hy--str-or-nil))))
+(defun hy--eldoc-send (string)
+  "Send STRING for eldoc to internal process."
+  (-> string hy--shell-send-async hy--eldoc-chomp-output hy--str-or-nil))
 
 (defun hy--eldoc-format-command (symbol &optional full raw)
   "Inspect SYMBOL with hydoc, optionally include FULL docs for a buffer."
@@ -1045,35 +1046,30 @@ Not all defuns can be argspeced - eg. C defuns.\"
                    (concat (thing-at-point 'symbol) function)))))
         function))))
 
-(defun hy--eldoc-fontify-text (text)
-  "Fontify eldoc strings."
+(defun hy--fontify-text (text regexp &rest faces)
+  "Fontify portions of TEXT matching REGEXP with FACES."
   (when text
     (-each
-        (s-matched-positions-all (rx string-start
-                                     (1+ (not (any space ":")))
-                                     ":")
-                                 text)
+        (s-matched-positions-all regexp text)
       (-lambda ((beg . end))
-        (add-face-text-property beg end 'font-lock-keyword-face nil text)))
+        (--each faces
+          (add-face-text-property beg end it nil text))))))
 
-    (-each
-        (s-matched-positions-all (rx symbol-start
-                                     "&"
-                                     (1+ word))
-                                 text)
-      (-lambda ((beg . end))
-        (add-face-text-property beg end 'font-lock-type-face nil text)))
-
-    (-each
-        (s-matched-positions-all (rx "`"
-                                     (1+ (not space))
-                                     "`")
-                                 text)
-      (-lambda ((beg . end))
-        (add-face-text-property beg end 'font-lock-constant-face nil text)
-        (add-face-text-property beg end 'bold-italic nil text)))
-
-    text))
+(defun hy--eldoc-fontify-text (text)
+  "Fontify eldoc TEXT."
+  (let ((kwd-rx
+         (rx string-start (1+ (not (any space ":"))) ":"))
+        (kwargs-rx
+         (rx symbol-start "&" (1+ word)))
+        (quoted-args-rx
+         (rx "`" (1+ (not space)) "`")))
+    (hy--fontify-text
+     text kwd-rx 'font-lock-keyword-face)
+    (hy--fontify-text
+     text kwargs-rx 'font-lock-type-face)
+    (hy--fontify-text
+     text quoted-args-rx 'font-lock-constant-face 'bold-italic))
+  text)
 
 ;;;; Documentation Functions
 
