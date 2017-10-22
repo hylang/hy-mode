@@ -1119,8 +1119,12 @@ Not all defuns can be argspeced - eg. C defuns.\"
       (forward-line)
 
       (insert "------\n")
+      (fill-region (point) (point-max))
 
-      (fill-region (point) (point-max)))))
+      ;; Eventually make hyconda-view-minor-mode, atm this is sufficient
+      (local-set-key "q" 'quit-window)
+      (when (fboundp 'evil-local-set-key)
+        (evil-local-set-key 'normal "q" 'quit-window)))))
 
 ;;; Autocompletion
 
