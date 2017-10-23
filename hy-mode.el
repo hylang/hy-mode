@@ -1167,20 +1167,14 @@ Not all defuns can be argspeced - eg. C defuns.\"
   (-when-let* ((command (hy--company-format-str string))
                (candidates (hy--shell-send-async command))
                (matches (s-match-strings-all hy--company-regexp candidates)))
-
-    ;; Get match-data-1 for each match
-    (-select-column 1 matches)))
+    (-select-column 1 matches)))  ; Get match-data-1 for each match
 
 (defun company-hy (command &optional arg &rest ignored)
   (interactive (list 'interactive))
   (cl-case command
     (prefix (company-grab-symbol))
-
-    (candidates (cons :async
-                      (lambda (callback)
-                        (->> arg (hy--company-candidates) (funcall callback)))))
-
-    (meta (format "%s" (-> arg hy--eldoc-get-docs hy--str-or-empty)))))
+    (candidates (hy--company-candidates arg))
+    (meta (-> arg hy--eldoc-get-docs hy--str-or-empty))))
 
 ;;; Keybindings
 
