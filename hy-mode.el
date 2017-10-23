@@ -1145,7 +1145,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
 (defconst hy--company-regexp
   (rx "'"
-      (group (1+ (or word (any "!@#$%^&*-_+=?~`'<>,.\|"))))
+      (group (1+ (not (any ",]"))))
       "'"
       (any "," "]"))
   "Regex to extra candidates from --HYCOMPANY.")
@@ -1154,7 +1154,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
   "Format STRING to send to hy for completion candidates."
   (when string
     (format "(.%s --HYCOMPANY \"%s\")"
-            (cond ((s-starts-with? "#" string)  ; Hy not recording tag macros atm
+            (cond ((s-starts-with? "#" string)  ; Tag matches broken in Hy atm
                    "tag-matches")
                   ((s-contains? "." string)
                    "attr-matches")
@@ -1299,8 +1299,11 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
   ;; Don't startup font lock for internal processes
   (when hy--shell-font-lock-enable
-    (setq-local comint-preoutput-filter-functions
-                `(xterm-color-filter hy--shell-font-lock-spy-output))
+    (if (fboundp 'xterm-color-filter)
+        (setq-local comint-preoutput-filter-functions
+                    `(xterm-color-filter hy--shell-font-lock-spy-output))
+      (setq-local comint-preoutput-filter-functions
+                  `(hy--shell-font-lock-spy-output)))
     (hy--shell-font-lock-turn-on))
 
   ;; Fixes issue with "=>", no side effects from this advice
