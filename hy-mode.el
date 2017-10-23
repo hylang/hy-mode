@@ -441,6 +441,10 @@ will indent special. Exact forms require the symbol and def exactly match.")
   "If TEXT is non-blank, return TEXT else nil."
   (and (not (s-blank? text)) text))
 
+(defun hy--str-or-empty (text)
+  "Return TEXT or the empty string it TEXT is nil."
+  (if text text ""))
+
 (defun hy--current-form-string ()
   "Get form containing current point as string."
   (save-excursion
@@ -1170,12 +1174,13 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defun company-hy (command &optional arg &rest ignored)
   (interactive (list 'interactive))
   (cl-case command
-    (interactive (company-begin-backend 'hy-company))
     (prefix (company-grab-symbol))
 
     (candidates (cons :async
                       (lambda (callback)
-                        (->> arg (hy--company-candidates) (funcall callback)))))))
+                        (->> arg (hy--company-candidates) (funcall callback)))))
+
+    (meta (format "%s" (-> arg hy--eldoc-get-docs hy--str-or-empty)))))
 
 ;;; Keybindings
 
