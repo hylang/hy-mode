@@ -1015,9 +1015,19 @@ Not all defuns can be argspeced - eg. C defuns.\"
      (s-chop-prefixes '("\"" "'" "\"'" "'\""))
      (s-chop-suffixes '("\"" "'" "\"'" "'\""))))
 
+(defun hy--eldoc-remove-syntax-errors (text)
+  "Quick fix to address parsing an incomplete dot-dsl."
+  (if (< 1 (-> text s-lines length))
+      ""
+    text))
+
 (defun hy--eldoc-send (string)
-  "Send STRING for eldoc to internal process."
-  (-> string hy--shell-send-async hy--eldoc-chomp-output hy--str-or-nil))
+  "Send STRING for eldoc to internal process returning output."
+  (-> string
+     hy--shell-send-async
+     hy--eldoc-chomp-output
+     hy--eldoc-remove-syntax-errors
+     hy--str-or-nil))
 
 (defun hy--eldoc-format-command (symbol &optional full raw)
   "Inspect SYMBOL with hydoc, optionally include FULL docs for a buffer."
