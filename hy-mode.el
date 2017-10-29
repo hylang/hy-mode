@@ -834,6 +834,21 @@ Constantly extracts current prompt text and executes and manages applying
       (set-buffer output-buffer)
       (buffer-string))))
 
+;;;; Update internal process
+
+(defun hy--shell-update-imports ()
+  "Send imports/requires to the current internal process.
+
+This is currently done manually as I'm not sure of the consequences of doing
+so automatically through eg. regular intervals. Sending the imports allows
+Eldoc to function (and will allow autocompletion once modules are completed).
+
+Right now the keybinding is not publically exposed."
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward (rx "(" (0+ space) (or "import" "require")) nil t)
+      (hy-shell-send-string-internal (hy--current-form-string)))))
+
 ;;;; Shell creation
 
 (defun hy--shell-calculate-interpreter-args ()
