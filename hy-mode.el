@@ -800,7 +800,7 @@ Constantly extracts current prompt text and executes and manages applying
       (accept-process-output process))))
 
 (defun hy-shell-send-string-no-output (string &optional process internal)
-  "Send STRING to hy PROCESS. Return the output."
+  "Send STRING to hy PROCESS and inhibit printing output."
   (-let [comint-preoutput-filter-functions
          '(hy--shell-output-filter)]
     (hy--shell-send-string string process internal)))
@@ -815,7 +815,7 @@ Constantly extracts current prompt text and executes and manages applying
                                          hy-company-setup-code)))
 
 (defun hy-shell-send-string (string &optional process)
-  "Send STRING to hy PROCESS and inhibit printing output. Return the output."
+  "Send STRING to hy PROCESS."
   (-let [comint-output-filter-functions
          '(hy--shell-output-filter)]
     (hy--shell-send-string string process)))
