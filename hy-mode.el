@@ -1267,6 +1267,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defun hy--company-candidates (string)
   "Get candidates for completion of STRING."
   (-when-let* ((command (hy--company-format-str string))
+               (_ (not (s-starts-with? "." string)))  ; dot dsl not impl yet
                (candidates (hy--shell-send-async command))
                (matches (s-match-strings-all hy--company-regexp candidates)))
     (-select-column 1 matches)))  ; Get match-data-1 for each match
