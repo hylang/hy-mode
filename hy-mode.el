@@ -108,6 +108,10 @@ will indent special. Exact forms require the symbol and def exactly match.")
     table)
   "Hy mode's syntax table.")
 
+(defconst inferior-hy-mode-syntax-table
+  (copy-syntax-table hy-mode-syntax-table)
+  "Inferior Hy mode's syntax tables inherits Hy mode's table.")
+
 ;;; Keywords
 
 (defconst hy--kwds-anaphorics
