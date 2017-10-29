@@ -1183,8 +1183,8 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
 (defconst hy-company-setup-code
   "(import builtins)
-(import ast)
-(import [hy.lex.parser [hy-symbol-unmangle]])
+(import hy)
+(import [hy.lex.parser [hy-symbol-unmangle hy-symbol-mangle]])
 (import [hy.macros [-hy-macros]])
 (import [hy.compiler [-compile-table]])
 (import [hy.core.shadow [*]])
@@ -1249,7 +1249,52 @@ Not all defuns can be argspeced - eg. C defuns.\"
   (if obj
       (list (map (fn [x] (+ obj \".\" x))
                  choices))
-      choices))"
+      choices))
+
+(defn --HYANNOTATE-search-builtins [text]
+  (setv text (hy-symbol-mangle text))
+  (try
+    (do (setv obj (builtins.eval text))
+        (setv obj-name obj.--class--.--name--)
+        (cond [(in obj-name [\"function\" \"builtin_function_or_method\"])
+               \"def\"]
+              [(= obj-name \"type\")
+               \"class\"]
+              [(= obj-name \"module\")
+               \"module\"]
+              [True \"instance\"]))
+    (except [e Exception]
+      None)))
+
+(defn --HYANNOTATE-search-compiler [text]
+  (in text -compile-table))
+
+(defn --HYANNOTATE-search-shadows [text]
+  (->> hy.core.shadow
+     dir
+     (map hy-symbol-unmangle)
+     (in text)))
+
+(defn --HYANNOTATE-search-macros [text]
+  (setv text (hy-symbol-mangle text))
+  (for [macro-dict (.values -hy-macros)]
+    (when (in text macro-dict)
+      (return (get macro-dict text))))
+  None)
+
+(defn --HYANNOTATE [x]
+  ;; only builtins format on case basis
+  (setv annotation (--HYANNOTATE-search-builtins x))
+  (when (and (not annotation) (--HYANNOTATE-search-shadows x))
+    (setv annotation \"shadowed\"))
+  (when (and (not annotation) (--HYANNOTATE-search-compiler x))
+    (setv annotation \"compiler\"))
+  (when (and (not annotation) (--HYANNOTATE-search-macros x))
+    (setv annotation \"macro\"))
+
+  (if annotation
+      (.format \"<{} {}>\" annotation x)
+      \"\"))"
   "Autocompletion setup code to send to the internal process.")
 
 (defconst hy--company-regexp
@@ -1264,6 +1309,20 @@ Not all defuns can be argspeced - eg. C defuns.\"
   (when string
     (format "(--HYCOMPANY \"%s\")" string)))
 
+(defun hy--company-format-annotate-str (string)
+  "Format STRING to send to hy for its annotation."
+  (when string
+    (format "(--HYANNOTATE \"%s\")" string)))
+
+(defun hy--company-annotate (candidate)
+  "Get company annotation for CANDIDATE string."
+  (-when-let* ((command (hy--company-format-annotate-str candidate))
+               (annotation (hy--shell-send-async command)))
+    (->> annotation
+       s-chomp
+       (s-chop-prefix "'")
+       (s-chop-suffix "'"))))
+
 (defun hy--company-candidates (string)
   "Get candidates for completion of STRING."
   (-when-let* ((command (hy--company-format-str string))
@@ -1277,6 +1336,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
   (cl-case command
     (prefix (company-grab-symbol))
     (candidates (hy--company-candidates arg))
+    (annotation (-> arg hy--company-annotate))
     (meta (-> arg hy--eldoc-get-docs hy--str-or-empty))))
 
 ;;; Keybindings
