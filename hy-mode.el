@@ -724,12 +724,12 @@ a string or comment."
         (start-pos (or start-pos 0)))
     (while (and (/= pos (length text))
                 (setq next (next-single-property-change pos 'face text)))
-      (let* ((plist (text-properties-at pos text))
-             (plist (-if-let (face (plist-get plist 'face))
-                        (progn (plist-put plist 'face nil)  ; Swap face
-                               (plist-put plist 'font-lock-face face))
-                      plist)))
-        (set-text-properties (+ start-pos pos) (+ start-pos next) plist)
+      (-let* ((plist (text-properties-at pos text))
+              ((&plist 'face face) plist))
+        (set-text-properties (+ start-pos pos) (+ start-pos next)
+                             (-doto plist
+                               (plist-put 'face nil)
+                               (plist-put 'font-lock-face face)))
         (setq pos next)))))
 
 (defun hy--shell-fontify-prompt-post-command-hook ()
@@ -1075,32 +1075,28 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defun hy--eldoc-get-inner-symbol ()
   "Traverse and inspect innermost sexp and return formatted string for eldoc."
   (save-excursion
-    (-when-let* ((_ (hy-shell-get-process 'internal))
-                 (state (syntax-ppss))
-                 (start-pos (hy--sexp-inermost-char state))
-                 (_ (progn (goto-char start-pos)
-                           (not (hy--not-function-form-p))))
-                 (function (progn (forward-char)
-                                  (thing-at-point 'symbol))))
+    (-when-let (function
+                (and (hy-shell-get-process 'internal)
+                     (-some-> (syntax-ppss) hy--sexp-inermost-char goto-char)
+                     (not (hy--not-function-form-p))
+                     (progn (forward-char) (thing-at-point 'symbol))))
 
       ;; Attribute method call (eg. ".format str") needs following sexp
-      (if (s-starts-with? "." function)
-          (when (ignore-errors (forward-sexp) (forward-char) t)
-            (pcase (char-after)
-              ;; Can't send just .method to eldoc
-              (?\) (setq function nil))
-              (?\s (setq function nil))
-              (?\C-j (setq function nil))  ; newline
+      (if (and (s-starts-with? "." function)
+               (ignore-errors (forward-sexp) (forward-char) t))
+          (pcase (char-after)
+            ;; Can't send just .method to eldoc
+            ((or ?\) ?\s ?\C-j) nil)
 
-              ;; Dot dsl doesn't work on literals
-              (?\[ (concat "list" function))
-              (?\{ (concat "dict" function))
-              (?\" (concat "str" function))
+            ;; Dot dsl doesn't work on literals
+            (?\[ (concat "list" function))
+            (?\{ (concat "dict" function))
+            (?\" (concat "str" function))
 
-              ;; Otherwise complete the dot dsl
-              (_ (progn
-                   (forward-char)
-                   (concat (thing-at-point 'symbol) function)))))
+            ;; Otherwise complete the dot dsl
+            (_ (progn
+                 (forward-char)
+                 (concat (thing-at-point 'symbol) function))))
         function))))
 
 (defun hy--fontify-text (text regexp &rest faces)
@@ -1152,15 +1148,15 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
 (defun hy--format-docs-for-buffer (text)
   "Format raw hydoc TEXT for inserting into hyconda buffer."
-  (when text
-    (-let [kwarg-newline-regexp
-           (rx ","
-               (1+ (not (any "," ")")))
-               (group-n 1 "\\\n")
-               (1+ (not (any "," ")"))))]
-      (--> text
-         (s-replace "\\n" "\n" it)
-         (replace-regexp-in-string kwarg-newline-regexp "newline" it nil t 1)))))
+  (-let [kwarg-newline-regexp
+         (rx ","
+             (1+ (not (any "," ")")))
+             (group-n 1 "\\\n")
+             (1+ (not (any "," ")"))))]
+    (-some--> text
+            (s-replace "\\n" "\n" it)
+            (replace-regexp-in-string kwarg-newline-regexp
+                                      "newline" it nil t 1))))
 
 (defun hy-describe-thing-at-point ()
   "Implement shift-k docs lookup for `spacemacs/evil-smart-doc-lookup'."
@@ -1310,37 +1306,36 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
 (defun hy--company-format-str (string)
   "Format STRING to send to hy for completion candidates."
-  (when string
-    (format "(--HYCOMPANY \"%s\")" string)))
+  (-some->> string (format "(--HYCOMPANY \"%s\")" )))
 
 (defun hy--company-format-annotate-str (string)
   "Format STRING to send to hy for its annotation."
-  (when string
-    (format "(--HYANNOTATE \"%s\")" string)))
+  (-some->> string (format "(--HYANNOTATE \"%s\")")))
 
 (defun hy--company-annotate (candidate)
   "Get company annotation for CANDIDATE string."
-  (-when-let* ((command (hy--company-format-annotate-str candidate))
-               (annotation (hy--shell-send-async command)))
-    (->> annotation
-       s-chomp
-       (s-chop-prefix "'")
-       (s-chop-suffix "'"))))
+  (-some->> candidate
+          hy--company-format-annotate-str
+          hy--shell-send-async
+          s-chomp
+          (s-chop-prefix "'")
+          (s-chop-suffix "'")))
 
 (defun hy--company-candidates (string)
   "Get candidates for completion of STRING."
-  (-when-let* ((command (hy--company-format-str string))
-               (_ (not (s-starts-with? "." string)))  ; dot dsl not impl yet
-               (candidates (hy--shell-send-async command))
-               (matches (s-match-strings-all hy--company-regexp candidates)))
-    (-select-column 1 matches)))  ; Get match-data-1 for each match
+  (unless (s-starts-with? "." string)
+    (-some->> string
+            hy--company-format-str
+            hy--shell-send-async
+            (s-match-strings-all hy--company-regexp)
+            (-select-column 1))))
 
 (defun company-hy (command &optional arg &rest ignored)
   (interactive (list 'interactive))
   (cl-case command
     (prefix (company-grab-symbol))
     (candidates (hy--company-candidates arg))
-    (annotation (-> arg hy--company-annotate))
+    (annotation (hy--company-annotate arg))
     (meta (-> arg hy--eldoc-get-docs hy--str-or-empty))))
 
 ;;; Keybindings
