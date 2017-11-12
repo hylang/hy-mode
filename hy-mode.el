@@ -477,10 +477,19 @@ the loop will terminate without error and the prior lines indentation is it."
           (while (hy--anything-before? (point))
             (setq last-sexp-start (prog1
                                       ;; Indentation should ignore quote chars
-                                      (if (-contains? '(?\' ?\` ?\~ ?\#)
-                                                      (char-before))
-                                          (1- (point))
-                                        (point))
+                                      (cond
+                                       ((-contains? '(?\' ?\` ?\~ ?\#)
+                                                    (char-before))
+                                        (1- (point)))
+
+                                       ((and (eq ?\@ (char-before))
+                                             (save-excursion
+                                               (forward-char -1)
+                                               (eq ?\~ (char-before))))
+                                        (- (point) 2))
+
+                                       (t (point)))
+
                                     (backward-sexp))))
           t)
         (current-column)
