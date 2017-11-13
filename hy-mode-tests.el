@@ -16,7 +16,7 @@
 
 ;;; Assertions
 
-(defun hy--assert-indent (text)
+(defun hy--assert-indented (text)
   "Assert indenting the left-trimmed version of TEXT matches TEXT."
   (with-temp-buffer
     (-let [no-indents
@@ -35,7 +35,7 @@
 
 (ert-deftest test--indent--normal--standard ()
   :tags '(indentation)
-  (hy--assert-indent "
+  (hy--assert-indented "
 (a
   b)
 (a b
@@ -47,7 +47,7 @@
 
 (ert-deftest test--indent--normal--empty-lines ()
   :tags '(indentation)
-  (hy--assert-indent "
+  (hy--assert-indented "
 (a
 
   b)
@@ -59,13 +59,13 @@
 
 (ert-deftest test--indent--normal--many-forms ()
   :tags '(indentation)
-  (hy--assert-indent "
+  (hy--assert-indented "
 (a b
    (d e
       f))
 (a b c
    d
-   e f
+   (e f)
    g)
 "))
 
@@ -73,7 +73,7 @@
 
 (ert-deftest test--indent--normal--quote-chars ()
   :tags '(indentation)
-  (hy--assert-indent "
+  (hy--assert-indented "
 (a `b
    c)
 (a 'b
@@ -87,7 +87,7 @@
 
 (ert-deftest test--indent--normal--prefix-chars ()
   :tags '(indentation)
-  (hy--assert-indent "
+  (hy--assert-indented "
 (a .b
    c)
 (a #b
@@ -102,7 +102,7 @@
 
 (ert-deftest test--indent--normal--opens-with-form ()
   :tags '(indentation)
-  (hy--assert-indent "
+  (hy--assert-indented "
 ((a b)
   c)
 ((a b) c
@@ -110,21 +110,24 @@
 "))
 
 
-;; FAIL the no argument case
-;; (ert-deftest test--indent--normal--opens-with-tag ()
-;;   :tags '(indentation)
-;;   (hy--assert-indent
-;;    "(#ab"
-;;    "  c)"
-;;    "(#a b"
-;;    "    c)"
-;;    ))
+;; FAIL Expected
+;; (#a
+;;   c)
+;; Actual has 1+ indentation
+;; (#a
+;;    b)
+(ert-deftest test--indent--normal--opens-with-tag ()
+  :tags '(indentation)
+  (hy--assert-indented "
+(#a b
+    c)
+"))
 
 ;;;; List Likes Indent
 
 (ert-deftest test--indent--lists--brackets ()
   :tags '(indentation)
-  (hy--assert-indent "
+  (hy--assert-indented "
 [a
  b]
 [a b
@@ -136,7 +139,7 @@
 
 (ert-deftest test--indent--lists--squiggly-brackets ()
   :tags '(indentation)
-  (hy--assert-indent "
+  (hy--assert-indented "
 {a
  b}
 {a b
@@ -149,7 +152,7 @@
 
 (ert-deftest test--indent--symbols--comma ()
   :tags '(indentation)
-  (hy--assert-indent "
+  (hy--assert-indented "
 (,
  a)
 (, a
@@ -161,7 +164,7 @@
 
 (ert-deftest test--indent--symbols--vertical-bar ()
   :tags '(indentation)
-  (hy--assert-indent "
+  (hy--assert-indented "
 (|
  a)
 (| a
@@ -176,7 +179,7 @@
   :tags '(indentation)
   (-let [hy-indent-special-forms
          '(:exact ("foo") :fuzzy ())]
-    (hy--assert-indent "
+    (hy--assert-indented "
 (foo
   a)
 (foo a
@@ -190,7 +193,7 @@
   :tags '(indentation)
   (-let [hy-indent-special-forms
          '(:exact () :fuzzy ("foo"))]
-    (hy--assert-indent "
+    (hy--assert-indented "
 (foo
   a)
 (foo a
@@ -203,16 +206,16 @@
 
 (ert-deftest test--bracket-strings ()
   :tags '(context-syntax indentation)
-  (hy--assert-indent "
+  (hy--assert-indented "
 (#[[hello
 ok]])
 
 (#[delim[hello
 ok]delim])
 
-(#[delim[hello
+(#[delim-a[hello
 
-ok]delim])
+ok]delim-b])
 
 (#[missing second bracket
    so not a string])
