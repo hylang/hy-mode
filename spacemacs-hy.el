@@ -5,7 +5,7 @@
 
 ;; Autocompletion now fit for use, not all symbols complete, hy bug
 (spacemacs|add-company-backends
-  :backends hy-company
+  :backends company-hy
   :modes hy-mode inferior-hy-mode)
 
 (spacemacs/declare-prefix-for-mode 'hy-mode "me" "eval")

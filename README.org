@@ -2,7 +2,7 @@ An Emacs major mode for [[http://docs.hylang.org/en/stable/][Hy]], lisp python, 
 
 1. Syntax Highlighting
 2. Auto-completion
-3. Eldoc
+3. Eldoc and shift-K documentation lookups
 4. Shell integration
 5. New Hy constructs like bracket strings
 

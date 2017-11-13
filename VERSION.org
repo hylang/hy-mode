@@ -1,33 +1,42 @@
 * Version 1.0.3 - in progress
-** DONE If indented like normal function
+** Eldoc supported
+** Autocompletion (Company) supported
+** Spacemacs shift-K documentation lookup supported
+** Spacemacs bindings
+** Indentation
+*** DONE If indented like normal function
    CLOSED: [2017-09-17 Sun 11:04]
-** DONE Tag macro indentation fixed
+*** DONE Tag macro indentation fixed
    CLOSED: [2017-09-17 Sun 11:04]
-** DONE Tuple indentation within brackets
+*** DONE Tuple indentation within brackets
    CLOSED: [2017-09-17 Sun 11:04]
-** DONE #52: back- slurp and barf don't recognize unquote-splice
-   CLOSED: [2017-09-17 Sun 11:10]
-** DONE Symbols now recognized with dashes
-   CLOSED: [2017-09-17 Sun 11:11]
-** DONE #55: | behaves strangely
-   CLOSED: [2017-09-17 Sun 11:23]
-** DONE #54: Bracket string syntax
+*** DONE Forms opening with parenthesis indent
+    CLOSED: [2017-10-28 Sat 19:28]
+** Syntax
+*** DONE #54: Bracket string syntax
    CLOSED: [2017-09-20 Wed 16:15]
-** DONE #46: Inferior Lisp colored output
-   CLOSED: [2017-09-22 Fri 13:57]
+*** DONE #52: back- slurp and barf don't recognize unquote-splice
+   CLOSED: [2017-09-17 Sun 11:10]
+*** DONE Symbols now recognized with dashes
+   CLOSED: [2017-09-17 Sun 11:11]
+*** DONE #55: | behaves strangely
+   CLOSED: [2017-09-17 Sun 11:23]
+** Shell
+*** DONE #46: Inferior Lisp colored output
+    CLOSED: [2017-09-22 Fri 13:57]
 
-Need to investigate.
+ Need to investigate.
 
-** DONE #49: Colored input in inferior-lisp
+*** DONE #49: Colored input in inferior-lisp
    CLOSED: [2017-09-22 Fri 13:57]
-** DONE #51: Inferior lisp backtick inserts apostrophe
+*** DONE #51: Inferior lisp backtick inserts apostrophe
    CLOSED: [2017-09-22 Fri 13:57]
-** DONE Highlight python spy output in shell
-** DONE Highlight line being currently entered in shell
-** DONE Proper run/switch to shell ", e i" or ", e e"
-** DONE Send to buffer shell command ", e b"
-** DONE lisp state shortcut in shell command ", ,"
-** DONE Eldoc support
+*** DONE Highlight python spy output in shell
+*** DONE Proper run/switch to shell ", e i" or ", e e"
+*** DONE Send to buffer shell command ", e b"
+*** DONE lisp state shortcut in shell command ", ,"
+** Highlighting
+*** TODO %i formatting of new lambda syntax
 * Version 1.0.2 - Indentation finalized
 ** DONE Highlight variable names in setv/def (only first name)
    CLOSED: [2017-09-03 Sun 11:42]
