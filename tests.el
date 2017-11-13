@@ -3,6 +3,17 @@
 (require 'ert)
 (require 'hy-mode)
 
+;; - TESTED -
+;; Indentation
+;; Bracket string literals
+
+;; - REMAINING -
+;; Shell
+;; Font-locks
+;; Eldoc
+;; Autocompletion
+;; font-lock-syntactic-face-function
+
 ;;; Assertions
 
 (defun hy--assert-indent (text)
@@ -187,3 +198,22 @@
 (fooo a
   b)
 ")))
+
+;;; Bracket String Literals
+
+(ert-deftest test--bracket-strings ()
+  :tags '(context-syntax indentation)
+  (hy--assert-indent "
+(#[[hello
+ok]])
+
+(#[delim[hello
+ok]delim])
+
+(#[delim[hello
+
+ok]delim])
+
+(#[missing second bracket
+   so not a string])
+"))
