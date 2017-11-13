@@ -1,4 +1,4 @@
-;;; ERT Tests for Hy-mode  -*- lexical-binding: t -*-
+;;; Tests for Hy-mode  -*- lexical-binding: t -*-
 
 (require 'ert)
 (require 'hy-mode)
@@ -33,7 +33,7 @@
 ;;;; Normal Indent
 ;;;;; Standard Cases
 
-(ert-deftest test--indent--normal--standard ()
+(ert-deftest indent::normal-indent ()
   :tags '(indentation)
   (hy--assert-indented "
 (a
@@ -45,7 +45,7 @@
 "))
 
 
-(ert-deftest test--indent--normal--empty-lines ()
+(ert-deftest indent::with-empty-lines ()
   :tags '(indentation)
   (hy--assert-indented "
 (a
@@ -57,7 +57,7 @@
 "))
 
 
-(ert-deftest test--indent--normal--many-forms ()
+(ert-deftest indent::with-many-forms ()
   :tags '(indentation)
   (hy--assert-indented "
 (a b
@@ -71,7 +71,7 @@
 
 ;;;;; Syntax Cases
 
-(ert-deftest test--indent--normal--quote-chars ()
+(ert-deftest indent::quote-chars ()
   :tags '(indentation)
   (hy--assert-indented "
 (a `b
@@ -85,7 +85,7 @@
 "))
 
 
-(ert-deftest test--indent--normal--prefix-chars ()
+(ert-deftest indent::prefix-chars ()
   :tags '(indentation)
   (hy--assert-indented "
 (a .b
@@ -100,7 +100,7 @@
 
 ;;;;; Special Form Opener Cases
 
-(ert-deftest test--indent--normal--opens-with-form ()
+(ert-deftest indent::form-as-opener ()
   :tags '(indentation)
   (hy--assert-indented "
 ((a b)
@@ -116,16 +116,16 @@
 ;; Actual has 1+ indentation
 ;; (#a
 ;;    b)
-(ert-deftest test--indent--normal--opens-with-tag ()
+(ert-deftest indent::tag-as-opener ()
   :tags '(indentation)
   (hy--assert-indented "
 (#a b
     c)
 "))
 
-;;;; List Likes Indent
+;;;; Literals Indent
 
-(ert-deftest test--indent--lists--brackets ()
+(ert-deftest indent::list-literals ()
   :tags '(indentation)
   (hy--assert-indented "
 [a
@@ -137,7 +137,7 @@
 "))
 
 
-(ert-deftest test--indent--lists--squiggly-brackets ()
+(ert-deftest indent::dict-literals ()
   :tags '(indentation)
   (hy--assert-indented "
 {a
@@ -150,7 +150,7 @@
 
 ;;;; Symbol-likes Indent
 
-(ert-deftest test--indent--symbols--comma ()
+(ert-deftest indent::tuple-constructor ()
   :tags '(indentation)
   (hy--assert-indented "
 (,
@@ -162,7 +162,7 @@
 "))
 
 
-(ert-deftest test--indent--symbols--vertical-bar ()
+(ert-deftest indent::pipe-or-operator ()
   :tags '(indentation)
   (hy--assert-indented "
 (|
@@ -175,7 +175,7 @@
 
 ;;;; Special Forms Indent
 
-(ert-deftest test--indent--special--exact ()
+(ert-deftest indent::special-exact-forms ()
   :tags '(indentation)
   (-let [hy-indent-special-forms
          '(:exact ("foo") :fuzzy ())]
@@ -189,7 +189,7 @@
 ")))
 
 
-(ert-deftest test--indent--special--fuzzy ()
+(ert-deftest indent::special-fuzzy-forms ()
   :tags '(indentation)
   (-let [hy-indent-special-forms
          '(:exact () :fuzzy ("foo"))]
@@ -204,7 +204,7 @@
 
 ;;; Bracket String Literals
 
-(ert-deftest test--bracket-strings ()
+(ert-deftest context-sensitive-syntax::bracket-strings ()
   :tags '(context-syntax indentation)
   (hy--assert-indented "
 (#[[hello
