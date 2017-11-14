@@ -459,6 +459,19 @@ b]+-])
 ;;   (hy-with-hy-mode
 ;;    (hy--assert-faces "(«k:defn» «f:foo» [] «d:\"bar\"» «s:\"baz\"»)")))
 
+;;; Keybindings
+
+(ert-deftest keybinding::insert-pdbs ()
+  :tags '(misc)
+  (hy-with-hy-mode
+   (hy-insert-pdb)
+   (should (s-equals? (buffer-string)
+                      "(do (import pdb) (pdb.set-trace))"))
+   (delete-region (point-min) (point-max))
+   (hy-insert-pdb-threaded)
+   (should (s-equals? (buffer-string)
+                      "((fn [x] (import pdb) (pdb.set-trace) x))"))))
+
 ;;; Misc Tests
 
 (ert-deftest misc::current-form-string-extracts-bracket-likes ()
