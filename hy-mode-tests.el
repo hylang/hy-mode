@@ -7,10 +7,10 @@
 ;; - TESTED -
 ;; Indentation
 ;; Font-locks
+;; Syntax
 ;; Context Sensitive Syntax
 
 ;; - REMAINING -
-;; Syntax
 ;; Shell
 ;; Eldoc
 ;; Autocompletion
@@ -19,18 +19,22 @@
 ;;; Assertions
 ;;;; Indentation
 
+(defmacro with-hy-mode (&rest forms)
+  `(with-temp-buffer
+     (hy-mode)
+     ,@forms))
+
 (defun hy--assert-indented (text)
   "Assert indenting the left-trimmed version of TEXT matches TEXT."
-  (with-temp-buffer
-    (-let [no-indents
-           (->> text s-lines (-map 's-trim-left) (s-join "\n"))]
-      (hy-mode)
-      (insert no-indents)
-      (indent-region (point-min) (point-max))
+  (with-hy-mode
+   (-let [no-indents
+          (->> text s-lines (-map 's-trim-left) (s-join "\n"))]
+     (insert no-indents)
+     (indent-region (point-min) (point-max))
 
-      (-> (buffer-substring-no-properties (point-min) (point-max))
-         (s-equals? text)
-         should))))
+     (-> (buffer-substring-no-properties (point-min) (point-max))
+        (s-equals? text)
+        should))))
 
 ;;;; Text Properties
 
@@ -228,28 +232,6 @@
   b)
 ")))
 
-;;; Bracket String Literals
-
-(ert-deftest context-sensitive-syntax::bracket-strings ()
-  :tags '(context-syntax indentation)
-  (hy--assert-indented "
-(#[[a
-b]])
-
-(#[[a
-
-b]])
-
-(#[-[a
-b]-])
-
-(#[-+[a
-b]+-])
-
-(#[no second bracket
-   => not a string])
-"))
-
 ;;; Font Lock Tests
 ;;;; Definitions
 
@@ -340,3 +322,61 @@ b]+-])
 (ert-deftest font-lock::unpacking-generalizations ()
   :tags '(font-lock display)
   (assert-faces "«k:#*» args «k:#**» kwargs"))
+
+;;; Syntax
+;;;; Symbols
+
+(ert-deftest syntax::symbols-include-dots ()
+  :tags '(syntax)
+  (with-hy-mode
+   (insert "foo.bar")
+   (should (s-equals? "foo.bar" (thing-at-point 'symbol)))))
+
+
+(ert-deftest syntax::symbols-include-dashes ()
+  :tags '(syntax)
+  (with-hy-mode
+   (insert "foo-bar")
+   (should (s-equals? "foo-bar" (thing-at-point 'symbol)))))
+
+
+(ert-deftest syntax::symbols-include-tags ()
+  :tags '(syntax)
+  (with-hy-mode
+   (insert "#foo")
+   (should (s-equals? "#foo" (thing-at-point 'symbol)))))
+
+
+(ert-deftest syntax::symbols-exclude-quote-chars ()
+  :tags '(syntax)
+  (with-hy-mode
+   (insert "'foo")
+   (should (s-equals? "foo" (thing-at-point 'symbol)))
+   (insert "`foo")
+   (should (s-equals? "foo" (thing-at-point 'symbol)))
+   (insert "~foo")
+   (should (s-equals? "foo" (thing-at-point 'symbol)))
+   (insert "~@foo")
+   (should (s-equals? "foo" (thing-at-point 'symbol)))))
+
+;;;; Context Sensitive
+
+(ert-deftest syntax::bracket-strings ()
+  :tags '(context-syntax indentation)
+  (hy--assert-indented "
+(#[[a
+b]])
+
+(#[[a
+
+b]])
+
+(#[-[a
+b]-])
+
+(#[-+[a
+b]+-])
+
+(#[no second bracket
+   => not a string])
+"))

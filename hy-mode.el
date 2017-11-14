@@ -336,10 +336,9 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
 (defconst hy--font-lock-kwds-imports
   (list
-   (rx
-    symbol-start
-    (or "import" "require" ":as")
-    symbol-end)
+   (rx symbol-start
+       (or "import" "require" ":as")
+       symbol-end)
 
    '(0 font-lock-keyword-face))
 
