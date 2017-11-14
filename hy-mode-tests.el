@@ -55,6 +55,14 @@ See `faceup-face-short-alist' for faceup's face aliases."
   "Assert text props of TEXT according to `faceup' markup."
   (should (hy--font-lock-test text)))
 
+
+(defun hy--assert-current-form-string (form-string)
+  "Assert FORM-STRING is extracted by `hy--current-form-string'."
+  (hy-with-hy-mode
+   (insert form-string)
+   (forward-char -1)
+   (should (s-equals? (s-concat form-string "\n") (hy--current-form-string)))))
+
 ;;; Indentation Tests
 ;;;; Normal Indent
 ;;;;; Standard Cases
@@ -450,3 +458,21 @@ b]+-])
 ;;   :tags '(font-lock)
 ;;   (hy-with-hy-mode
 ;;    (hy--assert-faces "(«k:defn» «f:foo» [] «d:\"bar\"» «s:\"baz\"»)")))
+
+;;; Misc Tests
+
+(ert-deftest misc::current-form-string-extracts-bracket-likes ()
+  :tags '(misc)
+  (hy--assert-current-form-string "[foo]")
+  (hy--assert-current-form-string "{foo bar}"))
+
+
+(ert-deftest misc::current-form-string-extracts-simple-form ()
+  :tags '(misc)
+  (hy--assert-current-form-string "(foo)")
+  (hy--assert-current-form-string "(foo bar)"))
+
+
+(ert-deftest misc::current-form-string-extracts-form-with-forms ()
+  :tags '(misc)
+  (hy--assert-current-form-string "(foo (bar))"))

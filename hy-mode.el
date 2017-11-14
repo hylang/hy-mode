@@ -472,7 +472,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
   (if text text ""))
 
 (defun hy--current-form-string ()
-  "Get form containing current point as string."
+  "Get form containing current point as string plus a trailing newline."
   (save-excursion
     (-when-let* ((state (syntax-ppss))
                  (start-pos (hy--sexp-inermost-char state)))
