@@ -361,6 +361,22 @@ See `faceup-face-short-alist' for faceup's face aliases."
    (insert "~@foo")
    (should (s-equals? "foo" (thing-at-point 'symbol)))))
 
+;;;; Comments
+
+(ert-deftest syntax::comments-single-char ()
+  :tags '(syntax)
+  (hy--assert-faces "foo «x:; bar»"))
+
+
+(ert-deftest syntax::comments-two-char ()
+  :tags '(syntax)
+  (hy--assert-faces "foo «m:;; »«x:bar»"))
+
+
+(ert-deftest syntax::comments-many-char ()
+  :tags '(syntax)
+  (hy--assert-faces "foo «m:;;;;;;; »«x:bar»"))
+
 ;;;; Context Sensitive
 
 (ert-deftest syntax::bracket-strings-string-fence-set-one-line ()
