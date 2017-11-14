@@ -6,11 +6,12 @@
 
 ;; - TESTED -
 ;; Indentation
-;; Bracket string literals
+;; Font-locks
+;; Context Sensitive Syntax
 
 ;; - REMAINING -
+;; Syntax
 ;; Shell
-;; Font-locks
 ;; Eldoc
 ;; Autocompletion
 ;; font-lock-syntactic-face-function
@@ -42,7 +43,12 @@
 ;;   (kbd ">") (lambda () (interactive) (insert "»")))
 
 (defun hy-mode-font-lock-test (faceup)
-  (faceup-test-font-lock-string 'hy-mode faceup))
+  "Assert faces via faceup, disabling extra styling from minor modes."
+  (when (fboundp 'rainbow-delimiters-mode-disable)
+    (advice-add 'hy-mode :after 'rainbow-delimiters-mode-disable))
+  (prog1
+      (faceup-test-font-lock-string 'hy-mode faceup)
+    (advice-remove 'hy-mode 'rainbow-delimiters-mode-disable)))
 (faceup-defexplainer hy-mode-font-lock-test)
 
 (defun assert-faces (text)
@@ -227,23 +233,92 @@
 (ert-deftest context-sensitive-syntax::bracket-strings ()
   :tags '(context-syntax indentation)
   (hy--assert-indented "
-(#[[hello
-ok]])
+(#[[a
+b]])
 
-(#[delim[hello
-ok]delim])
+(#[[a
 
-(#[delim-a[hello
+b]])
 
-ok]delim-b])
+(#[-[a
+b]-])
 
-(#[missing second bracket
-   so not a string])
+(#[-+[a
+b]+-])
+
+(#[no second bracket
+   => not a string])
 "))
 
 ;;; Font Lock Tests
+;;;; Definitions
+
+(ert-deftest font-lock::builtins ()
+  :tags '(font-lock display)
+  (assert-faces "«b:+» «b:setv» «b:ap-each» setv-foo foo-setv setv.foo"))
+
+
+(ert-deftest font-lock::constants ()
+  :tags '(font-lock display)
+  (assert-faces "«c:True» Truex xTrue"))
+
+
+(ert-deftest font-lock::defs ()
+  :tags '(font-lock display)
+  (assert-faces "«k:defn» «f:func» defnx func xdefn func"))
+
+
+(ert-deftest font-lock::exceptions ()
+  :tags '(font-lock display)
+  (assert-faces "«t:ValueError» ValueErrorx xValueError"))
+
+
+(ert-deftest font-lock::special-forms ()
+  :tags '(font-lock display)
+  (assert-faces "«k:->» «k:for» forx xfor for.x x.for"))
 
 ;;;; Static
+
+(ert-deftest font-lock::aliases ()
+  :tags '(font-lock display)
+  (assert-faces "«k:defmacro-alias» [«f:arg1 arg2 arg3»]"))
+
+
+(ert-deftest font-lock::classes ()
+  :tags '(font-lock display)
+  (assert-faces "«k:defclass» «t:Klass» [parent]"))
+
+
+(ert-deftest font-lock::decorators-tag ()
+  :tags '(font-lock display)
+  (assert-faces "«t:#@(a-dec» func-def)"))
+
+
+(ert-deftest font-lock::decorators-with ()
+  :tags '(font-lock display)
+  (assert-faces "(«t:with-decorator a-dec» func-def)"))
+
+
+(ert-deftest font-lock::imports ()
+  :tags '(font-lock display)
+  (assert-faces "(«k:import» x [y «k::as» z])")
+  (assert-faces "(«k:require» x [y «k::as» z])"))
+
+
+(ert-deftest font-lock::self ()
+  :tags '(font-lock display)
+  (assert-faces "«k:self» x «k:self».x self-x x-self"))
+
+
+(ert-deftest font-lock::tag-macros ()
+  :tags '(font-lock display)
+  (assert-faces "«f:#tag-x» y"))
+
+
+(ert-deftest font-lock::variables ()
+  :tags '(font-lock display)
+  ;; Someday it would be nice to work with unpacking/multiple clauses
+  (assert-faces "(«b:setv» «v:foo» bar)"))
 
 ;;;; Misc
 
