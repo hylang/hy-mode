@@ -16,17 +16,31 @@
 ;; Autocompletion
 ;; font-lock-syntactic-face-function
 
-;;; Assertions
-;;;; Indentation
+;;; Utilities
 
-(defmacro with-hy-mode (&rest forms)
+(defmacro hy-with-hy-mode (&rest forms)
+  "Execute FORMS in a temporary `hy-mode' buffer."
   `(with-temp-buffer
      (hy-mode)
      ,@forms))
 
+
+(defun hy--font-lock-test (text)
+  "Entry to test faces of TEXT markedup as faceup, disabling minor modes faces.
+
+See `faceup-face-short-alist' for faceup's face aliases."
+  (when (fboundp 'rainbow-delimiters-mode-disable)
+    (advice-add 'hy-mode :after 'rainbow-delimiters-mode-disable))
+  (prog1
+      (faceup-test-font-lock-string 'hy-mode text)
+    (advice-remove 'hy-mode 'rainbow-delimiters-mode-disable)))
+(faceup-defexplainer hy--font-lock-test)
+
+;;; Assertions
+
 (defun hy--assert-indented (text)
   "Assert indenting the left-trimmed version of TEXT matches TEXT."
-  (with-hy-mode
+  (hy-with-hy-mode
    (-let [no-indents
           (->> text s-lines (-map 's-trim-left) (s-join "\n"))]
      (insert no-indents)
@@ -36,28 +50,10 @@
         (s-equals? text)
         should))))
 
-;;;; Text Properties
 
-;; See `faceup-face-short-alist' for faceup's face aliases
-
-;; These bindings are helpful for inserting faceups markup
-;; (spacemacs/set-leader-keys-for-major-mode 'emacs-lisp-mode
-;;   (kbd "<") (lambda () (interactive) (insert "«")))
-;; (spacemacs/set-leader-keys-for-major-mode 'emacs-lisp-mode
-;;   (kbd ">") (lambda () (interactive) (insert "»")))
-
-(defun hy-mode-font-lock-test (faceup)
-  "Assert faces via faceup, disabling extra styling from minor modes."
-  (when (fboundp 'rainbow-delimiters-mode-disable)
-    (advice-add 'hy-mode :after 'rainbow-delimiters-mode-disable))
-  (prog1
-      (faceup-test-font-lock-string 'hy-mode faceup)
-    (advice-remove 'hy-mode 'rainbow-delimiters-mode-disable)))
-(faceup-defexplainer hy-mode-font-lock-test)
-
-(defun assert-faces (text)
+(defun hy--assert-faces (text)
   "Assert text props of TEXT according to `faceup' markup."
-  (should (hy-mode-font-lock-test text)))
+  (should (hy--font-lock-test text)))
 
 ;;; Indentation Tests
 ;;;; Normal Indent
@@ -237,119 +233,119 @@
 
 (ert-deftest font-lock::builtins ()
   :tags '(font-lock display)
-  (assert-faces "«b:+» «b:setv» «b:ap-each» setv-foo foo-setv setv.foo"))
+  (hy--assert-faces "«b:+» «b:setv» «b:ap-each» setv-foo foo-setv setv.foo"))
 
 
 (ert-deftest font-lock::constants ()
   :tags '(font-lock display)
-  (assert-faces "«c:True» Truex xTrue"))
+  (hy--assert-faces "«c:True» Truex xTrue"))
 
 
 (ert-deftest font-lock::defs ()
   :tags '(font-lock display)
-  (assert-faces "«k:defn» «f:func» defnx func xdefn func"))
+  (hy--assert-faces "«k:defn» «f:func» defnx func xdefn func"))
 
 
 (ert-deftest font-lock::exceptions ()
   :tags '(font-lock display)
-  (assert-faces "«t:ValueError» ValueErrorx xValueError"))
+  (hy--assert-faces "«t:ValueError» ValueErrorx xValueError"))
 
 
 (ert-deftest font-lock::special-forms ()
   :tags '(font-lock display)
-  (assert-faces "«k:->» «k:for» forx xfor for.x x.for"))
+  (hy--assert-faces "«k:->» «k:for» forx xfor for.x x.for"))
 
 ;;;; Static
 
 (ert-deftest font-lock::aliases ()
   :tags '(font-lock display)
-  (assert-faces "«k:defmacro-alias» [«f:arg1 arg2 arg3»]"))
+  (hy--assert-faces "«k:defmacro-alias» [«f:arg1 arg2 arg3»]"))
 
 
 (ert-deftest font-lock::classes ()
   :tags '(font-lock display)
-  (assert-faces "«k:defclass» «t:Klass» [parent]"))
+  (hy--assert-faces "«k:defclass» «t:Klass» [parent]"))
 
 
 (ert-deftest font-lock::decorators-tag ()
   :tags '(font-lock display)
-  (assert-faces "«t:#@(a-dec» func-def)"))
+  (hy--assert-faces "«t:#@(a-dec» func-def)"))
 
 
 (ert-deftest font-lock::decorators-with ()
   :tags '(font-lock display)
-  (assert-faces "(«t:with-decorator a-dec» func-def)"))
+  (hy--assert-faces "(«t:with-decorator a-dec» func-def)"))
 
 
 (ert-deftest font-lock::imports ()
   :tags '(font-lock display)
-  (assert-faces "(«k:import» x [y «k::as» z])")
-  (assert-faces "(«k:require» x [y «k::as» z])"))
+  (hy--assert-faces "(«k:import» x [y «k::as» z])")
+  (hy--assert-faces "(«k:require» x [y «k::as» z])"))
 
 
 (ert-deftest font-lock::self ()
   :tags '(font-lock display)
-  (assert-faces "«k:self» x «k:self».x self-x x-self"))
+  (hy--assert-faces "«k:self» x «k:self».x self-x x-self"))
 
 
 (ert-deftest font-lock::tag-macros ()
   :tags '(font-lock display)
-  (assert-faces "«f:#tag-x» y"))
+  (hy--assert-faces "«f:#tag-x» y"))
 
 
 (ert-deftest font-lock::variables ()
   :tags '(font-lock display)
   ;; Someday it would be nice to work with unpacking/multiple clauses
-  (assert-faces "(«b:setv» «v:foo» bar)"))
+  (hy--assert-faces "(«b:setv» «v:foo» bar)"))
 
 ;;;; Misc
 
 (ert-deftest font-lock::func-kwargs ()
   :tags '(font-lock display)
-  (assert-faces "«t:&rest» args «t:&kwargs» kwargs"))
+  (hy--assert-faces "«t:&rest» args «t:&kwargs» kwargs"))
 
 
 (ert-deftest font-lock::kwargs ()
   :tags '(font-lock display)
-  (assert-faces "«c::kwarg-1» foo «c::kwarg-2»"))
+  (hy--assert-faces "«c::kwarg-1» foo «c::kwarg-2»"))
 
 
 (ert-deftest font-lock::shebang ()
   :tags '(font-lock display)
-  (assert-faces "«x:#!shebang»\ncode"))
+  (hy--assert-faces "«x:#!shebang»\ncode"))
 
 
 (ert-deftest font-lock::unpacking-generalizations ()
   :tags '(font-lock display)
-  (assert-faces "«k:#*» args «k:#**» kwargs"))
+  (hy--assert-faces "«k:#*» args «k:#**» kwargs"))
 
 ;;; Syntax
 ;;;; Symbols
 
 (ert-deftest syntax::symbols-include-dots ()
   :tags '(syntax)
-  (with-hy-mode
+  (hy-with-hy-mode
    (insert "foo.bar")
    (should (s-equals? "foo.bar" (thing-at-point 'symbol)))))
 
 
 (ert-deftest syntax::symbols-include-dashes ()
   :tags '(syntax)
-  (with-hy-mode
+  (hy-with-hy-mode
    (insert "foo-bar")
    (should (s-equals? "foo-bar" (thing-at-point 'symbol)))))
 
 
 (ert-deftest syntax::symbols-include-tags ()
   :tags '(syntax)
-  (with-hy-mode
+  (hy-with-hy-mode
    (insert "#foo")
    (should (s-equals? "#foo" (thing-at-point 'symbol)))))
 
 
 (ert-deftest syntax::symbols-exclude-quote-chars ()
   :tags '(syntax)
-  (with-hy-mode
+  (hy-with-hy-mode
    (insert "'foo")
    (should (s-equals? "foo" (thing-at-point 'symbol)))
    (insert "`foo")
@@ -363,32 +359,32 @@
 
 (ert-deftest syntax::bracket-strings-string-fence-set-one-line ()
   :tags '(syntax)
-  (assert-faces "#[«s:[foo]»]"))
+  (hy--assert-faces "#[«s:[foo]»]"))
 
 
 (ert-deftest syntax::bracket-strings-string-fence-set-many-lines ()
   :tags '(syntax)
-  (assert-faces "#[«s:[foo\n\nbar]»]"))
+  (hy--assert-faces "#[«s:[foo\n\nbar]»]"))
 
 
 (ert-deftest syntax::bracket-strings-string-fence-set-with-quote-chars ()
   :tags '(syntax)
-  (assert-faces "#[«s:[\"foo\"]»]"))
+  (hy--assert-faces "#[«s:[\"foo\"]»]"))
 
 
 (ert-deftest syntax::bracket-strings-string-fence-set-with-matching-delims ()
   :tags '(syntax)
-  (assert-faces "#[delim«s:[foo]»delim]"))
+  (hy--assert-faces "#[delim«s:[foo]»delim]"))
 
 
 (ert-deftest syntax::bracket-strings-string-fence-set-with-different-delims ()
   :tags '(syntax)
-  (assert-faces "#[delim-1«s:[foo]»delim-2]"))
+  (hy--assert-faces "#[delim-1«s:[foo]»delim-2]"))
 
 
 (ert-deftest syntax::bracket-strings-many-bracket-strings ()
   :tags '(syntax)
-  (assert-faces "#[«s:[foo]»] \nfoo \n #[«s:[foo]»]"))
+  (hy--assert-faces "#[«s:[foo]»] \nfoo \n #[«s:[foo]»]"))
 
 
 (ert-deftest syntax::bracket-strings-indentation ()
