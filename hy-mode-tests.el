@@ -1,8 +1,12 @@
 ;;; Tests for Hy-mode  -*- lexical-binding: t -*-
 
-(require 'faceup)  ; For 'face display (font-lock) tests
-(require 'ert)
 (require 'hy-mode)
+
+(require 'ert)
+(require 'faceup)
+
+(require 'dash)
+(require 's)
 
 ;; - TESTED -
 ;; Indentation
@@ -10,11 +14,13 @@
 ;; Syntax
 ;; Context Sensitive Syntax
 ;; Docstring Detection
+;; Keybindings
 
 ;; - REMAINING -
 ;; Shell
 ;; Eldoc
 ;; Autocompletion
+;; Shift-k documentation lookup
 
 ;;; Utilities
 
@@ -472,6 +478,11 @@ b]+-])
    (should (s-equals? (buffer-string)
                       "((fn [x] (import pdb) (pdb.set-trace) x))"))))
 
+;; `hy-shell-eval-buffer'
+;; `hy-shell-eval-region'
+;; `hy-shell-eval-current-form'
+;; `hy-shell-start-or-switch-to-shell'
+
 ;;; Misc Tests
 
 (ert-deftest misc::current-form-string-extracts-bracket-likes ()
@@ -489,3 +500,61 @@ b]+-])
 (ert-deftest misc::current-form-string-extracts-form-with-forms ()
   :tags '(misc)
   (hy--assert-current-form-string "(foo (bar))"))
+
+;;; Shell
+;;;; No Process Requirement
+
+(ert-deftest shell::process-names ()
+  :tags '(shell)
+  (should (s-equals? (hy--shell-format-process-name "Foo")
+                     "*Foo*")))
+
+
+(ert-deftest shell::interpreter-args-no-args ()
+  :tags '(shell)
+  (let ((hy-shell-interpreter-args "")
+        (hy-shell-use-control-codes? nil))
+    (should (s-blank? (hy--shell-calculate-interpreter-args))))
+
+  (let ((hy-shell-interpreter-args "")
+        (hy-shell-use-control-codes? t))
+    (should (s-blank? (hy--shell-calculate-interpreter-args)))))
+
+
+(ert-deftest shell::interpreter-args-args-no-spy ()
+  :tags '(shell)
+  (let ((hy-shell-interpreter-args "foo")
+        (hy-shell-use-control-codes? nil))
+    (should (s-equals? (hy--shell-calculate-interpreter-args)
+                       "foo")))
+
+  (let ((hy-shell-interpreter-args "foo")
+        (hy-shell-use-control-codes? t))
+    (should (s-equals? (hy--shell-calculate-interpreter-args)
+                       "foo"))))
+
+
+(ert-deftest shell::interpreter-args-args-with-spy ()
+  :tags '(shell)
+  (let ((hy-shell-interpreter-args "--spy")
+        (hy-shell-use-control-codes? nil))
+    (should (s-equals? (hy--shell-calculate-interpreter-args)
+                       "--spy")))
+
+  (let ((hy-shell-interpreter-args "--spy")
+        (hy-shell-use-control-codes? t))
+    (should (s-equals? (hy--shell-calculate-interpreter-args)
+                       "--spy --control-codes"))))
+
+;;;; Requires Process
+
+;; (ert-deftest shell::get-process ()
+;;   :tags '(shell)
+;;   (skip-unless (hy-installed?))
+
+;;   (let ((hy-shell-buffer-name "foo")
+;;         (hy-shell-internal-buffer-name "bar"))
+;;     (should (s-equals? (hy-shell-get-process)
+;;                        "foo"))
+;;     (should (s-equals? (hy-shell-get-process 'internal)
+;;                        "bar"))))

@@ -667,6 +667,10 @@ a string or comment."
 
 ;;;; Shell buffer utilities
 
+(defun hy-installed? ()
+  "Is the `hy-shell-interpreter' command available?"
+  (when (executable-find hy-shell-interpreter) t))
+
 (defun hy--shell-format-process-name (proc-name)
   "Format a PROC-NAME with closing astericks."
   (->> proc-name (s-prepend "*") (s-append "*")))
@@ -674,8 +678,8 @@ a string or comment."
 (defun hy-shell-get-process (&optional internal)
   "Get process corr. to `hy-shell-buffer-name'/`hy-shell-internal-buffer-name'."
   (-> (if internal hy-shell-internal-buffer-name hy-shell-buffer-name)
-      hy--shell-format-process-name
-      get-buffer-process))
+     hy--shell-format-process-name
+     get-buffer-process))
 
 (defun hy--shell-current-buffer-process ()
   "Get process associated with current buffer."
@@ -811,7 +815,8 @@ Constantly extracts current prompt text and executes and manages applying
 
 (defun hy--shell-send-string (string &optional process internal)
   "Internal implementation of shell send string functionality."
-  (let ((process (or process (hy-shell-get-process internal)))
+  (let ((process (or process
+                     (hy-shell-get-process internal)))
         (hy--shell-output-filter-in-progress t))
     (comint-send-string process string)
     (while hy--shell-output-filter-in-progress
@@ -912,12 +917,12 @@ Right now the keybinding is not publically exposed."
 (defun run-hy-internal ()
   "Start an inferior hy process in the background for autocompletion."
   (interactive)
-  (unless (executable-find "hy")
+  (unless (hy-installed?)
     (message "Hy not found, activate a virtual environment containing Hy to use
 Eldoc, Anaconda, and other hy-mode features."))
 
   (when (and (not (hy-shell-get-process 'internal))
-             (executable-find "hy"))
+             (hy-installed?))
     (-let [hy--shell-font-lock-enable
            nil]
       (prog1
@@ -932,7 +937,7 @@ Eldoc, Anaconda, and other hy-mode features."))
 
 CMD defaults to the result of `hy--shell-calculate-command'."
   (interactive)
-  (unless (executable-find "hy")
+  (unless (hy-installed?)
     (message "Hy not found, activate a virtual environment with Hy."))
 
   (-> (or cmd (hy--shell-calculate-command))
