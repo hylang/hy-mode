@@ -44,6 +44,11 @@ See `faceup-face-short-alist' for faceup's face aliases."
 
 ;;; Assertions
 
+(defun s-assert (string1 string2)
+  "Combine `should' and `s-equals?'."
+  (should (s-equals? string1 string2)))
+
+
 (defun hy--assert-indented (text)
   "Assert indenting the left-trimmed version of TEXT matches TEXT."
   (hy-with-hy-mode
@@ -52,9 +57,8 @@ See `faceup-face-short-alist' for faceup's face aliases."
      (insert no-indents)
      (indent-region (point-min) (point-max))
 
-     (-> (buffer-substring-no-properties (point-min) (point-max))
-        (s-equals? text)
-        should))))
+     (s-assert (buffer-substring-no-properties (point-min) (point-max))
+               text))))
 
 
 (defun hy--assert-faces (text)
@@ -67,7 +71,8 @@ See `faceup-face-short-alist' for faceup's face aliases."
   (hy-with-hy-mode
    (insert form-string)
    (forward-char -1)
-   (should (s-equals? (s-concat form-string "\n") (hy--current-form-string)))))
+   (s-assert (s-concat form-string "\n")
+             (hy--current-form-string))))
 
 ;;; Indentation Tests
 ;;;; Normal Indent
@@ -346,34 +351,34 @@ See `faceup-face-short-alist' for faceup's face aliases."
   :tags '(syntax)
   (hy-with-hy-mode
    (insert "foo.bar")
-   (should (s-equals? "foo.bar" (thing-at-point 'symbol)))))
+   (s-assert "foo.bar" (thing-at-point 'symbol))))
 
 
 (ert-deftest syntax::symbols-include-dashes ()
   :tags '(syntax)
   (hy-with-hy-mode
    (insert "foo-bar")
-   (should (s-equals? "foo-bar" (thing-at-point 'symbol)))))
+   (s-assert "foo-bar" (thing-at-point 'symbol))))
 
 
 (ert-deftest syntax::symbols-include-tags ()
   :tags '(syntax)
   (hy-with-hy-mode
    (insert "#foo")
-   (should (s-equals? "#foo" (thing-at-point 'symbol)))))
+   (s-assert "#foo" (thing-at-point 'symbol))))
 
 
 (ert-deftest syntax::symbols-exclude-quote-chars ()
   :tags '(syntax)
   (hy-with-hy-mode
    (insert "'foo")
-   (should (s-equals? "foo" (thing-at-point 'symbol)))
+   (s-assert "foo" (thing-at-point 'symbol))
    (insert "`foo")
-   (should (s-equals? "foo" (thing-at-point 'symbol)))
+   (s-assert "foo" (thing-at-point 'symbol))
    (insert "~foo")
-   (should (s-equals? "foo" (thing-at-point 'symbol)))
+   (s-assert "foo" (thing-at-point 'symbol))
    (insert "~@foo")
-   (should (s-equals? "foo" (thing-at-point 'symbol)))))
+   (s-assert "foo" (thing-at-point 'symbol))))
 
 ;;;; Comments
 
@@ -471,12 +476,12 @@ b]+-])
   :tags '(misc)
   (hy-with-hy-mode
    (hy-insert-pdb)
-   (should (s-equals? (buffer-string)
-                      "(do (import pdb) (pdb.set-trace))"))
+   (s-assert (buffer-string)
+             "(do (import pdb) (pdb.set-trace))")
    (delete-region (point-min) (point-max))
    (hy-insert-pdb-threaded)
-   (should (s-equals? (buffer-string)
-                      "((fn [x] (import pdb) (pdb.set-trace) x))"))))
+   (s-assert (buffer-string)
+             "((fn [x] (import pdb) (pdb.set-trace) x))")))
 
 ;; `hy-shell-eval-buffer'
 ;; `hy-shell-eval-region'
@@ -506,8 +511,8 @@ b]+-])
 
 (ert-deftest shell::process-names ()
   :tags '(shell)
-  (should (s-equals? (hy--shell-format-process-name "Foo")
-                     "*Foo*")))
+  (s-assert (hy--shell-format-process-name "Foo")
+            "*Foo*"))
 
 
 (ert-deftest shell::interpreter-args-no-args ()
@@ -525,26 +530,26 @@ b]+-])
   :tags '(shell)
   (let ((hy-shell-interpreter-args "foo")
         (hy-shell-use-control-codes? nil))
-    (should (s-equals? (hy--shell-calculate-interpreter-args)
-                       "foo")))
+    (s-assert (hy--shell-calculate-interpreter-args)
+              "foo"))
 
   (let ((hy-shell-interpreter-args "foo")
         (hy-shell-use-control-codes? t))
-    (should (s-equals? (hy--shell-calculate-interpreter-args)
-                       "foo"))))
+    (s-assert (hy--shell-calculate-interpreter-args)
+              "foo")))
 
 
 (ert-deftest shell::interpreter-args-args-with-spy ()
   :tags '(shell)
   (let ((hy-shell-interpreter-args "--spy")
         (hy-shell-use-control-codes? nil))
-    (should (s-equals? (hy--shell-calculate-interpreter-args)
-                       "--spy")))
+    (s-assert (hy--shell-calculate-interpreter-args)
+              "--spy"))
 
   (let ((hy-shell-interpreter-args "--spy")
         (hy-shell-use-control-codes? t))
-    (should (s-equals? (hy--shell-calculate-interpreter-args)
-                       "--spy --control-codes"))))
+    (s-assert (hy--shell-calculate-interpreter-args)
+              "--spy --control-codes")))
 
 ;;;; Requires Process
 
