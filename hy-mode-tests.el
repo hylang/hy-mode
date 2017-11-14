@@ -361,8 +361,38 @@
 
 ;;;; Context Sensitive
 
-(ert-deftest syntax::bracket-strings ()
-  :tags '(context-syntax indentation)
+(ert-deftest syntax::bracket-strings-string-fence-set-one-line ()
+  :tags '(syntax)
+  (assert-faces "#[«s:[foo]»]"))
+
+
+(ert-deftest syntax::bracket-strings-string-fence-set-many-lines ()
+  :tags '(syntax)
+  (assert-faces "#[«s:[foo\n\nbar]»]"))
+
+
+(ert-deftest syntax::bracket-strings-string-fence-set-with-quote-chars ()
+  :tags '(syntax)
+  (assert-faces "#[«s:[\"foo\"]»]"))
+
+
+(ert-deftest syntax::bracket-strings-string-fence-set-with-matching-delims ()
+  :tags '(syntax)
+  (assert-faces "#[delim«s:[foo]»delim]"))
+
+
+(ert-deftest syntax::bracket-strings-string-fence-set-with-different-delims ()
+  :tags '(syntax)
+  (assert-faces "#[delim-1«s:[foo]»delim-2]"))
+
+
+(ert-deftest syntax::bracket-strings-many-bracket-strings ()
+  :tags '(syntax)
+  (assert-faces "#[«s:[foo]»] \nfoo \n #[«s:[foo]»]"))
+
+
+(ert-deftest syntax::bracket-strings-indentation ()
+  :tags '(syntax indentation)
   (hy--assert-indented "
 (#[[a
 b]])
