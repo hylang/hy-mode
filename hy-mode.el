@@ -380,9 +380,11 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
 (defconst hy--font-lock-kwds-anonymous-funcs
   (list
-   (rx symbol-start "%" (1+ digit))
+   (rx symbol-start
+       (group "%" (1+ digit))
+       (or "." symbol-end))
 
-   '(0 font-lock-variable-name-face))
+   '(1 font-lock-variable-name-face))
 
   "Hy '#%(print %1 %2)' styling anonymous variables.")
 

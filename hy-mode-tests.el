@@ -300,6 +300,12 @@ See `faceup-face-short-alist' for faceup's face aliases."
 
 ;;;; Misc
 
+(ert-deftest font-lock::anonymous-funcs ()
+  :tags '(font-lock display)
+  (-let [hy-font-lock-highlight-percent-args? t]
+    (hy--assert-faces "«v:%1» «v:%12» «v:%1».foo %foo %1foo «b:%»")))
+
+
 (ert-deftest font-lock::func-kwargs ()
   :tags '(font-lock display)
   (hy--assert-faces "«t:&rest» args «t:&kwargs» kwargs"))
