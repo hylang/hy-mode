@@ -9,12 +9,12 @@
 ;; Font-locks
 ;; Syntax
 ;; Context Sensitive Syntax
+;; Docstring Detection
 
 ;; - REMAINING -
 ;; Shell
 ;; Eldoc
 ;; Autocompletion
-;; font-lock-syntactic-face-function
 
 ;;; Utilities
 
@@ -136,7 +136,7 @@ See `faceup-face-short-alist' for faceup's face aliases."
 "))
 
 
-;; FAIL Expected
+;; FAIL No argument same line case - Expected
 ;; (#a
 ;;   c)
 ;; Actual has 1+ indentation
@@ -325,7 +325,7 @@ See `faceup-face-short-alist' for faceup's face aliases."
   :tags '(font-lock display)
   (hy--assert-faces "«k:#*» args «k:#**» kwargs"))
 
-;;; Syntax
+;;; Syntax Tests
 ;;;; Symbols
 
 (ert-deftest syntax::symbols-include-dots ()
@@ -428,3 +428,25 @@ b]+-])
 (#[no second bracket
    => not a string])
 "))
+
+;;; Docstring Detection Tests
+
+(ert-deftest docstrings::module-docstrings ()
+  :tags '(font-lock)
+  (hy-with-hy-mode
+   (hy--assert-faces "«d:\"foo\"»")
+   (hy--assert-faces " «s:\"foo\"»")))
+
+
+(ert-deftest docstrings::func-docstrings-use-parent-form-correctly ()
+  :tags '(font-lock)
+  (hy-with-hy-mode
+   (hy--assert-faces "(«k:defn» «f:foo» [] «d:\"bar\"»)")
+   (hy--assert-faces "(«k:defn» «f:foo» [] [«s:\"bar\"»])")))
+
+
+;; FAIL Known minor issue
+;; (ert-deftest docstrings::func-docstrings-only-first-string-a-docstring ()
+;;   :tags '(font-lock)
+;;   (hy-with-hy-mode
+;;    (hy--assert-faces "(«k:defn» «f:foo» [] «d:\"bar\"» «s:\"baz\"»)")))
