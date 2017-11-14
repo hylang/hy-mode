@@ -1,5 +1,6 @@
 ;;; Tests for Hy-mode  -*- lexical-binding: t -*-
 
+(require 'faceup)  ; For 'face display (font-lock) tests
 (require 'ert)
 (require 'hy-mode)
 
@@ -15,6 +16,7 @@
 ;; font-lock-syntactic-face-function
 
 ;;; Assertions
+;;;; Indentation
 
 (defun hy--assert-indented (text)
   "Assert indenting the left-trimmed version of TEXT matches TEXT."
@@ -28,6 +30,24 @@
       (-> (buffer-substring-no-properties (point-min) (point-max))
          (s-equals? text)
          should))))
+
+;;;; Text Properties
+
+;; See `faceup-face-short-alist' for faceup's face aliases
+
+;; These bindings are helpful for inserting faceups markup
+;; (spacemacs/set-leader-keys-for-major-mode 'emacs-lisp-mode
+;;   (kbd "<") (lambda () (interactive) (insert "«")))
+;; (spacemacs/set-leader-keys-for-major-mode 'emacs-lisp-mode
+;;   (kbd ">") (lambda () (interactive) (insert "»")))
+
+(defun hy-mode-font-lock-test (faceup)
+  (faceup-test-font-lock-string 'hy-mode faceup))
+(faceup-defexplainer hy-mode-font-lock-test)
+
+(defun assert-faces (text)
+  "Assert text props of TEXT according to `faceup' markup."
+  (should (hy-mode-font-lock-test text)))
 
 ;;; Indentation Tests
 ;;;; Normal Indent
@@ -220,3 +240,13 @@ ok]delim-b])
 (#[missing second bracket
    so not a string])
 "))
+
+;;; Font Lock Tests
+
+(ert-deftest font-lock::unpacking-generalizations ()
+  :tags '(font-lock display)
+  (assert-faces "«k:#*» args «k:#**» kwargs"))
+
+(ert-deftest font-lock::func-kwargs ()
+  :tags '(font-lock display)
+  (assert-faces "«t:&rest» args «t:&kwargst:&kwargs» kwargs"))
