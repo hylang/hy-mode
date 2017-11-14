@@ -243,10 +243,25 @@ ok]delim-b])
 
 ;;; Font Lock Tests
 
-(ert-deftest font-lock::unpacking-generalizations ()
-  :tags '(font-lock display)
-  (assert-faces "«k:#*» args «k:#**» kwargs"))
+;;;; Static
+
+;;;; Misc
 
 (ert-deftest font-lock::func-kwargs ()
   :tags '(font-lock display)
-  (assert-faces "«t:&rest» args «t:&kwargst:&kwargs» kwargs"))
+  (assert-faces "«t:&rest» args «t:&kwargs» kwargs"))
+
+
+(ert-deftest font-lock::kwargs ()
+  :tags '(font-lock display)
+  (assert-faces "«c::kwarg-1» foo «c::kwarg-2»"))
+
+
+(ert-deftest font-lock::shebang ()
+  :tags '(font-lock display)
+  (assert-faces "«x:#!shebang»\ncode"))
+
+
+(ert-deftest font-lock::unpacking-generalizations ()
+  :tags '(font-lock display)
+  (assert-faces "«k:#*» args «k:#**» kwargs"))
