@@ -237,8 +237,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defconst hy--font-lock-kwds-builtins
   (list
    (rx-to-string
-    `(: (not (any "#"))
-        symbol-start
+    `(: symbol-start
         (or ,@hy--kwds-operators
             ,@hy--kwds-builtins
             ,@hy--kwds-anaphorics)
@@ -251,7 +250,9 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defconst hy--font-lock-kwds-constants
   (list
    (rx-to-string
-    `(: (or ,@hy--kwds-constants)))
+    `(: symbol-start
+        (or ,@hy--kwds-constants)
+        symbol-end))
 
    '(0 font-lock-constant-face))
 
@@ -260,7 +261,8 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defconst hy--font-lock-kwds-defs
   (list
    (rx-to-string
-    `(: (group-n 1 (or ,@hy--kwds-defs))
+    `(: symbol-start
+        (group-n 1 (or ,@hy--kwds-defs))
         (1+ space)
         (group-n 2 (1+ word))))
 
@@ -334,8 +336,10 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
 (defconst hy--font-lock-kwds-imports
   (list
-   (rx (or "import" "require" ":as")
-       (or (1+ space) eol))
+   (rx
+    symbol-start
+    (or "import" "require" ":as")
+    symbol-end)
 
    '(0 font-lock-keyword-face))
 
