@@ -563,3 +563,25 @@ b]+-])
 ;;                        "foo"))
 ;;     (should (s-equals? (hy-shell-get-process 'internal)
 ;;                        "bar"))))
+
+
+
+;; (defun hy--ert-start-shell-internal ()
+;;   ;; (hy--shell-kill-buffer)
+;;   (hy--shell-make-comint (hy--shell-calculate-command)
+;;                         hy-shell-internal-buffer-name 'internal))
+
+(defmacro hy-with-hy-shell (&rest forms)
+  `(-let [hy-shell-interpreter-args ""]
+     (hy--shell-make-comint (hy--shell-calculate-command) hy-shell-buffer-name)
+     (set-process-query-on-exit-flag (hy-shell-get-process) nil)
+     ,@forms
+     (hy--shell-kill-buffer)))
+
+
+(ert-deftest shell::comint-manages-hy-shell-buffer-var ()
+  :tags '(shell)
+  (should-not (hy--shell-buffer?))
+  (hy-with-hy-shell
+   (should (hy--shell-buffer?)))
+  (should-not (hy--shell-buffer?)))
