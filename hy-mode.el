@@ -830,7 +830,9 @@ Constantly extracts current prompt text and executes and manages applying
   (let ((process (or process
                      (hy-shell-get-process internal)))
         (hy--shell-output-filter-in-progress t))
-    (comint-send-string process string)
+
+    (->> string (s-append "\n") (comint-send-string process))
+
     (while hy--shell-output-filter-in-progress
       (accept-process-output process))))
 
