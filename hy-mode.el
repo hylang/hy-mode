@@ -656,6 +656,9 @@ a string or comment."
 (defvar hy-shell-buffer nil
   "The current shell buffer for Hy.")
 
+(defvar hy-shell-internal-buffer nil
+  "The current internal shell buffer for Hy.")
+
 (defvar hy--shell-output-filter-in-progress nil
   "Whether we are waiting for output in `hy-shell-send-string-no-output'.")
 
@@ -698,17 +701,26 @@ a string or comment."
             (process-name (hy--shell-current-buffer-process))]
        (generate-new-buffer proc-name)))))
 
-(defun hy--shell-buffer? ()
-  "Is `hy-shell-buffer' set and does it exist?"
-  (and hy-shell-buffer
-       (buffer-live-p hy-shell-buffer)))
+(defun hy--shell-buffer? (&optional internal)
+  "Is `hy-shell-buffer'/`hy-shell-internal-buffer' set and does it exist?"
+  (-let [buffer
+         (if internal hy-shell-internal-buffer hy-shell-buffer)]
+    (and buffer
+         (buffer-live-p buffer))))
 
-(defun hy--shell-kill-buffer ()
-  "Kill `hy-shell-buffer'."
-  (when (hy--shell-buffer?)
-    (kill-buffer hy-shell-buffer)
-    (when (derived-mode-p 'inferior-hy-mode)
-      (setq hy-shell-buffer nil))))
+(defun hy--shell-kill-buffer (&optional internal)
+  "Kill `hy-shell-buffer'/`hy-shell-internal-buffer'."
+  (-let [buffer
+         (if internal hy-shell-internal-buffer hy-shell-buffer)]
+    (when (hy--shell-buffer? internal)
+      (kill-buffer buffer)
+      (when (derived-mode-p 'inferior-hy-mode)
+        (setf buffer nil)))))
+
+(defun hy-shell-kill ()
+  "Kill all hy processes."
+  (hy--shell-kill-buffer)
+  (hy--shell-kill-buffer 'internal))
 
 ;;;; Shell macros
 
@@ -908,7 +920,9 @@ Right now the keybinding is not publically exposed."
     (when show
       (display-buffer buffer))
     (if internal
-        (set-process-query-on-exit-flag process nil)
+        (progn
+          (set-process-query-on-exit-flag process nil)
+          (setq hy-shell-internal-buffer buffer))
       (setq hy-shell-buffer buffer))
     proc-buffer-name))
 

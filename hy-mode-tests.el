@@ -22,7 +22,7 @@
 ;; Autocompletion
 ;; Shift-k documentation lookup
 
-;;; Utilities
+;;; Macros
 
 (defmacro hy-with-hy-mode (&rest forms)
   "Execute FORMS in a temporary `hy-mode' buffer."
@@ -31,16 +31,23 @@
      ,@forms))
 
 
-(defun hy--font-lock-test (text)
-  "Entry to test faces of TEXT markedup as faceup, disabling minor modes faces.
+(defmacro hy-with-hy-shell (&rest forms)
+  "Execute FORMS with an active hy process."
+  `(-let [hy-shell-interpreter-args ""]
+     (hy-shell-kill)
+     (save-window-excursion (run-hy))
+     (set-process-query-on-exit-flag (hy-shell-get-process) nil)
+     ,@forms
+     (hy-shell-kill)))
 
-See `faceup-face-short-alist' for faceup's face aliases."
-  (when (fboundp 'rainbow-delimiters-mode-disable)
-    (advice-add 'hy-mode :after 'rainbow-delimiters-mode-disable))
-  (prog1
-      (faceup-test-font-lock-string 'hy-mode text)
-    (advice-remove 'hy-mode 'rainbow-delimiters-mode-disable)))
-(faceup-defexplainer hy--font-lock-test)
+
+(defmacro hy-with-hy-shell-internal (&rest forms)
+  "Execute FORMS with an active hy internal process."
+  `(progn
+     (hy-shell-kill)
+     (run-hy-internal)
+     ,@forms
+     (hy-shell-kill)))
 
 ;;; Assertions
 
@@ -61,6 +68,16 @@ See `faceup-face-short-alist' for faceup's face aliases."
                text))))
 
 
+(defun hy--font-lock-test (text)
+  "Entry to test faces of TEXT markedup as faceup, disabling minor modes faces.
+
+See `faceup-face-short-alist' for faceup's face aliases."
+  (when (fboundp 'rainbow-delimiters-mode-disable)
+    (advice-add 'hy-mode :after 'rainbow-delimiters-mode-disable))
+  (prog1
+      (faceup-test-font-lock-string 'hy-mode text)
+    (advice-remove 'hy-mode 'rainbow-delimiters-mode-disable)))
+(faceup-defexplainer hy--font-lock-test)
 (defun hy--assert-faces (text)
   "Assert text props of TEXT according to `faceup' markup."
   (should (hy--font-lock-test text)))
@@ -553,35 +570,21 @@ b]+-])
 
 ;;;; Requires Process
 
-;; (ert-deftest shell::get-process ()
-;;   :tags '(shell)
-;;   (skip-unless (hy-installed?))
+(ert-deftest shell::manages-hy-shell-buffer-vars ()
+  :tags '(shell) (skip-unless (hy-installed?))
 
-;;   (let ((hy-shell-buffer-name "foo")
-;;         (hy-shell-internal-buffer-name "bar"))
-;;     (should (s-equals? (hy-shell-get-process)
-;;                        "foo"))
-;;     (should (s-equals? (hy-shell-get-process 'internal)
-;;                        "bar"))))
+  (hy-with-hy-shell (should (hy--shell-buffer?)))
+  (hy-with-hy-shell-internal (should (hy--shell-buffer? 'internal)))
 
-
-
-;; (defun hy--ert-start-shell-internal ()
-;;   ;; (hy--shell-kill-buffer)
-;;   (hy--shell-make-comint (hy--shell-calculate-command)
-;;                         hy-shell-internal-buffer-name 'internal))
-
-(defmacro hy-with-hy-shell (&rest forms)
-  `(-let [hy-shell-interpreter-args ""]
-     (hy--shell-make-comint (hy--shell-calculate-command) hy-shell-buffer-name)
-     (set-process-query-on-exit-flag (hy-shell-get-process) nil)
-     ,@forms
-     (hy--shell-kill-buffer)))
-
-
-(ert-deftest shell::comint-manages-hy-shell-buffer-var ()
-  :tags '(shell)
   (should-not (hy--shell-buffer?))
-  (hy-with-hy-shell
-   (should (hy--shell-buffer?)))
-  (should-not (hy--shell-buffer?)))
+  (should-not (hy--shell-buffer? 'internal)))
+
+
+(ert-deftest shell::gets-hy-processes ()
+  :tags '(shell) (skip-unless (hy-installed?))
+
+  (hy-with-hy-shell (should (hy-shell-get-process)))
+  (hy-with-hy-shell-internal (should (hy-shell-get-process 'internal)))
+
+  (should-not (hy-shell-get-process))
+  (should-not (hy-shell-get-process 'internal)))
