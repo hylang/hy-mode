@@ -851,7 +851,9 @@ Right now the keybinding is not publically exposed."
   (interactive)
   (save-excursion
     (goto-char (point-min))
-    (while (re-search-forward (rx "(" (0+ space) (or "import" "require")) nil t)
+    (while (re-search-forward (rx "(" (0+ space)
+                                  (or "import" "require" "sys.path.extend"))
+                              nil t)
       (hy-shell-send-string-internal (hy--current-form-string)))))
 
 ;;;; Shell creation
