@@ -25,7 +25,7 @@
 ;; ** Extraction
 
 (defn --HYCOMPANY-obj-candidates [obj]
-  "Try to retrieve unmangled attrs list for given obj."
+  "Try to retrieve unmangled attrs list for given (python) obj."
   (try
     (->> obj
        builtins.eval
