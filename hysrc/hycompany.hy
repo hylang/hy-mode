@@ -1,7 +1,3 @@
-(require [hysrc.macros [*]])
-(import [hysrc.macros [*]])
-(require [hy.extra.anaphoric [*]])
-
 (import
   builtins
 
@@ -10,14 +6,26 @@
   [hy.core.shadow [*]] [hy.core.language [*]]  ; To complete the namespace
   )
 
+
+;; * Formatting
+
 (defn --HYCOMPANY-split-prefix [prefix]
-  "Split prefix on last dot accessor."
-  (-> prefix
-     (.split ".")
-     ((juxt (fn->> butlast (.join "."))
-            (fn->> last)))))
+  "Split prefix on last dot accessor, returning an obj, attr pair."
+  (setv components
+        (.split prefix "."))
+
+  [(->> components butlast (.join "."))
+   (->> components last)])
+
+(defn --HYCOMPANY-obj-string [obj]
+  "Return obj if a string, otherwise its name."
+  (if (isinstance obj str) obj obj.--name--))
+
+;; * Candidates
+;; ** Extraction
 
 (defn --HYCOMPANY-obj-candidates [obj]
+  "Try to retrieve unmangled attrs list for given obj."
   (try
     (->> obj
        builtins.eval
@@ -34,44 +42,60 @@
      (map dict.keys)
      (chain hy.compiler.-compile-table)
      flatten
-     (map --HYCOMPANY-get-name)
-     (map hy-symbol-unmangle)
+     (map (comp hy-symbol-unmangle --HYCOMPANY-obj-string))
      distinct
      list))
 
-(defn --HYCOMPANY-get-global-candidates []
+(defn --HYCOMPANY-get-globals []
+  "Extract unmangled globals."
   (->> (globals)
      (.keys)
      (map hy-symbol-unmangle)
+     list))
+
+(defn --HYCOMPANY-all-candidates []
+  "All global and macro candidates."
+  (->> (--HYCOMPANY-get-globals)
      (chain (--HYCOMPANY-get-macros))
      flatten
      distinct
      list))
 
-(defn --HYCOMPANY-get-name [x]
-  "Return the candidate name for x."
-  (if (isinstance x str)
-      x
-      x.--name--))
+;; ** Pipeline
+
+(defn --HYCOMPANY-candidates [obj]
+  "Return candidates for possibly None obj."
+  (if obj
+      (--HYCOMPANY-obj-candidates obj)
+      (--HYCOMPANY-all-candidates)))
 
 (defn --HYCOMPANY-trim-candidates [candidates attr]
   "Limit list of candidates to those starting with attr."
-  (list (filter (fn [cand] (.startswith cand attr)) candidates)))
+  (->> candidates
+     (filter (fn [x] (.startswith x attr)))
+     list))
+
+(defn --HYCOMPANY-format-candidates [candidates obj]
+  "Modify candidates for full prefix rather, not just the attr completions."
+  (if obj
+      (->> candidates
+         (map (fn [x] (+ obj "." x)))
+         list)
+      candidates))
+
+;; ** Driver
 
 (defn --HYCOMPANY [prefix]
+  "Extract candidates for a given prefix."
   (setv [obj attr]
         (--HYCOMPANY-split-prefix prefix))
 
-  (if obj
-      (setv candidates (--HYCOMPANY-obj-candidates obj))
-      (setv candidates (--HYCOMPANY-get-global-candidates)))
+  (-> obj
+     --HYCOMPANY-candidates
+     (--HYCOMPANY-trim-candidates attr)
+     (--HYCOMPANY-format-candidates obj)))
 
-  (setv choices (--HYCOMPANY-trim-candidates candidates attr))
-
-  (if obj
-      (list (map (fn [x] (+ obj "." x))
-                 choices))
-      choices))
+;; * Annotations
 
 (defn --HYANNOTATE-search-builtins [text]
   (setv text (hy-symbol-mangle text))
