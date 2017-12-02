@@ -478,8 +478,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
                  (start-pos (hy--sexp-inermost-char state)))
       (goto-char start-pos)
       (while (ignore-errors (forward-sexp)))
-
-      (concat (buffer-substring-no-properties start-pos (point)) "\n"))))
+      (buffer-substring-no-properties start-pos (point)))))
 
 ;;; Indentation
 ;;;; Utilities
@@ -645,7 +644,7 @@ a string or comment."
     font-lock-comment-face))
 
 ;;; Shell Integration
-;;;; Configuration
+;;;; Setup
 
 (defconst hy-shell-buffer-name "Hy"
   "Default buffer name for Hy interpreter.")
@@ -660,7 +659,12 @@ a string or comment."
   "The current internal shell buffer for Hy.")
 
 (defvar hy--shell-output-filter-in-progress nil
-  "Whether we are waiting for output in `hy-shell-send-string-no-output'.")
+  "Whether we are waiting for output from `hy--shell-send-string'.")
+
+(defvar hy--shell-output-filter-string nil
+  "The iteratively concatenated output from `hy--shell-send-string'.")
+
+(defvar hy--shell-output-filter-end-string "")
 
 (defvar hy--shell-font-lock-enable t
   "Whether the shell should font-lock the current line.")
@@ -668,11 +672,21 @@ a string or comment."
 (defconst hy--shell-spy-delim-uuid "#cbb4fcbe-b6ba-4812-afa3-4a5ac7b20501"
   "UUID denoting end of python block in `--spy --control-categories' output")
 
-;;;; Shell buffer utilities
-
 (defun hy-installed? ()
   "Is the `hy-shell-interpreter' command available?"
   (when (executable-find hy-shell-interpreter) t))
+
+;;;; Shell buffer and process management
+
+(defun hy-buffer (&optional name internal)
+  "Get the `hy-shell-(internal)-buffer-(name)'."
+  (if name
+      (if internal
+          hy-shell-internal-buffer-name
+        hy-shell-buffer-name)
+    (if internal
+        hy-shell-internal-buffer
+      hy-shell-buffer)))
 
 (defun hy--shell-format-process-name (proc-name)
   "Format a PROC-NAME with closing astericks."
@@ -680,7 +694,7 @@ a string or comment."
 
 (defun hy-shell-get-process (&optional internal)
   "Get process corr. to `hy-shell-buffer-name'/`hy-shell-internal-buffer-name'."
-  (-> (if internal hy-shell-internal-buffer-name hy-shell-buffer-name)
+  (-> (hy-buffer 'name internal)
      hy--shell-format-process-name
      get-buffer-process))
 
@@ -703,22 +717,20 @@ a string or comment."
 
 (defun hy--shell-buffer? (&optional internal)
   "Is `hy-shell-buffer'/`hy-shell-internal-buffer' set and does it exist?"
-  (-let [buffer
-         (if internal hy-shell-internal-buffer hy-shell-buffer)]
-    (and buffer
-         (buffer-live-p buffer))))
+  (-when-let (buffer
+              (hy-buffer nil internal))
+    (buffer-live-p buffer)))
 
 (defun hy--shell-kill-buffer (&optional internal)
-  "Kill `hy-shell-buffer'/`hy-shell-internal-buffer'."
-  (-let [buffer
-         (if internal hy-shell-internal-buffer hy-shell-buffer)]
-    (when (hy--shell-buffer? internal)
-      (kill-buffer buffer)
-      (when (derived-mode-p 'inferior-hy-mode)
-        (setf buffer nil)))))
+  "Kill either `hy-shell-buffer'/`hy-shell-internal-buffer' process."
+  (-when-let (buffer
+              (hy-buffer nil internal))
+    (kill-buffer buffer)
+    (when (derived-mode-p 'inferior-hy-mode)
+      (setf buffer nil))))
 
 (defun hy-shell-kill ()
-  "Kill all hy processes."
+  "Kill both `hy-shell-buffer'/`hy-shell-internal-buffer' hy processes."
   (hy--shell-kill-buffer)
   (hy--shell-kill-buffer 'internal))
 
@@ -820,45 +832,60 @@ Constantly extracts current prompt text and executes and manages applying
   (s-matches? comint-prompt-regexp string))
 
 (defun hy--shell-output-filter (string)
-  "If STRING ends with input prompt then set filter in progress done."
-  (when (hy--shell-end-of-output? string)
-    (setq hy--shell-output-filter-in-progress nil))
-  "\n=> ")
+  (setq hy--shell-output-filter-string
+        (s-concat hy--shell-output-filter-string
+                  string))
 
-(defun hy--shell-send-string (string &optional process internal)
+  ;; TODO This is still freezing on the single expensive command
+
+  (when (hy--shell-end-of-output? hy--shell-output-filter-string)
+    (setq hy--shell-output-filter-in-progress nil))
+  "")
+  ;; hy--shell-output-filter-end-string)
+
+(defun hy--shell-send-string (string &optional internal)
   "Internal implementation of shell send string functionality."
-  (let ((process (or process
-                     (hy-shell-get-process internal)))
+  (let ((process (hy-shell-get-process internal))
         (hy--shell-output-filter-in-progress t))
 
     (->> string (s-append "\n") (comint-send-string process))
 
     (while hy--shell-output-filter-in-progress
-      (accept-process-output process))))
+      (accept-process-output process))
+    ))
 
-(defun hy-shell-send-string-no-output (string &optional process internal)
-  "Send STRING to hy PROCESS and inhibit printing output."
+(defun hy-shell-send-string-no-output (string &optional internal)
+  "Send STRING to hy PROCESS, inhibit printing output, return it."
   (-let [comint-preoutput-filter-functions
          '(hy--shell-output-filter)]
-    (hy--shell-send-string string process internal)))
+    (hy--shell-send-string string internal)
+    (prog1
+        hy--shell-output-filter-string
+      (setq hy--shell-output-filter-string nil))))
 
 (defun hy-shell-send-string-internal (string)
-  "Send STRING to internal hy shell process."
-  (hy-shell-send-string-no-output string nil 'internal))
+  "Perform `hy-shell-send-string-no-output' for an internal process."
+  (hy-shell-send-string-no-output string 'internal))
+  ;; (-let [hy--shell-output-filter-end-string
+  ;;        "\n=> "]
+  ;;   (hy-shell-send-string-no-output string 'internal)))
+
+(defun hy-shell-send-string (string)
+  "Send STRING to hy process."
+  (-let [comint-output-filter-functions
+         '(comint-postoutput-scroll-to-bottom
+           comint-watch-for-password-prompt
+           hy--shell-output-filter)]
+    (hy--shell-send-string string)))
 
 (defun hy--shell-send-internal-setup-code ()
   "Send setup code for autocompletion and eldoc to hy internal process."
-  (hy-shell-send-string-internal (concat hy-eldoc-setup-code
-                                         hy-company-setup-code)))
-
-(defun hy-shell-send-string (string &optional process)
-  "Send STRING to hy PROCESS."
-  (-let [comint-output-filter-functions
-         '(hy--shell-output-filter)]
-    (hy--shell-send-string string process)))
+  (hy-shell-send-string-internal (s-concat hy-eldoc-setup-code
+                                           hy-company-setup-code)))
 
 (defun hy--shell-send-async (string)
   "Send STRING to internal hy process asynchronously."
+  ;; (hy-shell-send-string-internal string))
   (let ((output-buffer " *Comint Hy Redirect Work Buffer*")
         (proc (hy-shell-get-process 'internal)))
     (with-current-buffer (get-buffer-create output-buffer)
@@ -878,14 +905,24 @@ Constantly extracts current prompt text and executes and manages applying
 
 This is currently done manually as I'm not sure of the consequences of doing
 so automatically through eg. regular intervals. Sending the imports allows
-Eldoc to function (and will allow autocompletion once modules are completed).
+Eldoc to function (and will allow autocompletion once modules are completed)
+on packages like numpy/pandas, even if done via an alias
+eg. (import [numpy :as np]).
 
-Right now the keybinding is not publically exposed."
+Right now the keybinding is not publically exposed while I decide on a way
+to continue.
+
+Implementing in the same manner of eg. the python package `jedi' is out-of-scope
+at this point in time."
   (interactive)
   (save-excursion
     (goto-char (point-min))
-    (while (re-search-forward (rx "(" (0+ space) (or "import" "require")) nil t)
-      (hy-shell-send-string-internal (hy--current-form-string)))))
+    (while (re-search-forward (rx "("
+                                  (0+ space)
+                                  (or "import" "require"))
+                              nil t)
+      (-> (hy--current-form-string)
+         hy-shell-send-string-internal))))
 
 ;;;; Shell creation
 
@@ -933,32 +970,34 @@ Right now the keybinding is not publically exposed."
 (defun run-hy-internal ()
   "Start an inferior hy process in the background for autocompletion."
   (interactive)
-  (unless (hy-installed?)
-    (message "Hy not found, activate a virtual environment containing Hy to use
-Eldoc, Anaconda, and other hy-mode features."))
+  (if (not (hy-installed?))
+      (message "Hy not found, activate a virtual environment containing Hy to use
+Eldoc, Anaconda, and other hy-mode features.")
 
-  (when (and (not (hy-shell-get-process 'internal))
-             (hy-installed?))
-    (-let [hy--shell-font-lock-enable
-           nil]
-      (prog1
-          (-> (hy--shell-calculate-command 'internal)
-             (hy--shell-make-comint hy-shell-internal-buffer-name nil 'internal)
-             get-buffer-process)
-        (hy--shell-send-internal-setup-code)
-        (message "Hy internal process successfully started")))))
+    (when (not (hy-shell-get-process 'internal))
+      (-let [hy--shell-font-lock-enable
+             nil]
+        (prog1
+            (-> (hy--shell-calculate-command 'internal)
+               (hy--shell-make-comint hy-shell-internal-buffer-name nil 'internal)
+               get-buffer-process)
+          (hy--shell-send-internal-setup-code)
+          ;; (sleep-for 0 500)
+          ;; (with-current-buffer (hy-buffer nil 'internal)
+          ;;   (comint-send-input nil t))
+          (message "Hy internal process successfully started"))))))
 
 (defun run-hy (&optional cmd)
   "Run an inferior Hy process.
 
 CMD defaults to the result of `hy--shell-calculate-command'."
   (interactive)
-  (unless (hy-installed?)
-    (message "Hy not found, activate a virtual environment with Hy."))
+  (if (not (hy-installed?))
+      (message "Hy not found, activate a virtual environment with Hy.")
 
-  (-> (or cmd (hy--shell-calculate-command))
-     (hy--shell-make-comint hy-shell-buffer-name 'show)
-     get-buffer-process))
+    (-> (or cmd (hy--shell-calculate-command))
+       (hy--shell-make-comint hy-shell-buffer-name 'show)
+       get-buffer-process)))
 
 ;;; Eldoc
 ;;;; Setup Code
@@ -1496,21 +1535,22 @@ Not all defuns can be argspeced - eg. C defuns.\"
   (setq-local comint-prompt-regexp (rx bol "=>" space))
 
   ;; Highlight errors according to colorama python package
-  (ansi-color-for-comint-mode-on)
-  (setq-local comint-output-filter-functions '(ansi-color-process-output))
+  ;; (ansi-color-for-comint-mode-on)
+  ;; (setq-local comint-output-filter-functions '(ansi-color-process-output))
 
   ;; Don't startup font lock for internal processes
   (when hy--shell-font-lock-enable
-    (if (fboundp 'xterm-color-filter)
-        (setq-local comint-preoutput-filter-functions
-                    `(xterm-color-filter hy--shell-font-lock-spy-output))
-      (setq-local comint-preoutput-filter-functions
-                  `(hy--shell-font-lock-spy-output)))
+    ;; (if (fboundp 'xterm-color-filter)
+    ;;     (setq-local comint-preoutput-filter-functions
+    ;;                 `(xterm-color-filter hy--shell-font-lock-spy-output))
+    ;;   (setq-local comint-preoutput-filter-functions
+    ;;               `(hy--shell-font-lock-spy-output)))
     (hy--shell-font-lock-turn-on))
 
   ;; Fixes issue with "=>", no side effects from this advice
   (advice-add 'comint-previous-input :before
-              (lambda (&rest args) (setq-local comint-stored-incomplete-input ""))))
+              (lambda (&rest args) (setq-local comint-stored-incomplete-input "")))
+  )
 
 ;;; Core
 
@@ -1542,3 +1582,25 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (provide 'hy-mode)
 
 ;;; hy-mode.el ends here
+
+;; TODO hy--shell-output-filter-string needs to be reset always
+;; even if a failure occurs
+;; TODO Since newlines (that arent within a string) don't affect
+;; evaluation, possibly I can just remove the newlines when
+;; sending multiline strings?
+;; TODO In the non-preoutput-filter version, its printing the
+;; spy output in place of the actual prompt.
+;; This is expected behavior - but do we desire it?
+;; TODO output inhibiting is truly working now - but it should probably
+;; make it obvious that it was sent as not even the prompt is being duped
+;; TODO Don't want to inhibit tracebacks!
+;; TODO This will work but the prompt is inserted immediately
+;; (setv i 0)
+;; (for [_ (range 30_000_000)]
+;;      (+= i 1))
+;; Ideally the prompt would be inserted AFTER it is done
+;; TODO Need to account for newlines within a string
+
+;; i = 0
+;; for _ in range(30_000_000):
+;;     i += 1

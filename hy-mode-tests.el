@@ -588,3 +588,15 @@ b]+-])
 
   (should-not (hy-shell-get-process))
   (should-not (hy-shell-get-process 'internal)))
+
+
+;; (ert-deftest shell::sending-string ()
+;;   :tags '(shell) (skip-unless (hy-installed?))
+
+;;   (hy-with-hy-shell
+;;    ;; (print (hy--shell-with-shell-buffer
+;;    ;;         (hy-shell-send-string "1")))
+;;    ;; (print (hy--shell-with-shell-buffer
+;;    ;;         (hy-shell-send-string "(print 1)")))
+;;    ;; (print (hy-shell-send-string "(print 1)"))
+;;    ))
