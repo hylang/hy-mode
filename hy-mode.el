@@ -237,8 +237,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defconst hy--font-lock-kwds-builtins
   (list
    (rx-to-string
-    `(: (not (any "#"))
-        symbol-start
+    `(: symbol-start
         (or ,@hy--kwds-operators
             ,@hy--kwds-builtins
             ,@hy--kwds-anaphorics)
@@ -251,7 +250,9 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defconst hy--font-lock-kwds-constants
   (list
    (rx-to-string
-    `(: (or ,@hy--kwds-constants)))
+    `(: symbol-start
+        (or ,@hy--kwds-constants)
+        symbol-end))
 
    '(0 font-lock-constant-face))
 
@@ -260,7 +261,8 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defconst hy--font-lock-kwds-defs
   (list
    (rx-to-string
-    `(: (group-n 1 (or ,@hy--kwds-defs))
+    `(: symbol-start
+        (group-n 1 (or ,@hy--kwds-defs))
         (1+ space)
         (group-n 2 (1+ word))))
 
@@ -334,8 +336,9 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
 (defconst hy--font-lock-kwds-imports
   (list
-   (rx (or "import" "require" ":as")
-       (or (1+ space) eol))
+   (rx symbol-start
+       (or "import" "require" ":as")
+       symbol-end)
 
    '(0 font-lock-keyword-face))
 
@@ -377,9 +380,11 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
 (defconst hy--font-lock-kwds-anonymous-funcs
   (list
-   (rx symbol-start "%" (1+ digit))
+   (rx symbol-start
+       (group "%" (1+ digit))
+       (or "." symbol-end))
 
-   '(0 font-lock-variable-name-face))
+   '(1 font-lock-variable-name-face))
 
   "Hy '#%(print %1 %2)' styling anonymous variables.")
 
@@ -467,7 +472,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
   (if text text ""))
 
 (defun hy--current-form-string ()
-  "Get form containing current point as string."
+  "Get form containing current point as string plus a trailing newline."
   (save-excursion
     (-when-let* ((state (syntax-ppss))
                  (start-pos (hy--sexp-inermost-char state)))
@@ -517,10 +522,19 @@ the loop will terminate without error and the prior lines indentation is it."
           (while (hy--anything-before? (point))
             (setq last-sexp-start (prog1
                                       ;; Indentation should ignore quote chars
-                                      (if (-contains? '(?\' ?\` ?\~ ?\#)
-                                                      (char-before))
-                                          (1- (point))
-                                        (point))
+                                      (cond
+                                       ((-contains? '(?\' ?\` ?\~ ?\#)
+                                                    (char-before))
+                                        (1- (point)))
+
+                                       ((and (eq ?\@ (char-before))
+                                             (save-excursion
+                                               (forward-char -1)
+                                               (eq ?\~ (char-before))))
+                                        (- (point) 2))
+
+                                       (t (point)))
+
                                     (backward-sexp))))
           t)
         (current-column)
@@ -642,6 +656,9 @@ a string or comment."
 (defvar hy-shell-buffer nil
   "The current shell buffer for Hy.")
 
+(defvar hy-shell-internal-buffer nil
+  "The current internal shell buffer for Hy.")
+
 (defvar hy--shell-output-filter-in-progress nil
   "Whether we are waiting for output in `hy-shell-send-string-no-output'.")
 
@@ -653,6 +670,10 @@ a string or comment."
 
 ;;;; Shell buffer utilities
 
+(defun hy-installed? ()
+  "Is the `hy-shell-interpreter' command available?"
+  (when (executable-find hy-shell-interpreter) t))
+
 (defun hy--shell-format-process-name (proc-name)
   "Format a PROC-NAME with closing astericks."
   (->> proc-name (s-prepend "*") (s-append "*")))
@@ -660,8 +681,8 @@ a string or comment."
 (defun hy-shell-get-process (&optional internal)
   "Get process corr. to `hy-shell-buffer-name'/`hy-shell-internal-buffer-name'."
   (-> (if internal hy-shell-internal-buffer-name hy-shell-buffer-name)
-      hy--shell-format-process-name
-      get-buffer-process))
+     hy--shell-format-process-name
+     get-buffer-process))
 
 (defun hy--shell-current-buffer-process ()
   "Get process associated with current buffer."
@@ -680,17 +701,26 @@ a string or comment."
             (process-name (hy--shell-current-buffer-process))]
        (generate-new-buffer proc-name)))))
 
-(defun hy--shell-buffer? ()
-  "Is `hy-shell-buffer' set and does it exist?"
-  (and hy-shell-buffer
-       (buffer-live-p hy-shell-buffer)))
+(defun hy--shell-buffer? (&optional internal)
+  "Is `hy-shell-buffer'/`hy-shell-internal-buffer' set and does it exist?"
+  (-let [buffer
+         (if internal hy-shell-internal-buffer hy-shell-buffer)]
+    (and buffer
+         (buffer-live-p buffer))))
 
-(defun hy--shell-kill-buffer ()
-  "Kill `hy-shell-buffer'."
-  (when (hy--shell-buffer?)
-    (kill-buffer hy-shell-buffer)
-    (when (derived-mode-p 'inferior-hy-mode)
-      (setq hy-shell-buffer nil))))
+(defun hy--shell-kill-buffer (&optional internal)
+  "Kill `hy-shell-buffer'/`hy-shell-internal-buffer'."
+  (-let [buffer
+         (if internal hy-shell-internal-buffer hy-shell-buffer)]
+    (when (hy--shell-buffer? internal)
+      (kill-buffer buffer)
+      (when (derived-mode-p 'inferior-hy-mode)
+        (setf buffer nil)))))
+
+(defun hy-shell-kill ()
+  "Kill all hy processes."
+  (hy--shell-kill-buffer)
+  (hy--shell-kill-buffer 'internal))
 
 ;;;; Shell macros
 
@@ -797,9 +827,12 @@ Constantly extracts current prompt text and executes and manages applying
 
 (defun hy--shell-send-string (string &optional process internal)
   "Internal implementation of shell send string functionality."
-  (let ((process (or process (hy-shell-get-process internal)))
+  (let ((process (or process
+                     (hy-shell-get-process internal)))
         (hy--shell-output-filter-in-progress t))
-    (comint-send-string process string)
+
+    (->> string (s-append "\n") (comint-send-string process))
+
     (while hy--shell-output-filter-in-progress
       (accept-process-output process))))
 
@@ -891,7 +924,9 @@ Right now the keybinding is not publically exposed."
     (when show
       (display-buffer buffer))
     (if internal
-        (set-process-query-on-exit-flag process nil)
+        (progn
+          (set-process-query-on-exit-flag process nil)
+          (setq hy-shell-internal-buffer buffer))
       (setq hy-shell-buffer buffer))
     proc-buffer-name))
 
@@ -900,12 +935,12 @@ Right now the keybinding is not publically exposed."
 (defun run-hy-internal ()
   "Start an inferior hy process in the background for autocompletion."
   (interactive)
-  (unless (executable-find "hy")
+  (unless (hy-installed?)
     (message "Hy not found, activate a virtual environment containing Hy to use
 Eldoc, Anaconda, and other hy-mode features."))
 
   (when (and (not (hy-shell-get-process 'internal))
-             (executable-find "hy"))
+             (hy-installed?))
     (-let [hy--shell-font-lock-enable
            nil]
       (prog1
@@ -920,7 +955,7 @@ Eldoc, Anaconda, and other hy-mode features."))
 
 CMD defaults to the result of `hy--shell-calculate-command'."
   (interactive)
-  (unless (executable-find "hy")
+  (unless (hy-installed?)
     (message "Hy not found, activate a virtual environment with Hy."))
 
   (-> (or cmd (hy--shell-calculate-command))
