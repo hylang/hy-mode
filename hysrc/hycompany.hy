@@ -97,47 +97,54 @@
 
 ;; * Annotations
 
-(defn --HYANNOTATE-search-builtins [text]
-  (setv text (hy-symbol-mangle text))
+(defn --HYANNOTATE-class-annotation [klass]
+  "Return annotation given a name of a class."
+  (cond [(in klass ["function" "builtin_function_or_method"])
+         "def"]
+        [(= klass "type")
+         "class"]
+        [(= klass "module")
+         "module"]
+        [True
+         "instance"]))
+
+(defn --HYANNOTATE-annotate-builtin [candidate]
+  "Try to extract annotation searching builtins."
   (try
-    (do (setv obj (builtins.eval text))
-        (setv obj-name obj.--class--.--name--)
-        (cond [(in obj-name ["function" "builtin_function_or_method"])
-               "def"]
-              [(= obj-name "type")
-               "class"]
-              [(= obj-name "module")
-               "module"]
-              [True "instance"]))
+    (-> candidate
+       hy-symbol-mangle
+       builtins.eval
+       (. --class--)
+       (. --name--)
+       --HYANNOTATE-class-annotation)
     (except [e Exception]
       None)))
 
-(defn --HYANNOTATE-search-compiler [text]
-  (in text hy.compiler.-compile-table))
+(defn --HYANNOTATE-compiler? [candidate]
+  "Is candidate a compile table construct?"
+  (in candidate hy.compiler.-compile-table))
 
-(defn --HYANNOTATE-search-shadows [text]
-  (->> hy.core.shadow
-     dir
-     (map hy-symbol-unmangle)
-     (in text)))
+(defn --HYANNOTATE-shadow? [candidate]
+  "Is candidate a shadowed operator?"
+  (in (hy-symbol-mangle candidate) (dir hy.core.shadow)))
 
-(defn --HYANNOTATE-search-macros [text]
-  (setv text (hy-symbol-mangle text))
-  (for [macro-dict (.values hy.macros.-hy-macros)]
-    (when (in text macro-dict)
-      (return (get macro-dict text))))
-  None)
+(defn --HYANNOTATE-macro? [candidate]
+  "Is candidate a macro?"
+  (in (hy-symbol-mangle candidate) (get hy.macros.-hy-macros None)))
 
-(defn --HYANNOTATE [x]
-  ;; only builtins format on per-case basis
-  (setv annotation (--HYANNOTATE-search-builtins x))
-  (when (and (not annotation) (--HYANNOTATE-search-shadows x))
-    (setv annotation "shadowed"))
-  (when (and (not annotation) (--HYANNOTATE-search-compiler x))
-    (setv annotation "compiler"))
-  (when (and (not annotation) (--HYANNOTATE-search-macros x))
-    (setv annotation "macro"))
-
+(defn --HYANNOTATE-format-annotation [annotation candidate]
+  "Format an annotation for company display."
   (if annotation
       (.format "<{} {}>" annotation x)
       ""))
+
+(defn --HYANNOTATE [candidate]
+  "Return annotation for a candidate."
+  (-> (cond [(--HYANNOTATE-annotate-builtin candidate)]
+           [(--HYANNOTATE-shadow? candidate)
+            "shadowed"]
+           [(--HYANNOTATE-compiler? candidate)
+            "compiler"]
+           [(--HYANNOTATE-macro? candidate)
+            "macro"])
+     (--HYANNOTATE-format-annotation candidate)))
