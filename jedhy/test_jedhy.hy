@@ -1,10 +1,15 @@
-(import [hysrc.hycompany
+(import [jedhy.jedhy
          [--HYCOMPANY-split-prefix
           --HYCOMPANY-obj-candidates
           --HYCOMPANY-get-macros
           --HYCOMPANY-get-globals
           --HYCOMPANY-trim-candidates
           --HYCOMPANY
+
+          --HYANNOTATE-annotate-builtin
+          --HYANNOTATE-compiler?
+          --HYANNOTATE-macro?
+          --HYANNOTATE
           ]])
 
 ;; * Asserts

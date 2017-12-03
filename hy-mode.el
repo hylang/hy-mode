@@ -812,8 +812,7 @@ Constantly extracts current prompt text and executes and manages applying
   "Applies font-locking to hy outputted python blocks when `--spy' is enabled."
   (with-temp-buffer
     (if (s-contains? hy--shell-spy-delim-uuid string)
-        (-let ((python-indent-guess-indent-offset
-                nil)
+        (-let (python-indent-guess-indent-offset
                ((python-block hy-output)
                 (s-split hy--shell-spy-delim-uuid string)))
           (python-mode)
