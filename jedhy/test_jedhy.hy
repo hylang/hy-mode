@@ -10,6 +10,11 @@
           --HYANNOTATE-compiler?
           --HYANNOTATE-macro?
           --HYANNOTATE
+
+          --HYDOC-args
+          --HYDOC-defaults
+          --HYDOC-kwonlyargs
+          --HYDOC-kwonlydefaults
           ]])
 
 ;; * Asserts

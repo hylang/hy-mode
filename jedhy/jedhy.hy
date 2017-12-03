@@ -150,8 +150,10 @@
      (--HYANNOTATE-format-annotation candidate)))
 
 ;; * Hydoc
+;; ** Argspec Extraction
 
 (defn --HYDOC-args [argspec]
+  "Extract standard positional arguments from argspec."
   (if (and argspec.args argspec.defaults)
       (-> argspec.defaults
          len
@@ -160,6 +162,7 @@
       argspec.args))
 
 (defn --HYDOC-defaults [argspec]
+  "Extract &optional arguments from argspec."
   (if (and argspec.args argspec.defaults)
       (-> (--HYDOC-args)
          len
@@ -167,13 +170,8 @@
          list)
       argspec.defaults))
 
-(defn --HYDOC-varargs [argspec]
-  argspec.varargs)
-
 (defn --HYDOC-kwonlyargs [argspec]
-  argspec.kwonlyargs)
-
-(defn --HYDOC-kwonlyargs [argspec]
+  "Extract :keyword arguments without a default from argspec."
   (if (and argspec.kwonlyargs argspec.kwonlydefaults)
       (->> argspec.kwonlyargs
          (remove (fn [x] (in x (.keys argspec.kwonlydefaults))))
@@ -181,6 +179,7 @@
       argspec.kwonlyargs))
 
 (defn --HYDOC-kwonlydefaults [argspec]
+  "Extract :keyword arguments with their default from argspec."
   (if (and argspec.kwonlyargs argspec.kwonlydefaults)
       (->> argspec.kwonlydefaults
          (.items)
@@ -188,47 +187,35 @@
          list)
       argspec.kwonlydefaults))
 
+(defn --HYDOC-kwargs [argspec]
+  (-> argspec
+     ((juxt --HYDOC-kwonly-args --HYDOC-kwonlydefaults))
+     flatten
+     list))
+
+;; ** Format Argspec
+
+(defn --HYDOC-acc-formatted-argspec [formatted-argspec [args arg-opener]]
+  "Accumulator for adding formatted argspec components."
+  (+ formatted-argspec
+     (if formatted-argspec " " "")
+     (when args
+       (+ (if arg-opener (+ "&" arg-opener " ") "")
+          (sum args)))))
+
 (defn --HYDOC-format-argspec [argspec]
   "Lispy version of format argspec covering all defun kwords."
-  (setv docs "")
+  (setv [args defaults kwargs]
+        ((juxt --HYDOC-args --HYDOC-defaults --HYDOC-kwargs) argspec))
 
-  (defmacro add-docs [&rest forms]
-    `(+= docs (if docs " " "") ~@forms))
+  (reduce --HYDOC-acc-formatted-argspec
+          [[args None]
+           [defaults "optional"]
+           [[argspec.varargs] "rest"]
+           [[argspec.varkw] "kwargs"]
+           [kwargs "kwonly"]]))
 
-  (defn format-args [&rest args]
-    (->> args
-       (map hy-symbol-unmangle)
-       ;; (map (fn [x] (-> x str (.replace "_" "-"))))
-       (.join " ")))
-
-  (setv [args defaults varargs varkw kwonlyargs kwonlydefaults]
-        ((juxt --HYDOC-args
-               --HYDOC-defaults
-               --HYDOC-varargs
-               --HYDOC-varkw
-               --HYDOC-kwonlyargs
-               --HYDOC-kwonlydefaults)
-          argspec))
-
-  (when args
-    (add-docs (format-args #* args)))
-  (when defaults
-    (add-docs "&optional "
-              (format-args #* defaults)))
-  (when varargs
-    (add-docs "&rest "
-              (format-args varargs)))
-  (when varkw
-    (add-docs "&kwargs "
-              (format-args varkw)))
-  (when kwonlyargs
-    (add-docs "&kwonly "
-              (format-args #* kwonlyargs)))
-  (when kwonlydefaults
-    (add-docs (if-not kwonlyargs "&kwonly " "")
-              (format-args #* kwonlydefaults)))
-
-  docs)
+;; ** Format Eldoc String
 
 (defn --HYDOC-format-eldoc-string [obj-name f &optional full]
   "Format an obj name for callable f."
