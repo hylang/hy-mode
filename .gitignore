@@ -1,8 +1,3 @@
-# Dev Files
+.cache*
 scratch*
 hy-personal.el
-hydoc.hy
-
-# Hy Source Code
-.cache*
-__pycache__*
