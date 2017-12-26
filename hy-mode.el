@@ -570,6 +570,14 @@ Point is always at the start of a function."
 
 ;;;; Hy indent function
 
+(defun hy-indent-at-outline? ()
+  "If `indent-point' is a line containing an outline, indent at left margin."
+  (save-excursion
+    (goto-char (line-beginning-position))
+    (re-search-forward
+     (rx (group (0+ space)) ";; " (1+ "*") space)
+     (line-end-position) t)))
+
 (defun hy-indent-function (indent-point state)
   "Indent at INDENT-POINT where STATE is `parse-partial-sexp' for INDENT-POINT."
   (goto-char (hy--sexp-inermost-char state))
@@ -586,6 +594,14 @@ Point is always at the start of a function."
 
           (t
            (hy--normal-indent calculate-lisp-indent-last-sexp)))))
+
+(defun hy-indent-line ()
+  "Perform `lisp-indent-line' with check for `outline' headers."
+  (if (hy-indent-at-outline?)
+      (progn
+        (line-beginning-position)
+        (replace-match "" nil nil nil 1))
+    (lisp-indent-line)))
 
 ;;; Bracket String Literals
 
@@ -1508,7 +1524,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
   ;; Lispy indent with hy-specialized indentation
   (setq-local indent-tabs-mode nil)
-  (setq-local indent-line-function 'lisp-indent-line)
+  (setq-local indent-line-function 'hy-indent-line)
   (setq-local lisp-indent-function 'hy-indent-function))
 
 (defun hy--mode-setup-smartparens ()
