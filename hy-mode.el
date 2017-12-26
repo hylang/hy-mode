@@ -70,7 +70,8 @@ Keep nil unless using specific Hy branch.")
     ("when" "unless"
      "for" "for*"
      "while"
-     "except" "catch")
+     "except" "catch"
+     "->" "->>" "some->" "some->>")
 
     :fuzzy
     ("def"
@@ -199,6 +200,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
     ;; Threading
     "->" "->>" "as->"
+    "some->" "some->>"
 
     ;; Flow control
     "return"
@@ -812,9 +814,9 @@ Constantly extracts current prompt text and executes and manages applying
   "Applies font-locking to hy outputted python blocks when `--spy' is enabled."
   (with-temp-buffer
     (if (s-contains? hy--shell-spy-delim-uuid string)
-        (-let (python-indent-guess-indent-offset
+        (-let [python-indent-guess-indent-offset
                ((python-block hy-output)
-                (s-split hy--shell-spy-delim-uuid string)))
+                (s-split hy--shell-spy-delim-uuid string))]
           (python-mode)
           (insert python-block)
           (font-lock-default-fontify-buffer)
