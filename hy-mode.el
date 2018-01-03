@@ -982,156 +982,37 @@ at this point in time."
 
 ;;;; Run Shell
 
+(defmacro hy--when-installed (&rest forms)
+  "Execute FORMS if `hy-installed?' otherwise message not installed."
+  `(if (not (hy-installed?))
+       (message "Hy not found. Activate a virtual environment with Hy.")
+     ,@forms))
+
 (defun run-hy-internal ()
   "Start an inferior hy process in the background for autocompletion."
   (interactive)
-  (if (not (hy-installed?))
-      (message "Hy not found, activate a virtual environment containing Hy to use
-Eldoc, Anaconda, and other hy-mode features.")
-
-    (when (not (hy-shell-get-process 'internal))
-      (-let [hy--shell-font-lock-enable
-             nil]
-        (prog1
-            (-> (hy--shell-calculate-command 'internal)
-               (hy--shell-make-comint hy-shell-internal-buffer-name nil 'internal)
-               get-buffer-process)
-          (hy--shell-send-internal-setup-code)
-          ;; (sleep-for 0 500)
-          ;; (with-current-buffer (hy-buffer nil 'internal)
-          ;;   (comint-send-input nil t))
-          (message "Hy internal process successfully started"))))))
+  (hy--when-installed
+   (when (not (hy-shell-get-process 'internal))
+     (-let [hy--shell-font-lock-enable
+            nil]
+       (prog1
+           (-> (hy--shell-calculate-command 'internal)
+              (hy--shell-make-comint hy-shell-internal-buffer-name nil 'internal)
+              get-buffer-process)
+         (hy--shell-send-internal-setup-code)
+         (message "Hy internal process successfully started"))))))
 
 (defun run-hy (&optional cmd)
   "Run an inferior Hy process.
 
 CMD defaults to the result of `hy--shell-calculate-command'."
   (interactive)
-  (if (not (hy-installed?))
-      (message "Hy not found, activate a virtual environment with Hy.")
-
-    (-> (or cmd (hy--shell-calculate-command))
-       (hy--shell-make-comint hy-shell-buffer-name 'show)
-       get-buffer-process)))
+  (hy--when-installed
+   (-> (or cmd (hy--shell-calculate-command))
+      (hy--shell-make-comint hy-shell-buffer-name 'show)
+      get-buffer-process)))
 
 ;;; Eldoc
-;;;; Setup Code
-
-(defconst hy-eldoc-setup-code
-  "(import builtins)
-(import inspect)
-(import [hy.macros [-hy-macros]])
-
-(defn --HYDOC-format-argspec [argspec]
-  \"Lispy version of format argspec covering all defun kwords.\"
-  (setv docs \"\")
-
-  (defmacro add-docs [&rest forms]
-    `(do (when docs (setv docs (+ docs \" \")))
-         (setv docs (+ docs ~@forms))))
-
-  (defn format-args [&rest args]
-    (->> args
-       (map (fn [x] (-> x str (.replace \"_\" \"-\"))))
-       (.join \" \")))
-
-  (setv args argspec.args)
-  (setv defaults argspec.defaults)
-  (setv varargs argspec.varargs)
-  (setv varkw argspec.varkw)
-  (setv kwonlyargs argspec.kwonlyargs)
-  (setv kwonlydefaults argspec.kwonlydefaults)
-
-  (when (and args defaults)
-    (setv args (-> argspec.defaults
-                  len
-                  (drop-last argspec.args)
-                  list))
-    (setv defaults (-> args
-                      len
-                      (drop argspec.args)
-                      list)))
-
-  (when (and kwonlyargs kwonlydefaults)
-    (setv kwonlyargs (->> kwonlyargs
-                        (remove (fn [x] (in x (.keys kwonlydefaults))))
-                        list))
-    (setv kwonlydefaults (->> kwonlydefaults
-                            (.items)
-                            (*map (fn [k v] (.format \"[{} {}]\" k v)))
-                            list)))
-
-  (when args
-    (add-docs (format-args #* args)))
-  (when defaults
-    (add-docs \"&optional \"
-              (format-args #* defaults)))
-  (when varargs
-    (add-docs \"&rest \"
-              (format-args varargs)))
-  (when varkw
-    (add-docs \"&kwargs \"
-              (format-args varkw)))
-  (when kwonlyargs
-    (add-docs \"&kwonly \"
-              (format-args #* kwonlyargs)))
-  (when kwonlydefaults
-    (add-docs (if-not kwonlyargs \"&kwonly \" \"\")
-              (format-args #* kwonlydefaults)))
-
-  docs)
-
-(defn --HYDOC-format-eldoc-string [obj-name f &optional full]
-  \"Format an obj name for callable f.\"
-  (if f.--doc--
-      (.format \"{obj}: ({args}){docs}\"
-               :obj (.replace obj-name \"_\" \"-\")
-               :args (--HYDOC-format-argspec (inspect.getfullargspec f))
-               :docs (if full
-                         (->> f.--doc-- (.splitlines) (.join \"\n\") (+ \"\n\"))
-                         (+ \" - \" (->> f.--doc-- (.splitlines) first))))
-      (.format \"{obj}: ({args})\"
-               :obj (.replace obj-name \"_\" \"-\")
-               :args (--HYDOC-format-argspec (inspect.getfullargspec f)))))
-
-(defn --HYDOC-python-eldoc [obj &optional full]
-  \"Build eldoc string for python obj or string.
-
-Not all defuns can be argspeced - eg. C defuns.\"
-  (try
-    (do (when (isinstance obj str)
-          (setv obj (.eval builtins obj (globals))))
-        (setv full-doc (.getdoc inspect obj))
-        (setv doc full-doc)
-        (try
-          (setv doc (--HYDOC-format-eldoc-string obj.--name-- obj
-                                                :full full))
-          (except [e TypeError]
-            (setv doc (->> doc (.splitlines) first (+ \"builtin: \")))
-            (when full
-              (setv doc (+ doc \"\n\"
-                           (->> full-doc (.splitlines) rest (.join \"\"))))))))
-    (except [e Exception]
-      (setv doc \"\")))
-  doc)
-
-(defn --HYDOC-macro-eldoc [obj &optional full]
-  \"Get eldoc string for a macro.\"
-  (try
-    (do (setv obj (.replace obj \"-\" \"_\"))
-        (setv macros (get -hy-macros None))
-
-        (when (in obj macros)
-          (--HYDOC-format-eldoc-string obj (get macros obj) :full full)))
-    (except [e Exception] \"\")))
-
-(defn --HYDOC [obj &optional full]
-  \"Get eldoc string for any obj.\"
-  (setv doc (--HYDOC-python-eldoc obj :full full))
-  (unless doc (setv doc (--HYDOC-macro-eldoc obj :full full)))
-  doc)"
-  "Symbol introspection code to send to the internal process for eldoc.")
-
 ;;;; Utilities
 
 (defun hy--eldoc-chomp-output (text)
@@ -1155,11 +1036,9 @@ Not all defuns can be argspeced - eg. C defuns.\"
      hy--eldoc-remove-syntax-errors
      hy--str-or-nil))
 
-(defun hy--eldoc-format-command (symbol &optional full raw)
-  "Inspect SYMBOL with hydoc, optionally include FULL docs for a buffer."
-  (format "(try (--HYDOC %s :full %s) (except [e Exception] (str)))"
-          (if raw symbol (s-concat "\"" symbol "\""))
-          (if full "True" "False")))
+(defun hy--eldoc-format-command (candidate &optional full raw)
+  "Get jedhy docs for CANDIDATE."
+  (format "(.docs api \"%s\")" candidate))
 
 (defun hy--eldoc-get-inner-symbol ()
   "Traverse and inspect innermost sexp and return formatted string for eldoc."
