@@ -896,9 +896,6 @@ Constantly extracts current prompt text and executes and manages applying
 (defun hy-shell-send-string-internal (string)
   "Perform `hy-shell-send-string-no-output' for an internal process."
   (hy-shell-send-string-no-output string 'internal))
-  ;; (-let [hy--shell-output-filter-end-string
-  ;;        "\n=> "]
-  ;;   (hy-shell-send-string-no-output string 'internal)))
 
 (defun hy-shell-send-string (string)
   "Send STRING to hy process."
@@ -907,6 +904,13 @@ Constantly extracts current prompt text and executes and manages applying
            comint-watch-for-password-prompt
            hy--shell-output-filter)]
     (hy--shell-send-string string)))
+
+(defun hy--shell-chomp-async-output (text)
+  "Chomp prefixes and suffixes from async internal process output."
+  (->> text
+     (s-chop-suffixes '("\n=> " "=> " "\n"))
+     (s-chop-prefixes '("\"" "'" "\"'" "'\""))
+     (s-chop-suffixes '("\"" "'" "\"'" "'\""))))
 
 (defun hy--shell-send-async (string)
   "Send STRING to internal hy process asynchronously."
@@ -923,7 +927,7 @@ Constantly extracts current prompt text and executes and manages applying
                   (accept-process-output proc nil 100 t)))
       (set-buffer output-buffer)
 
-      (buffer-string))))
+      (hy--shell-chomp-async-output (buffer-string)))))
 
 ;;;; Update internal process
 
@@ -1027,25 +1031,10 @@ at this point in time."
 ;;; Eldoc
 ;;;; Utilities
 
-(defun hy--eldoc-chomp-output (text)
-  "Chomp prefixes and suffixes from eldoc process output."
-  (->> text
-     (s-chop-suffixes '("\n=> " "=> " "\n"))
-     (s-chop-prefixes '("\"" "'" "\"'" "'\""))
-     (s-chop-suffixes '("\"" "'" "\"'" "'\""))))
-
-(defun hy--eldoc-remove-syntax-errors (text)
-  "Quick fix to address parsing an incomplete dot-dsl."
-  (if (< 1 (-> text s-lines length))
-      ""
-    text))
-
 (defun hy--eldoc-send (string)
   "Send STRING for eldoc to internal process returning output."
   (-> string
      hy--shell-send-async
-     hy--eldoc-chomp-output
-     hy--eldoc-remove-syntax-errors
      hy--str-or-nil))
 
 (defun hy--eldoc-format-command (candidate &optional full raw)
@@ -1180,10 +1169,7 @@ at this point in time."
   "Get company annotation for CANDIDATE string."
   (-some->> candidate
           hy--company-format-annotate-str
-          hy--shell-send-async
-          s-chomp
-          (s-chop-prefix "'")
-          (s-chop-suffix "'")))
+          hy--shell-send-async))
 
 (defun hy--company-candidates (string)
   "Get candidates for completion of STRING."
@@ -1328,8 +1314,7 @@ at this point in time."
 
   ;; Fixes issue with "=>", no side effects from this advice
   (advice-add 'comint-previous-input :before
-              (lambda (&rest args) (setq-local comint-stored-incomplete-input "")))
-  )
+              (lambda (&rest args) (setq-local comint-stored-incomplete-input ""))))
 
 ;;; Core
 
@@ -1362,26 +1347,19 @@ at this point in time."
 
 ;;; hy-mode.el ends here
 
-;; TODO hy--shell-output-filter-string needs to be reset always
-;; even if a failure occurs
-;; TODO Since newlines (that arent within a string) don't affect
-;; evaluation, possibly I can just remove the newlines when
-;; sending multiline strings?
-;; TODO In the non-preoutput-filter version, its printing the
-;; spy output in place of the actual prompt.
-;; This is expected behavior - but do we desire it?
-;; TODO output inhibiting is truly working now - but it should probably
-;; make it obvious that it was sent as not even the prompt is being duped
-;; TODO Don't want to inhibit tracebacks!
-;; TODO This will work but the prompt is inserted immediately
-;; (setv i 0)
-;; (for [_ (range 30_000_000)]
-;;      (+= i 1))
-;; Ideally the prompt would be inserted AFTER it is done
-;; TODO Need to account for newlines within a string
+;; JEDHY
 ;; TODO in jedhy, nonsense.a will complete as if just "a"
 ;; TODO inspect.obj-name not getting macro names
 
+;; (setv i 0)
+;; (for [_ (range 30_000_000)]
+;;      (+= i 1))
 ;; i = 0
 ;; for _ in range(30_000_000):
 ;;     i += 1
+
+;; Hy Shell
+;; TODO The prompt is duplicated for every newline sent
+;; TODO Sending region just the for and += line will freeze
+;; but sending the for plus the i += 1 will not freeze
+;; TODO Don't want to inhibit tracebacks!
