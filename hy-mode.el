@@ -999,29 +999,30 @@ at this point in time."
        (message "Hy not found. Activate a virtual environment with Hy.")
      ,@forms))
 
+;; TODO Checker for whether `jedhy' in
+
 (defun run-hy-internal ()
   "Start an inferior hy process in the background for autocompletion."
   (interactive)
   (hy--when-installed
    (unless (hy-shell-get-process 'internal)
-     (-let [hy--shell-font-lock-enable nil]
-       (prog1
-           (-> 'internal
-              hy--shell-calculate-command
-              (hy--shell-make-comint hy-shell-internal-buffer-name nil 'internal)
-              get-buffer-process)
-         (hy-shell-send-string-internal hy-shell-internal-setup-code)
-         (message "Hy internal process successfully started"))))))
+     (let ((hy--shell-font-lock-enable nil)
+           (cmd (hy--shell-calculate-command 'internal))
+           (buffer (hy-buffer 'name 'internal)))
+
+       (hy--shell-make-comint cmd buffer nil 'internal)
+       (hy-shell-send-string-internal hy-shell-internal-setup-code)
+
+       (message "Hy internal process successfully started")))))
 
 (defun run-hy (&optional cmd)
-  "Run an inferior Hy process.
-
-CMD defaults to the result of `hy--shell-calculate-command'."
+  "Run an inferior Hy process, CMD defaulting to `hy--shell-calculate-command'."
   (interactive)
   (hy--when-installed
-   (-> (or cmd (hy--shell-calculate-command))
-      (hy--shell-make-comint hy-shell-buffer-name 'show)
-      get-buffer-process)))
+   (unless (hy-shell-get-process)
+     (let ((cmd (or cmd (hy--shell-calculate-command)))
+           (buffer (hy-buffer 'name)))
+       (hy--shell-make-comint cmd buffer 'show)))))
 
 ;;; Eldoc
 ;;;; Utilities
