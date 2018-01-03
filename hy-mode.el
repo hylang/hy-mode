@@ -482,6 +482,11 @@ will indent special. Exact forms require the symbol and def exactly match.")
       (while (ignore-errors (forward-sexp)))
       (buffer-substring-no-properties start-pos (point)))))
 
+(defun hy--current-region-string ()
+  (when (and (region-active-p)
+             (not (region-noncontiguous-p)))
+    (buffer-substring (region-beginning) (region-end))))
+
 ;;; Indentation
 ;;;; Utilities
 
@@ -680,6 +685,10 @@ a string or comment."
   "(import jedhy) (setv api (jedhy.Actions))"
   "Setup `jedhy' for internal process.")
 
+(defvar hy-shell-internal-update-namespace-code
+  "(.set-namespace api :globals- (globals) :locals- (locals))"
+  "Update the namespace used by `jedhy' to current namespace.")
+
 (defvar hy--shell-output-filter-in-progress nil
   "Whether we are waiting for output from `hy--shell-send-string'.")
 
@@ -702,13 +711,14 @@ a string or comment."
 
 (defun hy-buffer (&optional name internal)
   "Get the `hy-shell-(internal)-buffer-(name)'."
-  (if name
-      (if internal
-          hy-shell-internal-buffer-name
-        hy-shell-buffer-name)
-    (if internal
-        hy-shell-internal-buffer
-      hy-shell-buffer)))
+  (cond ((and name internal)
+         hy-shell-internal-buffer-name)
+        ((and name (not internal))
+         hy-shell-buffer-name)
+        (internal
+         hy-shell-internal-buffer)
+        (t
+         hy-shell-buffer)))
 
 (defun hy--shell-format-process-name (proc-name)
   "Format a PROC-NAME with closing astericks."
@@ -866,14 +876,13 @@ Constantly extracts current prompt text and executes and manages applying
 
 (defun hy--shell-send-string (string &optional internal)
   "Internal implementation of shell send string functionality."
-  (let ((process (hy-shell-get-process internal))
+  (let ((proc (hy-shell-get-process internal))
         (hy--shell-output-filter-in-progress t))
 
-    (->> string (s-append "\n") (comint-send-string process))
+    (->> string (s-append "\n") (comint-send-string proc))
 
     (while hy--shell-output-filter-in-progress
-      (accept-process-output process))
-    ))
+      (accept-process-output proc))))
 
 (defun hy-shell-send-string-no-output (string &optional internal)
   "Send STRING to hy PROCESS, inhibit printing output, return it."
@@ -901,17 +910,19 @@ Constantly extracts current prompt text and executes and manages applying
 
 (defun hy--shell-send-async (string)
   "Send STRING to internal hy process asynchronously."
-  ;; (hy-shell-send-string-internal string))
-  (let ((output-buffer " *Comint Hy Redirect Work Buffer*")
-        (proc (hy-shell-get-process 'internal)))
-    (with-current-buffer (get-buffer-create output-buffer)
+  (let ((output-buffer
+         (get-buffer-create " *Comint Hy Redirect Work Buffer*"))
+        (proc
+         (hy-shell-get-process 'internal)))
+    (with-current-buffer output-buffer
       (erase-buffer)
       (comint-redirect-send-command-to-process string output-buffer proc nil t)
 
-      (set-buffer (process-buffer proc))
+      (set-buffer hy-shell-internal-buffer)
       (while (and (null comint-redirect-completed)
                   (accept-process-output proc nil 100 t)))
       (set-buffer output-buffer)
+
       (buffer-string))))
 
 ;;;; Update internal process
@@ -936,7 +947,8 @@ at this point in time."
     (while (re-search-forward (rx "(" (0+ space)
                                   (or "import" "require" "sys.path.extend"))
                               nil t)
-      (hy-shell-send-string-internal (hy--current-form-string)))))
+      (hy-shell-send-string-internal (hy--current-form-string)))
+    (hy-shell-send-string-internal hy-shell-internal-update-namespace-code)))
 
 ;;;; Shell creation
 
@@ -1211,39 +1223,33 @@ CMD defaults to the result of `hy--shell-calculate-command'."
        (hy--shell-get-or-create-buffer))
     (run-hy)))
 
+(defun hy-shell-eval (text &optional echo)
+  "Send TEXT to shell, starting up if needed, and possibly ECHOing."
+  (when text
+    (unless (hy--shell-buffer?)
+      (hy-shell-start-or-switch-to-shell))
+    (hy--shell-with-shell-buffer
+     (if echo
+         (hy-shell-send-string text)
+       (hy-shell-send-string-no-output text)))))
+
 ;;;###autoload
 (defun hy-shell-eval-buffer ()
   "Send the buffer to the shell, inhibiting output."
   (interactive)
-  (-let [text
-         (buffer-string)]
-    (unless (hy--shell-buffer?)
-      (hy-shell-start-or-switch-to-shell))
-    (hy--shell-with-shell-buffer
-     (hy-shell-send-string-no-output text))))
+  (hy-shell-eval (buffer-string)))
 
 ;;;###autoload
 (defun hy-shell-eval-region ()
   "Send highlighted region to shell, inhibiting output."
   (interactive)
-  (when (and (region-active-p)
-             (not (region-noncontiguous-p)))
-    (-let [text
-           (buffer-substring (region-beginning) (region-end))]
-      (unless (hy--shell-buffer?)
-        (hy-shell-start-or-switch-to-shell))
-      (hy--shell-with-shell-buffer
-       (hy-shell-send-string-no-output text)))))
+  (hy-shell-eval (hy--current-region-string)))
 
 ;;;###autoload
 (defun hy-shell-eval-current-form ()
   "Send form containing current point to shell."
   (interactive)
-  (-when-let (text (hy--current-form-string))
-    (unless (hy--shell-buffer?)
-      (hy-shell-start-or-switch-to-shell))
-    (hy--shell-with-shell-buffer
-     (hy-shell-send-string text))))
+  (hy-shell-eval (hy--current-form-string) 'echo))
 
 ;;; hy-mode and inferior-hy-mode
 ;;;; Hy-mode setup
@@ -1372,6 +1378,8 @@ CMD defaults to the result of `hy--shell-calculate-command'."
 ;;      (+= i 1))
 ;; Ideally the prompt would be inserted AFTER it is done
 ;; TODO Need to account for newlines within a string
+;; TODO in jedhy, nonsense.a will complete as if just "a"
+;; TODO inspect.obj-name not getting macro names
 
 ;; i = 0
 ;; for _ in range(30_000_000):
