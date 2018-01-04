@@ -689,6 +689,9 @@ a string or comment."
   "(.set-namespace api :globals- (globals) :locals- (locals))"
   "Update the namespace used by `jedhy' to current namespace.")
 
+(defvar hy-shell-prompt-regexp "^=>+ *"
+  "Hy shell's value for `comint-prompt-regexp'.")
+
 (defvar hy--shell-output-filter-in-progress nil
   "Whether we are waiting for output from `hy--shell-send-string'.")
 
@@ -858,36 +861,62 @@ Constantly extracts current prompt text and executes and manages applying
 
 ;;;; Send strings
 
+;; ------------------
+;; NEW
+;; ------------------
+;; hy--shell-output-filter-string
+
 (defun hy--shell-end-of-output? (string)
   "Return non-nil if STRING ends with the prompt."
-  (s-matches? comint-prompt-regexp string))
+  ;; (-some->> string s-lines length (< 1))
+  (-some->> string s-lines -last-item (s-matches? hy-shell-prompt-regexp)))
 
-(defun hy--shell-output-filter (string)
-  (setq hy--shell-output-filter-string
-        (s-concat hy--shell-output-filter-string
-                  string))
+(defun hy--shell-preoutput-filter (string)
+  ;; (when string
+  ;;   (put-text-property 0 (length string) 'hithere 1 string))
+  ;; (hy--shell-expecting-more-process-output string)
+  ;; (setq hy--shell-output-filter-string
+  ;;       (s-concat hy--shell-output-filter-string string))
 
-  ;; TODO This is still freezing on the single expensive command
+  (unless (hy--shell-end-of-output? string)
+    (setq string
+          (s-replace "\n=> " "" string)))
 
-  (when (hy--shell-end-of-output? hy--shell-output-filter-string)
-    (setq hy--shell-output-filter-in-progress nil))
-  "")
-  ;; hy--shell-output-filter-end-string)
+  ;; (when (hy--shell-end-of-output? hy--shell-output-filter-string)
+  ;;   (setq hy--shell-output-filter-in-progress nil))
+
+  ;; (let ((start (marker-position comint-last-input-end))
+  ;;       (end (and comint-last-prompt
+  ;;                 (cdr comint-last-prompt))))
+  ;;   (when (and start end
+  ;;              (< start end))
+  ;;     (-let [new-output-chunk
+  ;;            (buffer-substring-no-properties start end)]
+  ;;       (setq my-last-chunk new-output-chunk))))
+  string)
+
+;; ------------------
 
 (defun hy--shell-send-string (string &optional internal)
   "Internal implementation of shell send string functionality."
   (let ((proc (hy-shell-get-process internal))
         (hy--shell-output-filter-in-progress t))
 
-    (->> string (s-append "\n") (comint-send-string proc))
+    ;; (comint-send-string proc string)
+    (->> string (s-replace "\n" "") (s-append "\n") (comint-send-string proc))
+    ;; (->> string (s-append "\n") (comint-send-string proc))
 
-    (while hy--shell-output-filter-in-progress
-      (accept-process-output proc))))
+    ;; (while hy--shell-output-filter-in-progress
+    ;;   (accept-process-output proc))
+    ))
 
 (defun hy-shell-send-string-no-output (string &optional internal)
   "Send STRING to hy PROCESS, inhibit printing output, return it."
   (-let [comint-preoutput-filter-functions
-         '(hy--shell-output-filter)]
+         '(
+           ;; hy--shell-output-filter
+           hy--test-output-filter
+           )]
     (hy--shell-send-string string internal)
     (prog1
         hy--shell-output-filter-string
@@ -902,7 +931,9 @@ Constantly extracts current prompt text and executes and manages applying
   (-let [comint-output-filter-functions
          '(comint-postoutput-scroll-to-bottom
            comint-watch-for-password-prompt
-           hy--shell-output-filter)]
+           ;; hy--shell-output-filter
+           ;; hy--test-output-filter
+           )]
     (hy--shell-send-string string)))
 
 (defun hy--shell-chomp-async-output (text)
@@ -932,19 +963,15 @@ Constantly extracts current prompt text and executes and manages applying
 ;;;; Update internal process
 
 (defun hy--shell-update-imports ()
-  "Send imports/requires to the current internal process.
+  "Send imports/requires to the current internal process and updating namespace.
 
 This is currently done manually as I'm not sure of the consequences of doing
 so automatically through eg. regular intervals. Sending the imports allows
-Eldoc to function (and will allow autocompletion once modules are completed)
-on packages like numpy/pandas, even if done via an alias
-eg. (import [numpy :as np]).
+Eldoc/Company to function on packages like numpy/pandas, even if done via an
+alias like (import [numpy :as np]).
 
 Right now the keybinding is not publically exposed while I decide on a way
-to continue.
-
-Implementing in the same manner of eg. the python package `jedi' is out-of-scope
-at this point in time."
+to continue."
   (interactive)
   (save-excursion
     (goto-char (point-min))
@@ -1297,11 +1324,20 @@ at this point in time."
   (setq mode-line-process '(":%s"))
   (setq-local indent-tabs-mode nil)
   (setq-local comint-prompt-read-only t)
-  (setq-local comint-prompt-regexp (rx bol "=>" space))
+
+  (setq-local comint-use-prompt-regexp t)
+  (setq-local comint-prompt-regexp hy-shell-prompt-regexp)
+  ;; (setq-local comint-prompt-regexp "^[^> \n]*>+:? *")
+  ;; (setq-local comint-prompt-regexp (rx bol "=>" (1+ space)))
 
   ;; Highlight errors according to colorama python package
   ;; (ansi-color-for-comint-mode-on)
-  ;; (setq-local comint-output-filter-functions '(ansi-color-process-output))
+  ;; (setq-local comint-preoutput-filter-functions
+  (setq-local comint-preoutput-filter-functions
+              '(
+                ;; ansi-color-process-output
+                hy--shell-preoutput-filter
+                ))
 
   ;; Don't startup font lock for internal processes
   (when hy--shell-font-lock-enable
@@ -1363,3 +1399,6 @@ at this point in time."
 ;; TODO Sending region just the for and += line will freeze
 ;; but sending the for plus the i += 1 will not freeze
 ;; TODO Don't want to inhibit tracebacks!
+
+;; TODO Place all --spy output within its own block
+;; eg. [in], [spy], [out]
