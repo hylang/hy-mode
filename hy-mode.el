@@ -1216,6 +1216,26 @@ to continue."
     (meta (-> arg hy--eldoc-get-docs hy--str-or-empty))))
 
 ;;; Keybindings
+;;;; Utilities
+
+(defun hy-define-keys (keymap &rest pairs)
+  "Define alternating key-def PAIRS for KEYMAP."
+  (-each
+      (-partition 2 pairs)
+    (-lambda ((key def))
+      (define-key keymap key def))))
+
+(defun hy-shell-eval (text &optional echo)
+  "Send TEXT to shell, starting up if needed, and possibly ECHOing."
+  (when text
+    (unless (hy--shell-buffer?)
+      (hy-shell-start-or-switch-to-shell))
+    (hy--shell-with-shell-buffer
+     (if echo
+         (hy-shell-send-string text)
+       (hy-shell-send-string-no-output text)))))
+
+;;;; Functions
 
 ;;;###autoload
 (defun hy-insert-pdb ()
@@ -1237,16 +1257,6 @@ to continue."
        (hy--shell-get-or-create-buffer))
     (run-hy)))
 
-(defun hy-shell-eval (text &optional echo)
-  "Send TEXT to shell, starting up if needed, and possibly ECHOing."
-  (when text
-    (unless (hy--shell-buffer?)
-      (hy-shell-start-or-switch-to-shell))
-    (hy--shell-with-shell-buffer
-     (if echo
-         (hy-shell-send-string text)
-       (hy-shell-send-string-no-output text)))))
-
 ;;;###autoload
 (defun hy-shell-eval-buffer ()
   "Send the buffer to the shell, inhibiting output."
@@ -1264,6 +1274,7 @@ to continue."
   "Send form containing current point to shell."
   (interactive)
   (hy-shell-eval (hy--current-form-string) 'echo))
+
 
 ;;; hy-mode and inferior-hy-mode
 ;;;; Hy-mode setup
@@ -1373,11 +1384,13 @@ to continue."
 
 ;; Spacemacs users please see spacemacs-hy, all bindings defined there
 (set-keymap-parent hy-mode-map lisp-mode-shared-map)
-(define-key hy-mode-map (kbd "C-c C-e") 'hy-shell-start-or-switch-to-shell)
-(define-key hy-mode-map (kbd "C-c C-b") 'hy-shell-eval-buffer)
 
-(define-key hy-mode-map (kbd "C-c C-t") 'hy-insert-pdb)
-(define-key hy-mode-map (kbd "C-c C-S-t") 'hy-insert-pdb-threaded)
+(hy-define-keys
+ hy-mode-map
+ (kbd "C-c C-e") 'hy-shell-start-or-switch-to-shell
+ (kbd "C-c C-b") 'hy-shell-eval-buffer
+ (kbd "C-c C-t") 'hy-insert-pdb
+ (kbd "C-c C-S-t") 'hy-insert-pdb-threaded)
 
 (provide 'hy-mode)
 
