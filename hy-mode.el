@@ -40,6 +40,7 @@
   :prefix "hy-mode-"
   :group 'applications)
 
+
 ;;; Configuration
 ;;;; Inferior shell
 
@@ -86,6 +87,7 @@ Keep nil unless using specific Hy branch.")
 Fuzzy forms require match at start of symbol (eg. with-something)
 will indent special. Exact forms require the symbol and def exactly match.")
 
+
 ;;; Syntax Tables
 
 (defconst hy-mode-syntax-table
@@ -117,6 +119,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
   (copy-syntax-table hy-mode-syntax-table)
   "Inferior Hy mode's syntax tables inherits Hy mode's table.")
 
+
 ;;; Keywords
 
 (defconst hy--kwds-anaphorics
@@ -243,6 +246,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
   "Hy special forms keywords.")
 
+
 ;;; Font Locks
 ;;;; Definitions
 
@@ -472,10 +476,10 @@ will indent special. Exact forms require the symbol and def exactly match.")
         )
   "All Hy font lock keywords.")
 
+
 ;;; Utilities
 ;;;; Sexp Navigation Aliases
 
-;; Aliases for `parse-partial-sexp' value
 (defun hy--sexp-inermost-char (state)
   (nth 1 state))
 (defun hy--start-of-last-sexp (state)
@@ -515,6 +519,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
   "Return TEXT or the empty string it TEXT is nil."
   (if text text ""))
 
+
 ;;; Indentation
 ;;;; Utilities
 
@@ -642,6 +647,7 @@ Point is always at the start of a function."
         (replace-match "" nil nil nil 1))
     (lisp-indent-line)))
 
+
 ;;; Bracket String Literals
 
 (defun hy--match-bracket-string (limit)
@@ -678,6 +684,7 @@ and determined by `font-lock-mode' internals when making an edit to a buffer."
       (put-text-property (match-end 1) (1+ (match-end 1))
                          'syntax-table (string-to-syntax "|")))))
 
+
 ;;; Font Lock Syntactics
 
 (defun hy--string-in-doc-position? (state)
@@ -702,6 +709,7 @@ a string or comment."
         font-lock-string-face)
     font-lock-comment-face))
 
+
 ;;; Shell
 ;;;; Configuration
 ;;;;; Buffers
@@ -1134,6 +1142,7 @@ to continue."
            (buffer (hy-buffer 'name)))
        (hy--shell-make-comint cmd buffer 'show)))))
 
+
 ;;; Eldoc
 ;;;; Utilities
 
@@ -1220,6 +1229,7 @@ to continue."
   (-> (hy--eldoc-get-inner-symbol)
      hy--eldoc-get-docs))
 
+
 ;;; Describe thing at point
 
 (defun hy--docs-for-thing-at-point ()
@@ -1263,6 +1273,7 @@ to continue."
       (when (fboundp 'evil-local-set-key)
         (evil-local-set-key 'normal "q" 'quit-window)))))
 
+
 ;;; Autocompletion
 
 (defconst hy--company-regexp
@@ -1308,6 +1319,7 @@ to continue."
     (annotation (hy--company-annotate arg))
     (meta (-> arg hy--eldoc-get-docs hy--str-or-empty))))
 
+
 ;;; Keybindings
 ;;;; Utilities
 
@@ -1374,6 +1386,7 @@ to continue."
   (interactive)
   (hy-shell-eval (hy--current-form-string) 'echo))
 
+
 ;;; hy-mode and inferior-hy-mode
 ;;;; Hy-mode setup
 
@@ -1464,6 +1477,7 @@ to continue."
   (setq mode-line-process '(":%s"))
   (setq-local indent-tabs-mode nil))
 
+
 ;;; Core
 
 (add-to-list 'auto-mode-alist '("\\.hy\\'" . hy-mode))

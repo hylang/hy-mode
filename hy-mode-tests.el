@@ -22,6 +22,7 @@
 ;; Autocompletion
 ;; Shift-k documentation lookup
 
+
 ;;; Macros
 
 (defmacro hy-with-hy-mode (&rest forms)
@@ -49,6 +50,7 @@
      ,@forms
      (hy-shell-kill)))
 
+
 ;;; Assertions
 
 (defun s-assert (string1 string2)
@@ -91,6 +93,7 @@ See `faceup-face-short-alist' for faceup's face aliases."
    (s-assert (s-concat form-string "\n")
              (hy--current-form-string))))
 
+
 ;;; Indentation Tests
 ;;;; Normal Indent
 ;;;;; Standard Cases
@@ -264,6 +267,7 @@ See `faceup-face-short-alist' for faceup's face aliases."
   b)
 ")))
 
+
 ;;; Font Lock Tests
 ;;;; Definitions
 
@@ -361,6 +365,7 @@ See `faceup-face-short-alist' for faceup's face aliases."
   :tags '(font-lock display)
   (hy--assert-faces "«k:#*» args «k:#**» kwargs"))
 
+
 ;;; Syntax Tests
 ;;;; Symbols
 
@@ -465,6 +470,7 @@ b]+-])
    => not a string])
 "))
 
+
 ;;; Docstring Detection Tests
 
 (ert-deftest docstrings::module-docstrings ()
@@ -487,6 +493,7 @@ b]+-])
 ;;   (hy-with-hy-mode
 ;;    (hy--assert-faces "(«k:defn» «f:foo» [] «d:\"bar\"» «s:\"baz\"»)")))
 
+
 ;;; Keybindings
 
 (ert-deftest keybinding::insert-pdbs ()
@@ -505,6 +512,7 @@ b]+-])
 ;; `hy-shell-eval-current-form'
 ;; `hy-shell-start-or-switch-to-shell'
 
+
 ;;; Misc Tests
 
 ;; TODO Failing due to newline, determing still if newline needed
@@ -524,6 +532,7 @@ b]+-])
 ;;   :tags '(misc)
 ;;   (hy--assert-current-form-string "(foo (bar))"))
 
+
 ;;; Shell
 ;;;; No Process Requirement
 
