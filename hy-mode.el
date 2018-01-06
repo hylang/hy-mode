@@ -480,7 +480,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 ;;; Utilities
 ;;;; Sexp Navigation Aliases
 
-(defun hy--sexp-inermost-char (state)
+(defun hy--sexp-innermost-char (state)
   (nth 1 state))
 (defun hy--start-of-last-sexp (state)
   (nth 2 state))
@@ -497,10 +497,42 @@ will indent special. Exact forms require the symbol and def exactly match.")
   "Get form containing current point as string plus a trailing newline."
   (save-excursion
     (-when-let* ((state (syntax-ppss))
-                 (start-pos (hy--sexp-inermost-char state)))
+                 (start-pos (hy--sexp-innermost-char state)))
       (goto-char start-pos)
       (while (ignore-errors (forward-sexp)))
       (buffer-substring-no-properties start-pos (point)))))
+
+
+(defun hy--parent-defun-string ()
+  "Get the defun containing current point as string."
+  ;; TODO Check we aren't already on the defn
+  ;; (-when-let* ((first-sexp (hy--sexp-innermost-char state))
+  ;;              (function (save-excursion
+  ;;                          (goto-char (1+ first-sexp))
+  ;;                          (thing-at-point 'symbol))))
+
+  (save-excursion
+    (let ((start-pos (point))
+          (found nil))
+      (while (and (not found)
+                  (re-search-backward (rx symbol-start "defn" symbol-end) nil t))
+        ;; The defun must be the form opener
+        ;; The defun's opener is for sure a parenthesis
+        (when (and (not (hy--prior-sexp? (syntax-ppss)))
+                   (not (hy--start-of-string (syntax-ppss))))
+          (setq found t)))
+
+      ;; Only the first previous form-opener defun need be considered
+      ;; Since any further defuns couldn't possibly contain start-pos
+      (-when-let* ((_ found)
+                   (state
+                    (syntax-ppss))
+                   (lower-bound
+                    (hy--sexp-innermost-char state))
+                   (upper-bound
+                    (scan-lists lower-bound 1 0))
+                   (_ (> upper-bound start-pos)))
+        (buffer-substring-no-properties lower-bound upper-bound)))))
 
 
 (defun hy--current-region-string ()
@@ -623,7 +655,7 @@ Point is always at the start of a function."
 
 (defun hy-indent-function (indent-point state)
   "Indent at INDENT-POINT where STATE is `parse-partial-sexp' for INDENT-POINT."
-  (goto-char (hy--sexp-inermost-char state))
+  (goto-char (hy--sexp-innermost-char state))
 
   (if (hy--not-function-form-p)
       (1+ (current-column))  ; Indent after [, {, ... is always 1
@@ -675,7 +707,7 @@ and determined by `font-lock-mode' internals when making an edit to a buffer."
 
     ;; Start goes to current line, need to go to start of #[[ block
     (when (nth 1 (syntax-ppss))  ; when inermost-char go to [ => [ => #
-      (goto-char (- (hy--sexp-inermost-char (syntax-ppss)) 2)))
+      (goto-char (- (hy--sexp-innermost-char (syntax-ppss)) 2)))
 
     (while (hy--match-bracket-string end)
       (put-text-property (1- (match-beginning 1)) (match-beginning 1)
@@ -691,7 +723,7 @@ and determined by `font-lock-mode' internals when making an edit to a buffer."
   "Is STATE within a docstring?"
   (if (= 1 (hy--start-of-string state))  ; Identify module docstring
       t
-    (-when-let* ((first-sexp (hy--sexp-inermost-char state))
+    (-when-let* ((first-sexp (hy--sexp-innermost-char state))
                  (function (save-excursion
                              (goto-char (1+ first-sexp))
                              (thing-at-point 'symbol))))
@@ -1164,7 +1196,7 @@ to continue."
   (save-excursion
     (-when-let (function
                 (and (hy-shell-get-process 'internal)
-                     (-some-> (syntax-ppss) hy--sexp-inermost-char goto-char)
+                     (-some-> (syntax-ppss) hy--sexp-innermost-char goto-char)
                      (not (hy--not-function-form-p))
                      (progn (forward-char) (thing-at-point 'symbol))))
 
