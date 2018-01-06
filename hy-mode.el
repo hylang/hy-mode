@@ -1275,7 +1275,6 @@ to continue."
   (interactive)
   (hy-shell-eval (hy--current-form-string) 'echo))
 
-
 ;;; hy-mode and inferior-hy-mode
 ;;;; Hy-mode setup
 
@@ -1295,10 +1294,10 @@ to continue."
           (font-lock-syntactic-face-function  ; Differentiates (doc)strings
            . hy-font-lock-syntactic-face-function))))
 
-(defun hy--mode-setup-inferior ()
-  ;; (add-to-list 'company-backends 'company-hy)
+(defun hy--mode-setup-internal-process ()
   (setenv "PYTHONIOENCODING" "UTF-8")
 
+  ;; Startup Hy internal process
   (run-hy-internal)
   (add-hook 'pyvenv-post-activate-hooks 'run-hy-internal nil t))
 
@@ -1330,18 +1329,11 @@ to continue."
 
 ;;;; Inferior-hy-mode setup
 
-(defun hy--inferior-mode-setup ()
-  ;; Comint config
-  (setq mode-line-process '(":%s"))
-  (setq-local indent-tabs-mode nil)
+(defun hy--inferior-setup-comint ()
   (setq-local comint-prompt-read-only t)
-
   (setq-local comint-use-prompt-regexp t)
   (setq-local comint-prompt-regexp hy-shell-prompt-regexp)
-  ;; (setq-local comint-prompt-regexp "^[^> \n]*>+:? *")
-  ;; (setq-local comint-prompt-regexp (rx bol "=>" (1+ space)))
 
-  ;; Highlight errors according to colorama python package
   ;; (ansi-color-for-comint-mode-on)
   ;; (setq-local comint-preoutput-filter-functions
   (setq-local comint-preoutput-filter-functions
@@ -1359,9 +1351,14 @@ to continue."
     ;;               `(hy--shell-font-lock-spy-output)))
     (hy--shell-font-lock-turn-on))
 
+
   ;; Fixes issue with "=>", no side effects from this advice
   (advice-add 'comint-previous-input :before
               (lambda (&rest args) (setq-local comint-stored-incomplete-input ""))))
+
+(defun hy--inferior-setup ()
+  (setq mode-line-process '(":%s"))
+  (setq-local indent-tabs-mode nil))
 
 ;;; Core
 
@@ -1371,14 +1368,15 @@ to continue."
 ;;;###autoload
 (define-derived-mode inferior-hy-mode comint-mode "Inferior Hy"
   "Major mode for Hy inferior process."
-  (hy--inferior-mode-setup))
+  (hy--inferior-setup)
+  (hy--inferior-setup-comint))
 
 ;;;###autoload
 (define-derived-mode hy-mode prog-mode "Hy"
   "Major mode for editing Hy files."
   (hy--mode-setup-eldoc)
   (hy--mode-setup-font-lock)
-  (hy--mode-setup-inferior)
+  (hy--mode-setup-internal-process)
   (hy--mode-setup-smartparens)
   (hy--mode-setup-syntax))
 
