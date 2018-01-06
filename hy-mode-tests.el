@@ -90,11 +90,11 @@ See `faceup-face-short-alist' for faceup's face aliases."
   (hy-with-hy-mode
    (insert form-string)
    (forward-char -1)
-   (s-assert (s-concat form-string "\n")
+   (s-assert form-string
              (hy--current-form-string))))
 
 
-;;; Indentation Tests
+;;; Indentation
 ;;;; Normal Indent
 ;;;;; Standard Cases
 
@@ -268,7 +268,7 @@ See `faceup-face-short-alist' for faceup's face aliases."
 ")))
 
 
-;;; Font Lock Tests
+;;; Font Lock
 ;;;; Definitions
 
 (ert-deftest font-lock::builtins ()
@@ -366,7 +366,7 @@ See `faceup-face-short-alist' for faceup's face aliases."
   (hy--assert-faces "«k:#*» args «k:#**» kwargs"))
 
 
-;;; Syntax Tests
+;;; Syntax
 ;;;; Symbols
 
 (ert-deftest syntax::symbols-include-dots ()
@@ -471,7 +471,7 @@ b]+-])
 "))
 
 
-;;; Docstring Detection Tests
+;;; Docstrings
 
 (ert-deftest docstrings::module-docstrings ()
   :tags '(font-lock)
@@ -513,24 +513,23 @@ b]+-])
 ;; `hy-shell-start-or-switch-to-shell'
 
 
-;;; Misc Tests
+;;; Form Extraction
 
-;; TODO Failing due to newline, determing still if newline needed
-;; (ert-deftest misc::current-form-string-extracts-bracket-likes ()
-;;   :tags '(misc)
-;;   (hy--assert-current-form-string "[foo]")
-;;   (hy--assert-current-form-string "{foo bar}"))
-
-
-;; (ert-deftest misc::current-form-string-extracts-simple-form ()
-;;   :tags '(misc)
-;;   (hy--assert-current-form-string "(foo)")
-;;   (hy--assert-current-form-string "(foo bar)"))
+(ert-deftest misc::current-form-string-extracts-bracket-likes ()
+  :tags '(misc)
+  (hy--assert-current-form-string "[foo]")
+  (hy--assert-current-form-string "{foo bar}"))
 
 
-;; (ert-deftest misc::current-form-string-extracts-form-with-forms ()
-;;   :tags '(misc)
-;;   (hy--assert-current-form-string "(foo (bar))"))
+(ert-deftest misc::current-form-string-extracts-simple-form ()
+  :tags '(misc)
+  (hy--assert-current-form-string "(foo)")
+  (hy--assert-current-form-string "(foo bar)"))
+
+
+(ert-deftest misc::current-form-string-extracts-form-with-forms ()
+  :tags '(misc)
+  (hy--assert-current-form-string "(foo (bar))"))
 
 
 ;;; Shell
