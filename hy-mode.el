@@ -505,25 +505,24 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
 (defun hy--parent-defun-string ()
   "Get the defun containing current point as string."
-  ;; TODO Check we aren't already on the defn
-  ;; (-when-let* ((first-sexp (hy--sexp-innermost-char state))
-  ;;              (function (save-excursion
-  ;;                          (goto-char (1+ first-sexp))
-  ;;                          (thing-at-point 'symbol))))
-
   (save-excursion
-    (let ((start-pos (point))
-          (found nil))
-      (while (and (not found)
-                  (re-search-backward (rx symbol-start "defn" symbol-end) nil t))
-        ;; The defun must be the form opener
-        ;; The defun's opener is for sure a parenthesis
-        (when (and (not (hy--prior-sexp? (syntax-ppss)))
-                   (not (hy--start-of-string (syntax-ppss))))
-          (setq found t)))
+    (let ((found
+           ;; TODO also do the prior-sexp and string test here
+           (s-equals? (thing-at-point 'symbol) "defn"))
+          (start-pos
+           (point)))
 
       ;; Only the first previous form-opener defun need be considered
       ;; Since any further defuns couldn't possibly contain start-pos
+      (while (and (not found)
+                  (re-search-backward (rx symbol-start "defn" symbol-end)
+                                      nil t))
+
+        ;; The defun must be the form opener
+        ;; The defun's opener is for sure a parenthesis
+        (setq found (and (not (hy--prior-sexp? (syntax-ppss)))
+                         (not (hy--start-of-string (syntax-ppss))))))
+
       (-when-let* ((_ found)
                    (state
                     (syntax-ppss))
