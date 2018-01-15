@@ -30,6 +30,8 @@
 ;; Provides font-lock, indentation, and navigation for the Hy
 ;; language. (http://hylang.org)
 
+;;; Code:
+
 (require 'cl)
 (require 'dash)
 (require 'dash-functional)
@@ -476,6 +478,16 @@ will indent special. Exact forms require the symbol and def exactly match.")
   (save-excursion
     (-when-let* ((state (syntax-ppss))
                  (start-pos (hy--sexp-inermost-char state)))
+      (goto-char start-pos)
+      (while (ignore-errors (forward-sexp)))
+
+      (concat (buffer-substring-no-properties start-pos (point)) "\n"))))
+
+(defun hy--last-sexp-string ()
+  "Get form containing last s-exp point as string plus a trailing newline."
+  (save-excursion
+    (-when-let* ((state (syntax-ppss))
+                 (start-pos (hy--start-of-last-sexp state)))
       (goto-char start-pos)
       (while (ignore-errors (forward-sexp)))
 
@@ -1431,6 +1443,16 @@ Not all defuns can be argspeced - eg. C defuns.\"
     (hy--shell-with-shell-buffer
      (hy-shell-send-string text))))
 
+;;;###autoload
+(defun hy-shell-eval-last-sexp ()
+  "Send form containing the last s-expression to shell."
+  (interactive)
+  (-when-let (text (hy--last-sexp-string))
+    (unless (hy--shell-buffer?)
+      (hy-shell-start-or-switch-to-shell))
+    (hy--shell-with-shell-buffer
+     (hy-shell-send-string text))))
+
 ;;; hy-mode and inferior-hy-mode
 ;;;; Hy-mode setup
 
@@ -1532,9 +1554,14 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (set-keymap-parent hy-mode-map lisp-mode-shared-map)
 (define-key hy-mode-map (kbd "C-c C-z") 'hy-shell-start-or-switch-to-shell)
 (define-key hy-mode-map (kbd "C-c C-b") 'hy-shell-eval-buffer)
-
 (define-key hy-mode-map (kbd "C-c C-t") 'hy-insert-pdb)
 (define-key hy-mode-map (kbd "C-c C-S-t") 'hy-insert-pdb-threaded)
+(define-key hy-mode-map (kbd "C-c C-r") 'hy-shell-eval-region)
+(define-key hy-mode-map (kbd "C-M-x") 'hy-shell-eval-current-form)
+(define-key hy-mode-map (kbd "C-c C-e") 'hy-shell-eval-last-sexp)
+(define-key inferior-hy-mode-map (kbd "C-c C-z") (lambda ()
+                                                   (interactive)
+                                                   (other-window -1)))
 
 (provide 'hy-mode)
 
