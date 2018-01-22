@@ -488,8 +488,16 @@ will indent special. Exact forms require the symbol and def exactly match.")
   (nth 3 state))
 (defun hy--start-of-string (state)
   (nth 8 state))
+
+
 (defun hy--prior-sexp? (state)
   (number-or-marker-p (hy--start-of-last-sexp state)))
+
+
+(defun hy--at-a-form-opener (state)
+  ;; TODO in the middle of defn isnt working
+  (and (not (hy--prior-sexp? (syntax-ppss)))
+       (not (hy--start-of-string (syntax-ppss)))))
 
 ;;;; Form Extraction
 
@@ -507,21 +515,16 @@ will indent special. Exact forms require the symbol and def exactly match.")
   "Get the defun containing current point as string."
   (save-excursion
     (let ((found
-           ;; TODO also do the prior-sexp and string test here
-           (s-equals? (thing-at-point 'symbol) "defn"))
+           (and (s-equals? (thing-at-point 'symbol) "defn")
+                (hy--at-a-form-opener (syntax-ppss))))
           (start-pos
            (point)))
 
       ;; Only the first previous form-opener defun need be considered
       ;; Since any further defuns couldn't possibly contain start-pos
       (while (and (not found)
-                  (re-search-backward (rx symbol-start "defn" symbol-end)
-                                      nil t))
-
-        ;; The defun must be the form opener
-        ;; The defun's opener is for sure a parenthesis
-        (setq found (and (not (hy--prior-sexp? (syntax-ppss)))
-                         (not (hy--start-of-string (syntax-ppss))))))
+                  (re-search-backward (rx symbol-start "defn" symbol-end) nil t))
+        (setq found (hy--at-a-form-opener (syntax-ppss))))
 
       (-when-let* ((_ found)
                    (state
