@@ -212,7 +212,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
     "do" "progn"
 
     ;; Functional
-    "lambda" "fn" "fn/a"
+    "fn" "fn/a"
     "yield" "yield-from"
     "with" "with*" "with/a" "with/a*"
     "with-gensyms"
