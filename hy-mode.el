@@ -70,14 +70,15 @@ Keep nil unless using specific Hy branch.")
 (defvar hy-indent-special-forms
   '(:exact
     ("when" "unless"
-     "for" "for*"
+     "for" "for*" "for/a" "for/a*"
      "while"
      "except" "catch")
 
     :fuzzy
-    ("def"
-     "with"
+    ("with"
+     "with/a"
      "fn"
+     "fn/a"
      "lambda"))
   "Special forms to always indent following line by +1.
 
@@ -126,7 +127,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defconst hy--kwds-builtins
   '("*map" "accumulate" "and" "assoc" "butlast" "calling-module-name" "car"
     "cdr" "chain" "coll?" "combinations" "comp" "complement" "compress" "cons"
-    "cons?" "constantly" "count" "cut" "cycle" "dec" "def" "defmain" "del"
+    "cons?" "constantly" "count" "cut" "cycle" "dec" "defmain" "del"
     "dict-comp" "disassemble" "distinct" "doto" "drop" "drop-last" "drop-while"
     "empty?" "even?" "every?" "filter" "first" "flatten" "float?" "fraction"
     "genexpr" "gensym" "get" "group-by" "identity" "inc" "input"
@@ -181,7 +182,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
   "Hy exception keywords.")
 
 (defconst hy--kwds-defs
-  '("defn" "defun"
+  '("defn" "defn/a" "defun"
     "defmacro" "defmacro/g!" "defmacro!"
     "defreader" "defsharp" "deftag")
 
@@ -197,7 +198,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defconst hy--kwds-special-forms
   '(;; Looping
     "loop" "recur"
-    "for" "for*"
+    "for" "for*" "for/a" "for/a*"
 
     ;; Threading
     "->" "->>" "as->"
@@ -211,9 +212,9 @@ will indent special. Exact forms require the symbol and def exactly match.")
     "do" "progn"
 
     ;; Functional
-    "lambda" "fn"
+    "fn" "fn/a"
     "yield" "yield-from"
-    "with" "with*"
+    "with" "with*" "with/a" "with/a*"
     "with-gensyms"
 
     ;; Error Handling
@@ -369,7 +370,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defconst hy--font-lock-kwds-variables
   (list
    (rx symbol-start
-       (or "setv" "def")
+       "setv"
        symbol-end
        (1+ space)
        (group (1+ word)))
