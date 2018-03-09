@@ -1,3 +1,4 @@
 .cache*
+.cask*
 scratch*
-hy-personal.el
+*hy-personal.el

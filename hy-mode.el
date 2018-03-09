@@ -472,8 +472,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
         hy--font-lock-kwds-variables
 
         (when hy-font-lock-highlight-percent-args?
-          hy--font-lock-kwds-anonymous-funcs)
-        )
+          hy--font-lock-kwds-anonymous-funcs))
   "All Hy font lock keywords.")
 
 
@@ -538,6 +537,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
 
 (defun hy--current-region-string ()
+  "Get the currently selected contiguous region as a string."
   (when (and (region-active-p)
              (not (region-noncontiguous-p)))
     (buffer-substring (region-beginning) (region-end))))
@@ -596,23 +596,21 @@ the loop will terminate without error and the prior lines indentation is it."
     (if (ignore-errors
           (while (hy--anything-before? (point))
             (setq last-sexp-start
-                  (prog1
-                      ;; Indentation should ignore quote chars
-                      (cond
-                       ((-contains? '(?\' ?\` ?\~ ?\#)
-                                    (char-before))
-                        (1- (point)))
+                  (let* ((at-prefix-char?
+                          (-contains? '(?\' ?\` ?\~ ?\#) (char-before)))
 
-                       ;; Check for ~@ unquote-splicing
-                       ((and (eq ?\@ (char-before))
-                             (save-excursion
-                               (forward-char -1)
-                               (eq ?\~ (char-before))))
-                        (- (point) 2))
+                         (at-unquote-splice?
+                          (and (eq ?\@ (char-before))
+                               (save-excursion
+                                 (forward-char -1)
+                                 (eq ?\~ (char-before)))))
 
-                       (t (point)))
+                         (offset
+                          (cond (at-prefix-char? 1)
+                                (at-unquote-splice? 2)
+                                (t 0))))
 
-                    (backward-sexp))))
+                    (prog1 (- (point) offset) (backward-sexp)))))
           t)
         (current-column)
       (if (not (hy--anything-after? last-sexp-start))
