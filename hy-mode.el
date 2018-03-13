@@ -42,7 +42,6 @@
 
 
 ;;; Configuration
-;;;; Inferior shell
 
 (defconst hy-shell-interpreter "hy"
   "Default Hy interpreter name.")
@@ -52,22 +51,9 @@
   "Default arguments for Hy interpreter.")
 
 
-(defvar hy-shell-use-control-codes? nil
-  "Append `--control-codes' flag to `hy-shell-interpreter-args'?
-
-Requires recent version of Hy and `hy-shell-interpreter-args' to contain `--spy'.
-Keep nil unless using specific Hy branch.")
-
-
-(defvar hy-shell-spy-delim ""
-  "If using `--spy' interpreter arg then delimit spy ouput by this string.")
-
-;;;; Highlighting
-
 (defvar hy-font-lock-highlight-percent-args? t
   "Whether to highlight '%i' symbols in Hy's clojure-like syntax for lambdas.")
 
-;;;; Indentation
 
 (defvar hy-indent-special-forms
   '(:exact
@@ -75,7 +61,7 @@ Keep nil unless using specific Hy branch.")
      "for" "for*"
      "while"
      "except" "catch"
-     "->" "->>" "some->" "some->>")
+     "->" "->>")
 
     :fuzzy
     ("def"
@@ -477,7 +463,8 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
 
 ;;; Utilities
-;;;; Sexp Navigation Aliases
+;;;; Syntax States
+;;;;; Aliases
 
 (defun hy--sexp-innermost-char (state)
   (nth 1 state))
@@ -488,9 +475,15 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defun hy--start-of-string (state)
   (nth 8 state))
 
+;;;;; Navigation
 
 (defun hy--prior-sexp? (state)
   (number-or-marker-p (hy--start-of-last-sexp state)))
+
+
+(defun hy--goto-innermost-char ()
+  "Try to goto the innermost character of form containing point."
+  (-some-> (syntax-ppss) hy--sexp-innermost-char goto-char))
 
 
 (defun hy--at-a-form-opener (state)
@@ -525,9 +518,8 @@ will indent special. Exact forms require the symbol and def exactly match.")
                   (re-search-backward (rx symbol-start "defn" symbol-end) nil t))
         (setq found (hy--at-a-form-opener (syntax-ppss))))
 
-      (-when-let* ((_ found)
-                   (state
-                    (syntax-ppss))
+      (-when-let* ((state
+                    (and found (syntax-ppss)))
                    (lower-bound
                     (hy--sexp-innermost-char state))
                    (upper-bound
@@ -550,7 +542,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
 
 (defun hy--str-or-empty (text)
-  "Return TEXT or the empty string it TEXT is nil."
+  "Return TEXT or the empty string if TEXT is nil."
   (if text text ""))
 
 
@@ -565,8 +557,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
 (defun hy--anything-after? (pos)
   "Determine if POS is before line-end-position."
-  (when pos
-    (< pos (line-end-position))))
+  (and pos (< pos (line-end-position))))
 
 
 (defun hy--check-non-symbol-sexp (pos)
@@ -620,27 +611,30 @@ the loop will terminate without error and the prior lines indentation is it."
 
 ;;;; Function or form
 
-(defun hy--not-function-form-p ()
+(defun hy--not-function-form? ()
   "Non-nil if form at point doesn't represent a function call."
   (or (-contains? '(?\[ ?\{) (char-after))
       (not (looking-at (rx anything  ; Skips form opener
                            (or "(" (syntax symbol) (syntax word)))))))
+
+
+(defun hy--function-form? ()
+  "Alias the complement of `hy--not-function-form?'"
+  (not (hy--not-function-form?)))
 
 ;;;; Hy find indent spec
 
 (defun hy--find-indent-spec (state)
   "Return integer for special indentation of form or nil to use normal indent.
 
-Note that `hy--not-function-form-p' filters out forms that are lists and dicts.
+Note that `hy--not-function-form?' filters out forms that are lists and dicts.
 Point is always at the start of a function."
-  (-when-let
-      (function (and (hy--prior-sexp? state)
-                     (thing-at-point 'symbol)))
-
-    (or (-contains? (plist-get hy-indent-special-forms :exact)
-                    function)
-        (-some (-cut s-matches? <> function)
-               (plist-get hy-indent-special-forms :fuzzy)))))
+  (-when-let (function (and (hy--prior-sexp? state)
+                            (thing-at-point 'symbol)))
+    (-let [(&plist :exact exact :fuzzy fuzzy)
+           hy-indent-special-forms]
+      (or (-contains? exact function)
+          (-some (-cut s-matches? <> function) fuzzy)))))
 
 ;;;; Hy indent function
 
@@ -657,7 +651,7 @@ Point is always at the start of a function."
   "Indent at INDENT-POINT where STATE is `parse-partial-sexp' for INDENT-POINT."
   (goto-char (hy--sexp-innermost-char state))
 
-  (if (hy--not-function-form-p)
+  (if (hy--not-function-form?)
       (1+ (current-column))  ; Indent after [, {, ... is always 1
     (forward-char 1)  ; Move to start of sexp
 
@@ -674,9 +668,7 @@ Point is always at the start of a function."
 (defun hy-indent-line ()
   "Perform `lisp-indent-line' with check for `outline' headers."
   (if (hy-indent-at-outline?)
-      (progn
-        (line-beginning-position)
-        (replace-match "" nil nil nil 1))
+      (progn (line-beginning-position) (replace-match "" nil nil nil 1))
     (lisp-indent-line)))
 
 
@@ -705,9 +697,15 @@ and determined by `font-lock-mode' internals when making an edit to a buffer."
   (save-excursion
     (goto-char start)
 
-    ;; Start goes to current line, need to go to start of #[[ block
-    (when (nth 1 (syntax-ppss))  ; when inermost-char go to [ => [ => #
-      (goto-char (- (hy--sexp-innermost-char (syntax-ppss)) 2)))
+    (-when-let* ((state
+                  (syntax-ppss))
+                 (inner-char
+                  (hy--sexp-innermost-char state))
+                 (offset
+                  (length "#["))
+                 (fixed-start
+                  (- inner-char offset)))
+      (goto-char fixed-start))
 
     (while (hy--match-bracket-string end)
       (put-text-property (1- (match-beginning 1)) (match-beginning 1)
@@ -764,7 +762,7 @@ a string or comment."
 ;;;;; Internal Process Code
 
 (defvar hy-shell-internal-setup-code
-  "(import jedhy) (setv api (jedhy.Actions))"
+  "(import [jedhy.actions [Actions :as --Actions]]) (setv api (--Actions))"
   "Setup `jedhy' for internal process.")
 
 
@@ -792,10 +790,6 @@ a string or comment."
 
 (defvar hy--shell-font-lock-enable t
   "Whether the shell should font-lock the current line.")
-
-
-(defconst hy--shell-spy-delim-uuid "#cbb4fcbe-b6ba-4812-afa3-4a5ac7b20501"
-  "UUID denoting end of python block in `--spy --control-categories' output")
 
 ;;;; Shell buffer and process management
 ;;;;; Utilities
@@ -835,6 +829,11 @@ a string or comment."
   (-> (hy-buffer 'name internal)
      hy--shell-format-process-name
      get-buffer-process))
+
+
+(defun hy-shell-internal-process? ()
+  "Is the internal hy shell process live and return it, simple alias function."
+  (hy-shell-get-process 'internal))
 
 
 (defun hy--shell-current-buffer-process ()
@@ -913,8 +912,8 @@ a string or comment."
         (start-pos (or start-pos 0)))
     (while (and (/= pos (length text))
                 (setq next (next-single-property-change pos 'face text)))
-      (-let* ((plist (text-properties-at pos text))
-              ((&plist 'face face) plist))
+      (-let* [(&plist 'face face)
+              (text-properties-at pos text)]
         (set-text-properties (+ start-pos pos) (+ start-pos next)
                              (-doto plist
                                (plist-put 'face nil)
@@ -927,7 +926,8 @@ a string or comment."
 
 Constantly extracts current prompt text and executes and manages applying
 `hy--shell-faces-to-font-lock-faces' to the text."
-  (-when-let* (((_ . prompt-end) comint-last-prompt)
+  (-when-let* (((_ . prompt-end)
+                comint-last-prompt)
                (_ (and prompt-end
                        (> (point) prompt-end)  ; new command is being entered
                        (hy--shell-current-buffer-a-process?))))  ; process alive?
@@ -959,21 +959,22 @@ Constantly extracts current prompt text and executes and manages applying
 
 ;;;;; Prompt Output
 
-(defun hy--shell-font-lock-spy-output (string)
-  "Applies font-locking to hy outputted python blocks when `--spy' is enabled."
-  (with-temp-buffer
-    (if (s-contains? hy--shell-spy-delim-uuid string)
-        (-let [python-indent-guess-indent-offset
-               ((python-block hy-output)
-                (s-split hy--shell-spy-delim-uuid string))]
-          (python-mode)
-          (insert python-block)
-          (font-lock-default-fontify-buffer)
-          (-> (buffer-string)
-             hy--shell-faces-to-font-lock-faces
-             s-chomp
-             (s-concat hy-shell-spy-delim hy-output)))
-      string)))
+;; TODO Decided on different approach
+;; (defun hy--shell-font-lock-spy-output (string)
+;;   "Applies font-locking to hy outputted python blocks when `--spy' is enabled."
+;;   (with-temp-buffer
+;;     (if (s-contains? hy--shell-spy-delim-uuid string)
+;;         (-let [python-indent-guess-indent-offset
+;;                ((python-block hy-output)
+;;                 (s-split hy--shell-spy-delim-uuid string))]
+;;           (python-mode)
+;;           (insert python-block)
+;;           (font-lock-default-fontify-buffer)
+;;           (-> (buffer-string)
+;;              hy--shell-faces-to-font-lock-faces
+;;              s-chomp
+;;              (s-concat hy-shell-spy-delim hy-output)))
+;;       string)))
 
 ;;;; Send strings
 
@@ -1070,7 +1071,7 @@ Constantly extracts current prompt text and executes and manages applying
   (let ((output-buffer
          (get-buffer-create " *Comint Hy Redirect Work Buffer*"))
         (proc
-         (hy-shell-get-process 'internal)))
+         (hy-shell-internal-process?)))
     (with-current-buffer output-buffer
       (erase-buffer)
       (comint-redirect-send-command-to-process string output-buffer proc nil t)
@@ -1083,6 +1084,12 @@ Constantly extracts current prompt text and executes and manages applying
       (hy--shell-chomp-async-output (buffer-string)))))
 
 ;;;; Update internal process
+
+(defconst hy--import-rgx
+  (rx "(" (0+ space)
+      (or "import" "require" "sys.path.extend"))
+  "A *temporary* regex used to extract import forms for updating IDE features.")
+
 
 (defun hy--shell-update-imports ()
   "Send imports/requires to the current internal process and updating namespace.
@@ -1097,22 +1104,13 @@ to continue."
   (interactive)
   (save-excursion
     (goto-char (point-min))
-    (-let [import-rgx
-           (rx "(" (0+ space) (or "import" "require" "sys.path.extend"))]
-      (while (re-search-forward import-rgx nil t)
-        (hy-shell-send-string-internal (hy--current-form-string))))
+
+    (while (re-search-forward hy--import-rgx nil t)
+      (hy-shell-send-string-internal (hy--current-form-string)))
+
     (hy-shell-send-string-internal hy-shell-internal-update-namespace-code)))
 
 ;;;; Shell creation
-;;;;; Flags
-
-(defun hy--shell-calculate-interpreter-args ()
-  "Calculate `hy-shell-interpreter-args' based on `--spy' flag."
-  (if (and hy-shell-use-control-codes?
-           (s-contains? "--spy" hy-shell-interpreter-args))
-      (s-concat hy-shell-interpreter-args " --control-codes")
-    hy-shell-interpreter-args))
-
 
 (defun hy--shell-calculate-command (&optional internal)
   "Calculate the string used to execute the inferior Hy process."
@@ -1120,9 +1118,8 @@ to continue."
           (shell-quote-argument hy-shell-interpreter)
           (if internal
               ""
-            (hy--shell-calculate-interpreter-args))))
+            hy-shell-interpreter-args)))
 
-;;;;; Creation
 
 (defun hy--shell-make-comint (cmd proc-name &optional show internal)
   "Create and return comint process PROC-NAME with CMD, opt. INTERNAL and SHOW."
@@ -1154,7 +1151,7 @@ to continue."
   "Start an inferior hy process in the background for autocompletion."
   (interactive)
   (hy--when-installed
-   (unless (hy-shell-get-process 'internal)
+   (unless (hy-shell-internal-process?)
      (let ((hy--shell-font-lock-enable nil)
            (cmd (hy--shell-calculate-command 'internal))
            (buffer (hy-buffer 'name 'internal)))
@@ -1163,6 +1160,13 @@ to continue."
        (hy-shell-send-string-internal hy-shell-internal-setup-code)
 
        (message "Hy internal process successfully started")))))
+
+
+(defun hy--restart-hy-internal ()
+  "Perform `run-hy-internal', killing the current internal process if present."
+  (interactive)
+  (hy--shell-kill-buffer 'internal)
+  (run-hy-internal))
 
 
 (defun run-hy (&optional cmd)
@@ -1175,49 +1179,83 @@ to continue."
        (hy--shell-make-comint cmd buffer 'show)))))
 
 
-;;; Eldoc
-;;;; Utilities
+;;; Jedhy
+;;;; Constants
 
-(defun hy--eldoc-send (string)
-  "Send STRING for eldoc to internal process returning output."
-  (-> string
-     hy--shell-send-async
-     hy--str-or-nil))
+(defconst hy--jedhy-completions-rgx
+  (rx "'"
+      (group (1+ (not (any ",)"))))
+      "'"
+      (any "," ")"))
+
+  "Regex to extra candidates from `jedhy'")
+
+;;;; Commands
+
+(defun hy--jedhy-format-cmd (candidate command-type)
+  "Format jedhy cmd for CANDIDATE and COMMAND-TYPE.
+
+It can be one of: 'annotation, 'completion, or 'eldoc."
+  (format "(.%s api \"%s\")"
+          (pcase command-type
+            ('annotation "annotate")
+            ('completion "complete")
+            ('eldoc      "docs"))
+          candidate))
 
 
-(defun hy--eldoc-format-command (candidate &optional full raw)
-  "Get jedhy docs for CANDIDATE."
-  (format "(.docs api \"%s\")" candidate))
+(defun hy--jedhy-send (candidate command-type)
+  "Send CANDIDATE to process for COMMAND-TYPE, see `hy--jedhy-format-cmd'."
+  (-some-> candidate (hy--jedhy-format-cmd command-type) hy--shell-send-async))
 
-;;;; Symbol extraction
+;;;; Specializations
 
-(defun hy--eldoc-get-inner-symbol ()
+(defun hy--eldoc-documentation-function-internal (candidate)
+  "Perform `eldoc-documentation-function' duties for extracted CANDIDATE."
+  (-some->
+   candidate
+   (hy--jedhy-send 'eldoc)
+   hy--str-or-nil
+   hy--eldoc-fontify-text))
+
+;;;; UNORGANIZED
+
+(defun hy--candidate-is-method? (candidate)
+  "Is CANDIDATE a method call (eg. .append in (.append some-list 1))."
+  (s-starts-with? "." candidate))
+
+
+(defun hy--get-next-symbol ()
+  "Extract next symbol after point for completing methods."
+  (ignore-errors (forward-sexp) (forward-char) t)
+  (pcase (char-after)
+    ;; Can't send just .method to eldoc, next symbol not entered yet
+    ((or ?\) ?\s ?\C-j) nil)
+
+    ;; Dot dsl doesn't work on literals, substitute the types
+    (?\[ "list")
+    (?\{ "dict")
+    (?\" "str")
+
+    ;; Otherwise complete the dot dsl
+    (_ (progn (forward-char) (thing-at-point 'symbol)))))
+
+
+(defun hy--get-inner-symbol ()
   "Traverse and inspect innermost sexp and return formatted string for eldoc."
   (save-excursion
     (-when-let (function
-                (and (hy-shell-get-process 'internal)
-                     (-some-> (syntax-ppss) hy--sexp-innermost-char goto-char)
-                     (not (hy--not-function-form-p))
+                (and (hy--goto-innermost-char)
+                     (hy--function-form?)
                      (progn (forward-char) (thing-at-point 'symbol))))
 
       ;; Attribute method call (eg. ".format str") needs following sexp
-      (if (and (s-starts-with? "." function)
-               (ignore-errors (forward-sexp) (forward-char) t))
-          (pcase (char-after)
-            ;; Can't send just .method to eldoc
-            ((or ?\) ?\s ?\C-j) nil)
-
-            ;; Dot dsl doesn't work on literals
-            (?\[ (concat "list" function))
-            (?\{ (concat "dict" function))
-            (?\" (concat "str" function))
-
-            ;; Otherwise complete the dot dsl
-            (_ (progn
-                 (forward-char)
-                 (concat (thing-at-point 'symbol) function))))
+      (if (hy--candidate-is-method? function)
+          (concat (hy--get-next-symbol) function)
         function))))
 
+
+;;; Eldoc
 ;;;; Fontification
 
 (defun hy--fontify-text (text regexp &rest faces)
@@ -1238,37 +1276,27 @@ to continue."
          (rx symbol-start "&" (1+ word)))
         (quoted-args-rx
          (rx "`" (1+ (not space)) "`")))
-    (hy--fontify-text
-     text kwd-rx 'font-lock-keyword-face)
-    (hy--fontify-text
-     text kwargs-rx 'font-lock-type-face)
-    (hy--fontify-text
-     text quoted-args-rx 'font-lock-constant-face 'bold-italic))
+    (hy--fontify-text text kwd-rx         'font-lock-keyword-face)
+    (hy--fontify-text text kwargs-rx      'font-lock-type-face)
+    (hy--fontify-text text quoted-args-rx 'font-lock-constant-face 'bold-italic))
   text)
 
-;;;; Documentation Functions
-
-(defun hy--eldoc-get-docs (obj &optional full)
-  "Get eldoc or optionally buffer-formatted docs for `obj'."
-  (when obj
-    (hy--eldoc-fontify-text
-     (or (-> obj (hy--eldoc-format-command full) hy--eldoc-send)
-         (-> obj (hy--eldoc-format-command full t) hy--eldoc-send)))))
-
+;;;; Documentation Function
 
 (defun hy-eldoc-documentation-function ()
-  "Drives `eldoc-mode', retrieves eldoc msg string for inner-most symbol."
-  (-> (hy--eldoc-get-inner-symbol)
-     hy--eldoc-get-docs))
+  "Exract and send Hy candidate for fontified eldoc string."
+  (when (hy-shell-internal-process?)
+    (hy--eldoc-documentation-function-internal (hy--get-inner-symbol))))
 
 
-;;; Describe thing at point
+;;; Documentation Lookup
 
 (defun hy--docs-for-thing-at-point ()
   "Mirrors `hy-eldoc-documentation-function' formatted for a buffer, not a msg."
-  (-> (thing-at-point 'symbol)
-     (hy--eldoc-get-docs t)
-     hy--format-docs-for-buffer))
+  ;; TODO Old style S-K doc lookups formatting not implemented in updated
+  ;; jedhy package. Currently maintaining this with eldoc-style formatting
+  ;; while I finalize integration of basic jedhy features
+  (hy-eldoc-documentation-function))
 
 
 (defun hy--format-docs-for-buffer (text)
@@ -1306,50 +1334,85 @@ to continue."
         (evil-local-set-key 'normal "q" 'quit-window)))))
 
 
-;;; Autocompletion
+;;; Company
+;;;; Candidate methods
 
-(defconst hy--company-regexp
-  (rx "'"
-      (group (1+ (not (any ",)"))))
-      "'"
-      (any "," ")"))
-  "Regex to extra candidates from `jedhy'")
+(defun hy--company-eldoc (candidate)
+  "Get company meta, the eldoc, for CANDIDATE."
+  (-> candidate hy--eldoc-documentation-function-internal hy--str-or-empty))
 
 
-(defun hy--company-format-candidates-str (string)
-  "Format STRING to send to hy for completion candidates."
-  (-some->> string (format "(.complete api \"%s\")")))
-
-
-(defun hy--company-format-annotate-str (string)
-  "Format STRING to send to hy for its annotation."
-  (-some->> string (format "(.annotate api \"%s\")")))
+(defun hy--company-complete (candidate)
+  "Get company completion candidates for CANDIDATE."
+  (-when-let (candidates (and (not (hy--candidate-is-method? candidate))
+                              (hy--jedhy-send candidate 'completion)))
+    (-some->>
+     candidates
+     (s-match-strings-all hy--jedhy-completions-rgx)
+     (-select-column 1))))   ; Extract the rgx's group matches
 
 
 (defun hy--company-annotate (candidate)
-  "Get company annotation for CANDIDATE string."
-  (-some->> candidate
-          hy--company-format-annotate-str
-          hy--shell-send-async))
+  "Get company annotation for CANDIDATE."
+  (-some-> candidate (hy--jedhy-send 'annotation) hy--str-or-empty))
 
+;;;; Driver
 
-(defun hy--company-candidates (string)
-  "Get candidates for completion of STRING."
-  (unless (s-starts-with? "." string)
-    (-some->> string
-            hy--company-format-candidates-str
-            hy--shell-send-async
-            (s-match-strings-all hy--company-regexp)
-            (-select-column 1))))
-
-
-(defun company-hy (command &optional arg &rest ignored)
+(defun company-hy (command &optional candidate &rest ignored)
   (interactive (list 'interactive))
   (cl-case command
-    (prefix (company-grab-symbol))
-    (candidates (hy--company-candidates arg))
-    (annotation (hy--company-annotate arg))
-    (meta (-> arg hy--eldoc-get-docs hy--str-or-empty))))
+    (prefix
+     (company-grab-symbol))
+    (candidates
+     (hy--company-complete candidate))
+    (annotation
+     (hy--company-annotate candidate))
+    (meta
+     (hy--company-eldoc candidate))))
+
+;;; EXPERIMENTAL JEDHY INSTALLATION COMMANDS
+;;;; Commands
+
+(defconst hy--jedhy-uninstall-cmd
+  "(import pip) (pip.main [\"uninstall\" \"jedhy\" \"-yes\"])"
+  "Command to uninstall Jedhy.")
+
+
+;; NOTE MOVE this to hy-personal and set to nil here
+(defconst hy--jedhy-dev-dir "/home/ekaschalk/dev/jedhy"
+  "Path to local development version of `jedhy' for 'pip install -e'.")
+
+
+(defun hy--jedhy-format-install-dev-mode-cmd ()
+  "Format the installation command for dev-mode versions of `jedhy'."
+  (unless hy--jedhy-dev-dir
+    (message "Must set `hy--jedhy-dev-dir' for dev mode."))
+
+  ;; NOTE
+  ;; 1. HAVE TO RESTART THE SHELL AFTERWARDS
+  ;; 2. HAVE TO DO (import jedhy.actions) not (import jedhy)
+  (format "(import pip) (pip.main [\"install\" \"-e\" %s])"
+          hy--jedhy-dev-dir))
+
+;;;; Execution
+
+(defun hy-uninstall-jedhy ()
+  "Uninstall jedhy?"
+  (interactive)
+  (when (y-or-n-p "Uninstall Jedhy?")
+    (hy--shell-send-async hy--jedhy-uninstall-cmd)))
+
+
+(defun hy-install-jedhy-dev-mode ()
+  "Install editable jedhy in `hy--jedhy-dev-dir'.?"
+  (interactive)
+  (when (y-or-n-p "Install *dev-version* of Jedhy?")
+    (hy--shell-send-async (hy--jedhy-format-install-dev-mode-cmd))
+    ;; message if successful
+    ;; message if failed
+    ;; message if already present
+    ;; message if should reinstall jedhy
+    ))
 
 
 ;;; Keybindings
@@ -1492,13 +1555,7 @@ to continue."
 
   ;; Don't startup font lock for internal processes
   (when hy--shell-font-lock-enable
-    ;; (if (fboundp 'xterm-color-filter)
-    ;;     (setq-local comint-preoutput-filter-functions
-    ;;                 `(xterm-color-filter hy--shell-font-lock-spy-output))
-    ;;   (setq-local comint-preoutput-filter-functions
-    ;;               `(hy--shell-font-lock-spy-output)))
     (hy--shell-font-lock-turn-on))
-
 
   ;; Fixes issue with "=>", no side effects from this advice
   (advice-add 'comint-previous-input :before
@@ -1563,3 +1620,7 @@ to continue."
 
 ;; TODO Place all --spy output within its own block
 ;; eg. [in], [spy], [out]
+
+
+
+;; TODO Jedhy artifacts like `rail' are being completed
