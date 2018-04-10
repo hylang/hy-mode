@@ -367,18 +367,6 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
   "Hylight tag macros, ie. `#tag-macro', so they stand out.")
 
-(defconst hy--font-lock-kwds-variables
-  (list
-   (rx symbol-start
-       "setv"
-       symbol-end
-       (1+ space)
-       (group (1+ word)))
-
-   '(1 font-lock-variable-name-face))
-
-  "Hylight variable names in setv/def, only first name.")
-
 ;;;; Misc
 
 (defconst hy--font-lock-kwds-anonymous-funcs
@@ -423,6 +411,33 @@ will indent special. Exact forms require the symbol and def exactly match.")
    '(0 font-lock-keyword-face))
 
   "Hy #* arg and #** kwarg unpacking keywords.")
+
+;;;; Anchored Keywords
+
+(defun hy--end-of-current-form ()
+  "Find the end point of current form."
+  (save-excursion
+    (-when-let* ((state (syntax-ppss))
+                 (start-pos (nth 1 state)))
+      (goto-char start-pos)
+      (while (ignore-errors (forward-sexp)))
+      (point))))
+
+(defconst hy--font-lock-kwds-variables
+  (list
+   (rx symbol-start
+       "setv"
+       symbol-end
+       (1+ not-wordchar)
+       (group (1+ word)))
+
+   '(1 font-lock-variable-name-face)
+   (list (rx (1+ word)
+             (1+ not-wordchar)
+             (group (1+ word)))
+         '(hy--end-of-current-form)
+         nil
+         '(1 font-lock-variable-name-face))))
 
 ;;;; Grouped
 

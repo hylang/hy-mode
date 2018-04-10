@@ -269,7 +269,7 @@ See `faceup-face-short-alist' for faceup's face aliases."
 
 (ert-deftest font-lock::builtins ()
   :tags '(font-lock display)
-  (hy--assert-faces "«b:+» «b:setv» «b:ap-each» setv-foo foo-setv setv.foo"))
+  (hy--assert-faces "«b:+» «b:map» «b:ap-each» map-foo map-do map.foo"))
 
 
 (ert-deftest font-lock::constants ()
@@ -331,8 +331,9 @@ See `faceup-face-short-alist' for faceup's face aliases."
 
 (ert-deftest font-lock::variables ()
   :tags '(font-lock display)
-  ;; Someday it would be nice to work with unpacking/multiple clauses
-  (hy--assert-faces "(«b:setv» «v:foo» bar)"))
+  (hy--assert-faces "(«b:setv» «v:foo» x «v:many-same-line» x
+«v:newline» x «v:many-on-newline» bar4 «v:trailing-assignment»
+         bar5 «v:end-missing»)"))
 
 ;;;; Misc
 
