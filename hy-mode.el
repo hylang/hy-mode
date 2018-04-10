@@ -426,6 +426,19 @@ will indent special. Exact forms require the symbol and def exactly match.")
       (while (ignore-errors (forward-sexp)))
       (point))))
 
+(defconst hy--font-lock-kwds-tag-comment-prefix
+  (list
+   (rx "#_(" (group (1+ any)))
+
+   '(1 font-lock-comment-face)
+
+   (list (rx (group (1+ any)))
+         '(hy--end-of-current-form)
+         nil
+         '(1 font-lock-comment-face)))
+
+  "Support for higlighting #_(form) the form as a comment.")
+
 (defconst hy--font-lock-kwds-variables
   (list
    (rx symbol-start
@@ -440,7 +453,9 @@ will indent special. Exact forms require the symbol and def exactly match.")
              (group (1+ word)))
          '(hy--end-of-current-form)
          nil
-         '(1 font-lock-variable-name-face))))
+         '(1 font-lock-variable-name-face)))
+
+  "Highlight variable assignment pairs.")
 
 ;;;; Grouped
 
@@ -460,11 +475,15 @@ will indent special. Exact forms require the symbol and def exactly match.")
         hy--font-lock-kwds-special-forms
         hy--font-lock-kwds-tag-macros
         hy--font-lock-kwds-unpacking
+
+        ;; Anchored kwds
+        hy--font-lock-kwds-tag-comment-prefix
         hy--font-lock-kwds-variables
 
+        ;; Optional kwds
         (when hy-font-lock-highlight-percent-args?
-          hy--font-lock-kwds-anonymous-funcs)
-        )
+          hy--font-lock-kwds-anonymous-funcs))
+
   "All Hy font lock keywords.")
 
 ;;; Utilities
