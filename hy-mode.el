@@ -75,7 +75,8 @@ Keep nil unless using specific Hy branch.")
      "except" "catch")
 
     :fuzzy
-    ("with"
+    ("def"
+     "with"
      "with/a"
      "fn"
      "fn/a"
@@ -184,7 +185,9 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defconst hy--kwds-defs
   '("defn" "defn/a" "defun"
     "defmacro" "defmacro/g!" "defmacro!"
-    "defreader" "defsharp" "deftag")
+    "defreader" "defsharp" "deftag"
+    "defmain" "defmulti"
+    "defmethod")
 
   "Hy definition keywords.")
 
@@ -659,7 +662,8 @@ and determined by `font-lock-mode' internals when making an edit to a buffer."
                  (function (save-excursion
                              (goto-char (1+ first-sexp))
                              (thing-at-point 'symbol))))
-      (s-matches? (rx "def" (not blank)) function))))  ; "def"=="setv"
+      (and (s-matches? (rx "def" (not blank)) function)
+           (not (s-matches? (rx "defmethod") function))))))
 
 (defun hy-font-lock-syntactic-face-function (state)
   "Return syntactic face function for the position represented by STATE.
