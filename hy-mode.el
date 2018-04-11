@@ -416,6 +416,18 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
   "Hy #* arg and #** kwarg unpacking keywords.")
 
+(defconst hy--font-lock-kwds-variables
+  (list
+   (rx symbol-start
+       "setv"
+       symbol-end
+       (1+ space)
+       (group (1+ word)))
+
+   '(1 font-lock-variable-name-face))
+
+  "Hylight variable names in setv/def, only first name.")
+
 ;;;; Anchored Keywords
 
 (defun hy--end-of-current-form ()
@@ -439,6 +451,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
          '(1 font-lock-comment-face)))
 
   "Support for higlighting #_(form) the form as a comment.")
+
 (defconst hy--font-lock-kwds-variables
   (list
    (rx symbol-start
@@ -448,19 +461,22 @@ will indent special. Exact forms require the symbol and def exactly match.")
        (group (1+ word)))
 
    '(1 font-lock-variable-name-face)
-   (list (rx (1+ word)
+   (list (rx (group (1+ word))
              (1+ not-wordchar)
-             (group (1+ word)))
-         '(hy--end-of-current-form)
+             (1+ word)
+             )
+         ;; '(hy--end-of-current-form)
          nil
-         '(1 font-lock-variable-name-face)))
+         '(1 font-lock-builtin-face)))
 
   "Highlight variable assignment pairs.")
 
 ;;;; Grouped
 
 (defconst hy-font-lock-kwds
-  (list hy--font-lock-kwds-aliases
+  (list hy--font-lock-kwds-tag-comment-prefix  ; overrwriting font-locks first
+
+        hy--font-lock-kwds-aliases
         hy--font-lock-kwds-builtins
         hy--font-lock-kwds-class
         hy--font-lock-kwds-constants
@@ -475,9 +491,6 @@ will indent special. Exact forms require the symbol and def exactly match.")
         hy--font-lock-kwds-special-forms
         hy--font-lock-kwds-tag-macros
         hy--font-lock-kwds-unpacking
-
-        ;; Anchored kwds
-        hy--font-lock-kwds-tag-comment-prefix
         hy--font-lock-kwds-variables
 
         ;; Optional kwds
