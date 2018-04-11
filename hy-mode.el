@@ -267,7 +267,8 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defconst hy--font-lock-kwds-defs
   (list
    (rx-to-string
-    `(: symbol-start
+    `(: "("
+        symbol-start
         (group-n 1 (or ,@hy--kwds-defs))
         (1+ space)
         (group-n 2 (1+ word))))
@@ -438,7 +439,6 @@ will indent special. Exact forms require the symbol and def exactly match.")
          '(1 font-lock-comment-face)))
 
   "Support for higlighting #_(form) the form as a comment.")
-
 (defconst hy--font-lock-kwds-variables
   (list
    (rx symbol-start
