@@ -460,14 +460,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
        (1+ not-wordchar)
        (group (1+ word)))
 
-   '(1 font-lock-variable-name-face)
-   (list (rx (group (1+ word))
-             (1+ not-wordchar)
-             (1+ word)
-             )
-         ;; '(hy--end-of-current-form)
-         nil
-         '(1 font-lock-builtin-face)))
+   '(1 font-lock-variable-name-face))
 
   "Highlight variable assignment pairs.")
 
