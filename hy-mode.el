@@ -452,18 +452,6 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
   "Support for higlighting #_(form) the form as a comment.")
 
-(defconst hy--font-lock-kwds-variables
-  (list
-   (rx symbol-start
-       "setv"
-       symbol-end
-       (1+ not-wordchar)
-       (group (1+ word)))
-
-   '(1 font-lock-variable-name-face))
-
-  "Highlight variable assignment pairs.")
-
 ;;;; Grouped
 
 (defconst hy-font-lock-kwds
