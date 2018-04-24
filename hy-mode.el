@@ -508,7 +508,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defun hy--current-form-string ()
   "Get form containing current point as string plus a trailing newline."
   (save-excursion
-    (-when-let* ((state (syntax-ppss))
+    (-when-let* ((state (syntax-ppss (1- (point))))
                  (start-pos (hy--sexp-inermost-char state)))
       (goto-char start-pos)
       (while (ignore-errors (forward-sexp)))
@@ -1457,8 +1457,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defun hy-shell-eval-region ()
   "Send highlighted region to shell, inhibiting output."
   (interactive)
-  (when (and (region-active-p)
-             (not (region-noncontiguous-p)))
+  (when (not (region-noncontiguous-p))
     (-let [text
            (buffer-substring (region-beginning) (region-end))]
       (unless (hy--shell-buffer?)
