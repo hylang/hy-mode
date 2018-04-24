@@ -1266,7 +1266,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defconst hy-company-setup-code
   "(import builtins)
 (import hy)
-(import [hy.lex.parser [hy-symbol-unmangle hy-symbol-mangle]])
+(import [hy.lex.parser [unmangle mangle]])
 (import [hy.macros [-hy-macros]])
 (import [hy.compiler [-compile-table]])
 (import [hy.core.shadow [*]])
@@ -1283,7 +1283,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
 (defn --HYCOMPANY-get-obj-candidates [obj]
   (try
-    (->> obj builtins.eval dir (map hy-symbol-unmangle) list)
+    (->> obj builtins.eval dir (map unmangle) list)
     (except [e Exception]
       [])))
 
@@ -1295,14 +1295,14 @@ Not all defuns can be argspeced - eg. C defuns.\"
      (chain -compile-table)
      flatten
      (map --HYCOMPANY-get-name)
-     (map hy-symbol-unmangle)
+     (map unmangle)
      distinct
      list))
 
 (defn --HYCOMPANY-get-global-candidates []
   (->> (globals)
      (.keys)
-     (map hy-symbol-unmangle)
+     (map unmangle)
      (chain (--HYCOMPANY-get-macros))
      flatten
      distinct
@@ -1334,7 +1334,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
       choices))
 
 (defn --HYANNOTATE-search-builtins [text]
-  (setv text (hy-symbol-mangle text))
+  (setv text (mangle text))
   (try
     (do (setv obj (builtins.eval text))
         (setv obj-name obj.--class--.--name--)
@@ -1354,11 +1354,11 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defn --HYANNOTATE-search-shadows [text]
   (->> hy.core.shadow
      dir
-     (map hy-symbol-unmangle)
+     (map unmangle)
      (in text)))
 
 (defn --HYANNOTATE-search-macros [text]
-  (setv text (hy-symbol-mangle text))
+  (setv text (mangle text))
   (for [macro-dict (.values -hy-macros)]
     (when (in text macro-dict)
       (return (get macro-dict text))))
