@@ -428,36 +428,36 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
   "Hylight variable names in setv/def, only first name.")
 
-;;;; Anchored Keywords
+;;;; Advanced Keywords
 
-(defun hy--end-of-current-form ()
-  "Find the end point of current form."
-  (save-excursion
-    (-when-let* ((state (syntax-ppss))
-                 (start-pos (nth 1 state)))
-      (goto-char start-pos)
-      (while (ignore-errors (forward-sexp)))
-      (point))))
+(defconst hy--tag-comment-prefix-rgx
+  (rx "#_" (* " ") (group-n 1 (not (any " "))))
+  "The regex to match #_ tag comment prefixes.")
+
+(defun hy--search-comment-macro (limit)
+  "Search for a comment forward stopping at LIMIT."
+  (-when-let* ((_ (re-search-forward hy--tag-comment-prefix-rgx limit t))
+               (md (match-data))
+               (start (match-beginning 1))
+               (state (syntax-ppss start)))
+    (if (hy--in-string-or-comment? state)
+        (hy--search-comment-macro limit)
+      (goto-char start)
+      (forward-sexp)
+      (setf (elt md 3) (point))
+      (set-match-data md)
+      t)))
 
 (defconst hy--font-lock-kwds-tag-comment-prefix
-  (list
-   (rx "#_(" (group (1+ any)))
+  (list 'hy--search-comment-macro
 
-   '(1 font-lock-comment-face)
-
-   (list (rx (group (1+ any)))
-         '(hy--end-of-current-form)
-         nil
-         '(1 font-lock-comment-face)))
-
+        '(1 font-lock-comment-face t))
   "Support for higlighting #_(form) the form as a comment.")
 
 ;;;; Grouped
 
 (defconst hy-font-lock-kwds
-  (list hy--font-lock-kwds-tag-comment-prefix  ; overrwriting font-locks first
-
-        hy--font-lock-kwds-aliases
+  (list hy--font-lock-kwds-aliases
         hy--font-lock-kwds-builtins
         hy--font-lock-kwds-class
         hy--font-lock-kwds-constants
@@ -473,6 +473,9 @@ will indent special. Exact forms require the symbol and def exactly match.")
         hy--font-lock-kwds-tag-macros
         hy--font-lock-kwds-unpacking
         hy--font-lock-kwds-variables
+
+        ;; Advanced kwds
+        hy--font-lock-kwds-tag-comment-prefix
 
         ;; Optional kwds
         (when hy-font-lock-highlight-percent-args?
@@ -490,6 +493,8 @@ will indent special. Exact forms require the symbol and def exactly match.")
   (nth 2 state))
 (defun hy--in-string? (state)
   (nth 3 state))
+(defun hy--in-string-or-comment? (state)
+  (or (nth 3 state) (nth 4 state)))
 (defun hy--start-of-string (state)
   (nth 8 state))
 (defun hy--prior-sexp? (state)
