@@ -513,7 +513,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defun hy--current-form-string ()
   "Get form containing current point as string plus a trailing newline."
   (save-excursion
-    (-when-let* ((state (syntax-ppss))
+    (-when-let* ((state (syntax-ppss (1- (point))))
                  (start-pos (hy--sexp-inermost-char state)))
       (goto-char start-pos)
       (while (ignore-errors (forward-sexp)))
@@ -1271,7 +1271,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defconst hy-company-setup-code
   "(import builtins)
 (import hy)
-(import [hy.lex.parser [hy-symbol-unmangle hy-symbol-mangle]])
+(import [hy.lex.parser [unmangle mangle]])
 (import [hy.macros [-hy-macros]])
 (import [hy.compiler [-compile-table]])
 (import [hy.core.shadow [*]])
@@ -1288,7 +1288,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
 (defn --HYCOMPANY-get-obj-candidates [obj]
   (try
-    (->> obj builtins.eval dir (map hy-symbol-unmangle) list)
+    (->> obj builtins.eval dir (map unmangle) list)
     (except [e Exception]
       [])))
 
@@ -1300,14 +1300,14 @@ Not all defuns can be argspeced - eg. C defuns.\"
      (chain -compile-table)
      flatten
      (map --HYCOMPANY-get-name)
-     (map hy-symbol-unmangle)
+     (map unmangle)
      distinct
      list))
 
 (defn --HYCOMPANY-get-global-candidates []
   (->> (globals)
      (.keys)
-     (map hy-symbol-unmangle)
+     (map unmangle)
      (chain (--HYCOMPANY-get-macros))
      flatten
      distinct
@@ -1339,7 +1339,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
       choices))
 
 (defn --HYANNOTATE-search-builtins [text]
-  (setv text (hy-symbol-mangle text))
+  (setv text (mangle text))
   (try
     (do (setv obj (builtins.eval text))
         (setv obj-name obj.--class--.--name--)
@@ -1359,11 +1359,11 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defn --HYANNOTATE-search-shadows [text]
   (->> hy.core.shadow
      dir
-     (map hy-symbol-unmangle)
+     (map unmangle)
      (in text)))
 
 (defn --HYANNOTATE-search-macros [text]
-  (setv text (hy-symbol-mangle text))
+  (setv text (mangle text))
   (for [macro-dict (.values -hy-macros)]
     (when (in text macro-dict)
       (return (get macro-dict text))))
@@ -1462,8 +1462,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defun hy-shell-eval-region ()
   "Send highlighted region to shell, inhibiting output."
   (interactive)
-  (when (and (region-active-p)
-             (not (region-noncontiguous-p)))
+  (when (not (region-noncontiguous-p))
     (-let [text
            (buffer-substring (region-beginning) (region-end))]
       (unless (hy--shell-buffer?)
