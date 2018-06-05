@@ -1271,9 +1271,17 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defconst hy-company-setup-code
   "(import builtins)
 (import hy)
-(import [hy.lex.parser [hy-symbol-unmangle hy-symbol-mangle]])
+(try
+ (import [hy.lex.parser [hy-symbol-unmangle hy-symbol-mangle]])
+ (except [e ImportError]
+         (import [hy.lex.parser [unmangle :as hy-symbol-unmangle
+                                 mangle :as hy-symbol-mangle]])))
+(try
+ (import [hy.compiler [-compile-table]])
+ (except [e ImportError]
+         (import [hy.compiler [-special-form-compilers :as -compile-table]])))
+
 (import [hy.macros [-hy-macros]])
-(import [hy.compiler [-compile-table]])
 (import [hy.core.shadow [*]])
 (import [hy.core.language [*]])
 
