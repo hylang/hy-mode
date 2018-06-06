@@ -1,19 +1,14 @@
-An Emacs major mode for [[http://docs.hylang.org/en/stable/][Hy]], lisp python, providing support for:
+An Emacs major mode for [[http://docs.hylang.org/en/stable/][Hy]], lispy python, providing support for:
 
 1. Syntax Highlighting
 2. Auto-completion
-3. Eldoc and shift-K documentation lookups
+3. Eldoc and documentation lookup
 4. Shell integration
-5. New Hy constructs like bracket strings
+5. Hy constructs like bracket strings
+
+Spacemacs users - Hy has its own layer in its dev branch.
 
 ** Installation
 
 ~hy-mode~ requires Emacs 24+ and is available in MELPA. For the most current set
 of features use master.
-
-** Spacemacs Users
-
-hy-mode is in active development and Spacemacs does not reflect current work.
-
-Require ~spacemacs-hy~ to enable auto-completion and bindings for the new shell
-functions. See that file for all available bindings.
