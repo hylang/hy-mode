@@ -762,7 +762,7 @@ a string or comment."
 ;;;;; Internal Process Code
 
 (defvar hy-shell-internal-setup-code
-  "(import [jedhy.actions [Actions :as --Actions]]) (setv api (--Actions))"
+  "(import [jedhy.api [API :as --API]]) (setv api (--API))"
   "Setup `jedhy' for internal process.")
 
 
@@ -1072,16 +1072,18 @@ Constantly extracts current prompt text and executes and manages applying
          (get-buffer-create " *Comint Hy Redirect Work Buffer*"))
         (proc
          (hy-shell-internal-process?)))
-    (with-current-buffer output-buffer
-      (erase-buffer)
-      (comint-redirect-send-command-to-process string output-buffer proc nil t)
+    (if proc
+        (with-current-buffer output-buffer
+          (erase-buffer)
+          (comint-redirect-send-command-to-process string output-buffer proc nil t)
 
-      (set-buffer hy-shell-internal-buffer)
-      (while (and (null comint-redirect-completed)
-                  (accept-process-output proc nil 100 t)))
-      (set-buffer output-buffer)
+          (set-buffer hy-shell-internal-buffer)
+          (while (and (null comint-redirect-completed)
+                      (accept-process-output proc nil 100 t)))
+          (set-buffer output-buffer)
 
-      (hy--shell-chomp-async-output (buffer-string)))))
+          (hy--shell-chomp-async-output (buffer-string)))
+      (message "Hy internal process is not running."))))
 
 ;;;; Update internal process
 
@@ -1157,6 +1159,7 @@ to continue."
            (buffer (hy-buffer 'name 'internal)))
 
        (hy--shell-make-comint cmd buffer nil 'internal)
+       ;; TODO Only do the following if jedhy is already installed!
        (hy-shell-send-string-internal hy-shell-internal-setup-code)
 
        (message "Hy internal process successfully started")))))
@@ -1274,10 +1277,13 @@ It can be one of: 'annotation, 'completion, or 'eldoc."
          (rx string-start (1+ (not (any space ":"))) ":"))
         (kwargs-rx
          (rx symbol-start "&" (1+ word)))
+        (arg-kwarg-rx
+         (rx (or "#*" "#**")))
         (quoted-args-rx
          (rx "`" (1+ (not space)) "`")))
     (hy--fontify-text text kwd-rx         'font-lock-keyword-face)
     (hy--fontify-text text kwargs-rx      'font-lock-type-face)
+    (hy--fontify-text text arg-kwarg-rx 'font-lock-keyword-face)
     (hy--fontify-text text quoted-args-rx 'font-lock-constant-face 'bold-italic))
   text)
 
@@ -1431,6 +1437,7 @@ It can be one of: 'annotation, 'completion, or 'eldoc."
   (when text
     (unless (hy--shell-buffer?)
       (hy-shell-start-or-switch-to-shell))
+
     (hy--shell-with-shell-buffer
      (if echo
          (hy-shell-send-string text)
