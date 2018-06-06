@@ -1,3 +1,5 @@
+
+
 ;;; hy-mode.el --- Major mode for Hylang -*- lexical-binding: t -*-
 
 ;; Copyright © 2013 Julien Danjou <julien@danjou.info>
@@ -978,85 +980,47 @@ Constantly extracts current prompt text and executes and manages applying
 
 ;;;; Send strings
 
-;; ------------------
-;; NEW
-;; ------------------
-;; hy--shell-output-filter-string
-
 (defun hy--shell-end-of-output? (string)
   "Return non-nil if STRING ends with the prompt."
-  ;; (-some->> string s-lines length (< 1))
-  (-some->> string s-lines -last-item (s-matches? hy-shell-prompt-regexp)))
+  (s-matches? comint-prompt-regexp string))
 
 
-(defun hy--shell-preoutput-filter (string)
-  ;; (when string
-  ;;   (put-text-property 0 (length string) 'hithere 1 string))
-  ;; (hy--shell-expecting-more-process-output string)
-  ;; (setq hy--shell-output-filter-string
-  ;;       (s-concat hy--shell-output-filter-string string))
+(defun hy--shell-output-filter (string)
+  "If STRING ends with input prompt then set filter in progress done."
+  (when (hy--shell-end-of-output? string)
+    (setq hy--shell-output-filter-in-progress nil))
+  "\n=> ")
 
-  (unless (hy--shell-end-of-output? string)
-    (setq string
-          (s-replace "\n=> " "" string)))
 
-  ;; (when (hy--shell-end-of-output? hy--shell-output-filter-string)
-  ;;   (setq hy--shell-output-filter-in-progress nil))
-
-  ;; (let ((start (marker-position comint-last-input-end))
-  ;;       (end (and comint-last-prompt
-  ;;                 (cdr comint-last-prompt))))
-  ;;   (when (and start end
-  ;;              (< start end))
-  ;;     (-let [new-output-chunk
-  ;;            (buffer-substring-no-properties start end)]
-  ;;       (setq my-last-chunk new-output-chunk))))
-  string)
-
-;; ------------------
-
-(defun hy--shell-send-string (string &optional internal)
+(defun hy--shell-send-string (string &optional process internal)
   "Internal implementation of shell send string functionality."
-  (let ((proc (hy-shell-get-process internal))
+  (let ((process (or process
+                     (hy-shell-get-process internal)))
         (hy--shell-output-filter-in-progress t))
 
-    ;; (comint-send-string proc string)
-    (->> string (s-replace "\n" "") (s-append "\n") (comint-send-string proc))
-    ;; (->> string (s-append "\n") (comint-send-string proc))
+    (->> string (s-append "\n") (comint-send-string process))
 
-    ;; (while hy--shell-output-filter-in-progress
-    ;;   (accept-process-output proc))
-    ))
+    (while hy--shell-output-filter-in-progress
+      (accept-process-output process))))
 
 
-(defun hy-shell-send-string-no-output (string &optional internal)
-  "Send STRING to hy PROCESS, inhibit printing output, return it."
+(defun hy-shell-send-string-no-output (string &optional process internal)
+  "Send STRING to hy PROCESS and inhibit printing output."
   (-let [comint-preoutput-filter-functions
-         '(
-           ;; hy--shell-output-filter
-           hy--test-output-filter
-           )]
-    (hy--shell-send-string string internal)
-    (prog1
-        hy--shell-output-filter-string
-      (setq hy--shell-output-filter-string nil))))
+         '(hy--shell-output-filter)]
+    (hy--shell-send-string string process internal)))
 
 
 (defun hy-shell-send-string-internal (string)
-  "Perform `hy-shell-send-string-no-output' for an internal process."
-  (hy-shell-send-string-no-output string 'internal))
+  "Send STRING to internal hy shell process."
+  (hy-shell-send-string-no-output string nil 'internal))
 
 
-(defun hy-shell-send-string (string)
-  "Send STRING to hy process."
+(defun hy-shell-send-string (string &optional process)
+  "Send STRING to hy PROCESS."
   (-let [comint-output-filter-functions
-         '(comint-postoutput-scroll-to-bottom
-           comint-watch-for-password-prompt
-           ;; hy--shell-output-filter
-           ;; hy--test-output-filter
-           )]
-    (hy--shell-send-string string)))
-
+         '(hy--shell-output-filter)]
+    (hy--shell-send-string string process)))
 
 (defun hy--shell-chomp-async-output (text)
   "Chomp prefixes and suffixes from async internal process output."
@@ -1552,8 +1516,7 @@ It can be one of: 'annotation, 'completion, or 'eldoc."
   (setq-local comint-use-prompt-regexp t)
   (setq-local comint-prompt-regexp hy-shell-prompt-regexp)
 
-  ;; (ansi-color-for-comint-mode-on)
-  ;; (setq-local comint-preoutput-filter-functions
+  (ansi-color-for-comint-mode-on)
   (setq-local comint-preoutput-filter-functions
               '(
                 ;; ansi-color-process-output
@@ -1628,6 +1591,5 @@ It can be one of: 'annotation, 'completion, or 'eldoc."
 ;; TODO Place all --spy output within its own block
 ;; eg. [in], [spy], [out]
 
-
-
 ;; TODO Jedhy artifacts like `rail' are being completed
+(hi )
