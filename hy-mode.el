@@ -1,5 +1,3 @@
-
-
 ;;; hy-mode.el --- Major mode for Hylang -*- lexical-binding: t -*-
 
 ;; Copyright © 2013 Julien Danjou <julien@danjou.info>
@@ -32,6 +30,8 @@
 ;; Provides font-lock, indentation, navigation, autocompletion, eldoc, and more
 ;; for the Hy language. (http://hylang.org)
 
+;;; Code:
+
 (require 'cl)
 (require 'dash)
 (require 'dash-functional)
@@ -60,7 +60,7 @@
 (defvar hy-indent-special-forms
   '(:exact
     ("when" "unless"
-     "for" "for*"
+     "for" "for*" "for/a" "for/a*"
      "while"
      "except" "catch"
      "->" "->>")
@@ -68,7 +68,9 @@
     :fuzzy
     ("def"
      "with"
+     "with/a"
      "fn"
+     "fn/a"
      "lambda"))
   "Special forms to always indent following line by +1.
 
@@ -121,7 +123,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defconst hy--kwds-builtins
   '("*map" "accumulate" "and" "assoc" "butlast" "calling-module-name" "car"
     "cdr" "chain" "coll?" "combinations" "comp" "complement" "compress" "cons"
-    "cons?" "constantly" "count" "cut" "cycle" "dec" "def" "defmain" "del"
+    "cons?" "constantly" "count" "cut" "cycle" "dec" "defmain" "del"
     "dict-comp" "disassemble" "distinct" "doto" "drop" "drop-last" "drop-while"
     "empty?" "even?" "every?" "filter" "first" "flatten" "float?" "fraction"
     "genexpr" "gensym" "get" "group-by" "identity" "inc" "input"
@@ -179,9 +181,11 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
 
 (defconst hy--kwds-defs
-  '("defn" "defun"
+  '("defn" "defn/a" "defun"
     "defmacro" "defmacro/g!" "defmacro!"
-    "defreader" "defsharp" "deftag")
+    "defreader" "defsharp" "deftag"
+    "defmain" "defmulti"
+    "defmethod")
 
   "Hy definition keywords.")
 
@@ -197,7 +201,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defconst hy--kwds-special-forms
   '(;; Looping
     "loop" "recur"
-    "for" "for*"
+    "for" "for*" "for/a" "for/a*"
 
     ;; Threading
     "->" "->>" "as->"
@@ -212,9 +216,9 @@ will indent special. Exact forms require the symbol and def exactly match.")
     "do" "progn"
 
     ;; Functional
-    "lambda" "fn"
+    "fn" "fn/a"
     "yield" "yield-from"
-    "with" "with*"
+    "with" "with*" "with/a" "with/a*"
     "with-gensyms"
 
     ;; Error Handling
@@ -267,7 +271,8 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defconst hy--font-lock-kwds-defs
   (list
    (rx-to-string
-    `(: symbol-start
+    `(: "("
+        symbol-start
         (group-n 1 (or ,@hy--kwds-defs))
         (1+ space)
         (group-n 2 (1+ word))))
@@ -377,19 +382,6 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
   "Hylight tag macros, ie. `#tag-macro', so they stand out.")
 
-
-(defconst hy--font-lock-kwds-variables
-  (list
-   (rx symbol-start
-       (or "setv" "def")
-       symbol-end
-       (1+ space)
-       (group (1+ word)))
-
-   '(1 font-lock-variable-name-face))
-
-  "Hylight variable names in setv/def, only first name.")
-
 ;;;; Misc
 
 (defconst hy--font-lock-kwds-anonymous-funcs
@@ -439,6 +431,44 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
   "Hy #* arg and #** kwarg unpacking keywords.")
 
+(defconst hy--font-lock-kwds-variables
+  (list
+   (rx symbol-start
+       "setv"
+       symbol-end
+       (1+ space)
+       (group (1+ word)))
+
+   '(1 font-lock-variable-name-face))
+
+  "Hylight variable names in setv/def, only first name.")
+
+;;;; Advanced Keywords
+
+(defconst hy--tag-comment-prefix-rgx
+  (rx "#_" (* " ") (group-n 1 (not (any " "))))
+  "The regex to match #_ tag comment prefixes.")
+
+(defun hy--search-comment-macro (limit)
+  "Search for a comment forward stopping at LIMIT."
+  (-when-let* ((_ (re-search-forward hy--tag-comment-prefix-rgx limit t))
+               (md (match-data))
+               (start (match-beginning 1))
+               (state (syntax-ppss start)))
+    (if (hy--in-string-or-comment? state)
+        (hy--search-comment-macro limit)
+      (goto-char start)
+      (forward-sexp)
+      (setf (elt md 3) (point))
+      (set-match-data md)
+      t)))
+
+(defconst hy--font-lock-kwds-tag-comment-prefix
+  (list 'hy--search-comment-macro
+
+        '(1 font-lock-comment-face t))
+  "Support for higlighting #_(form) the form as a comment.")
+
 ;;;; Grouped
 
 (defconst hy-font-lock-kwds
@@ -459,6 +489,10 @@ will indent special. Exact forms require the symbol and def exactly match.")
         hy--font-lock-kwds-unpacking
         hy--font-lock-kwds-variables
 
+        ;; Advanced kwds
+        hy--font-lock-kwds-tag-comment-prefix
+
+        ;; Optional kwds
         (when hy-font-lock-highlight-percent-args?
           hy--font-lock-kwds-anonymous-funcs))
   "All Hy font lock keywords.")
@@ -474,6 +508,8 @@ will indent special. Exact forms require the symbol and def exactly match.")
   (nth 2 state))
 (defun hy--in-string? (state)
   (nth 3 state))
+(defun hy--in-string-or-comment? (state)
+  (or (nth 3 state) (nth 4 state)))
 (defun hy--start-of-string (state)
   (nth 8 state))
 
@@ -535,6 +571,17 @@ will indent special. Exact forms require the symbol and def exactly match.")
   (when (and (region-active-p)
              (not (region-noncontiguous-p)))
     (buffer-substring (region-beginning) (region-end))))
+
+
+(defun hy--last-sexp-string ()
+  "Get form containing last s-exp point as string plus a trailing newline."
+  (save-excursion
+    (-when-let* ((state (syntax-ppss))
+                 (start-pos (hy--start-of-last-sexp state)))
+      (goto-char start-pos)
+      (while (ignore-errors (forward-sexp)))
+
+      (concat (buffer-substring-no-properties start-pos (point)) "\n"))))
 
 ;;;; General purpose
 
@@ -617,7 +664,7 @@ the loop will terminate without error and the prior lines indentation is it."
   "Non-nil if form at point doesn't represent a function call."
   (or (-contains? '(?\[ ?\{) (char-after))
       (not (looking-at (rx anything  ; Skips form opener
-                           (or "(" (syntax symbol) (syntax word)))))))
+                           (or (syntax symbol) (syntax word)))))))
 
 
 (defun hy--function-form? ()
@@ -727,7 +774,8 @@ and determined by `font-lock-mode' internals when making an edit to a buffer."
                  (function (save-excursion
                              (goto-char (1+ first-sexp))
                              (thing-at-point 'symbol))))
-      (s-matches? (rx "def" (not blank)) function))))  ; "def"=="setv"
+      (and (s-matches? (rx "def" (not blank)) function)
+           (not (s-matches? (rx "defmethod") function))))))
 
 
 (defun hy-font-lock-syntactic-face-function (state)
@@ -784,10 +832,6 @@ a string or comment."
 
 (defvar hy--shell-output-filter-string nil
   "The iteratively concatenated output from `hy--shell-send-string'.")
-
-
-(defvar hy--shell-output-filter-end-string ""
-  "TODO Experiemnting with")
 
 
 (defvar hy--shell-font-lock-enable t
@@ -914,8 +958,8 @@ a string or comment."
         (start-pos (or start-pos 0)))
     (while (and (/= pos (length text))
                 (setq next (next-single-property-change pos 'face text)))
-      (-let* [(&plist 'face face)
-              (text-properties-at pos text)]
+      (-let* ((plist (text-properties-at pos text))
+              ((&plist 'face face) plist))
         (set-text-properties (+ start-pos pos) (+ start-pos next)
                              (-doto plist
                                (plist-put 'face nil)
@@ -958,25 +1002,6 @@ Constantly extracts current prompt text and executes and manages applying
              'hy--shell-fontify-prompt-post-command-hook nil 'local)
    (add-hook 'kill-buffer-hook
              'hy--shell-kill-buffer nil 'local)))
-
-;;;;; Prompt Output
-
-;; TODO Decided on different approach
-;; (defun hy--shell-font-lock-spy-output (string)
-;;   "Applies font-locking to hy outputted python blocks when `--spy' is enabled."
-;;   (with-temp-buffer
-;;     (if (s-contains? hy--shell-spy-delim-uuid string)
-;;         (-let [python-indent-guess-indent-offset
-;;                ((python-block hy-output)
-;;                 (s-split hy--shell-spy-delim-uuid string))]
-;;           (python-mode)
-;;           (insert python-block)
-;;           (font-lock-default-fontify-buffer)
-;;           (-> (buffer-string)
-;;              hy--shell-faces-to-font-lock-faces
-;;              s-chomp
-;;              (s-concat hy-shell-spy-delim hy-output)))
-;;       string)))
 
 ;;;; Send strings
 
@@ -1185,7 +1210,7 @@ It can be one of: 'annotation, 'completion, or 'eldoc."
    hy--str-or-nil
    hy--eldoc-fontify-text))
 
-;;;; UNORGANIZED
+;;;; Symbol Extraction
 
 (defun hy--candidate-is-method? (candidate)
   "Is CANDIDATE a method call (eg. .append in (.append some-list 1))."
@@ -1340,49 +1365,50 @@ It can be one of: 'annotation, 'completion, or 'eldoc."
     (meta
      (hy--company-eldoc candidate))))
 
+
 ;;; EXPERIMENTAL JEDHY INSTALLATION COMMANDS
-;;;; Commands
+;; ;;;; Commands
 
-(defconst hy--jedhy-uninstall-cmd
-  "(import pip) (pip.main [\"uninstall\" \"jedhy\" \"-yes\"])"
-  "Command to uninstall Jedhy.")
-
-
-;; NOTE MOVE this to hy-personal and set to nil here
-(defconst hy--jedhy-dev-dir "/home/ekaschalk/dev/jedhy"
-  "Path to local development version of `jedhy' for 'pip install -e'.")
+;; (defconst hy--jedhy-uninstall-cmd
+;;   "(import pip) (pip.main [\"uninstall\" \"jedhy\" \"-yes\"])"
+;;   "Command to uninstall Jedhy.")
 
 
-(defun hy--jedhy-format-install-dev-mode-cmd ()
-  "Format the installation command for dev-mode versions of `jedhy'."
-  (unless hy--jedhy-dev-dir
-    (message "Must set `hy--jedhy-dev-dir' for dev mode."))
-
-  ;; NOTE
-  ;; 1. HAVE TO RESTART THE SHELL AFTERWARDS
-  ;; 2. HAVE TO DO (import jedhy.actions) not (import jedhy)
-  (format "(import pip) (pip.main [\"install\" \"-e\" %s])"
-          hy--jedhy-dev-dir))
-
-;;;; Execution
-
-(defun hy-uninstall-jedhy ()
-  "Uninstall jedhy?"
-  (interactive)
-  (when (y-or-n-p "Uninstall Jedhy?")
-    (hy--shell-send-async hy--jedhy-uninstall-cmd)))
+;; ;; NOTE MOVE this to hy-personal and set to nil here
+;; (defconst hy--jedhy-dev-dir "/home/ekaschalk/dev/jedhy"
+;;   "Path to local development version of `jedhy' for 'pip install -e'.")
 
 
-(defun hy-install-jedhy-dev-mode ()
-  "Install editable jedhy in `hy--jedhy-dev-dir'.?"
-  (interactive)
-  (when (y-or-n-p "Install *dev-version* of Jedhy?")
-    (hy--shell-send-async (hy--jedhy-format-install-dev-mode-cmd))
-    ;; message if successful
-    ;; message if failed
-    ;; message if already present
-    ;; message if should reinstall jedhy
-    ))
+;; (defun hy--jedhy-format-install-dev-mode-cmd ()
+;;   "Format the installation command for dev-mode versions of `jedhy'."
+;;   (unless hy--jedhy-dev-dir
+;;     (message "Must set `hy--jedhy-dev-dir' for dev mode."))
+
+;;   ;; NOTE
+;;   ;; 1. HAVE TO RESTART THE SHELL AFTERWARDS
+;;   ;; 2. HAVE TO DO (import jedhy.actions) not (import jedhy)
+;;   (format "(import pip) (pip.main [\"install\" \"-e\" %s])"
+;;           hy--jedhy-dev-dir))
+
+;; ;;;; Execution
+
+;; (defun hy-uninstall-jedhy ()
+;;   "Uninstall jedhy?"
+;;   (interactive)
+;;   (when (y-or-n-p "Uninstall Jedhy?")
+;;     (hy--shell-send-async hy--jedhy-uninstall-cmd)))
+
+
+;; (defun hy-install-jedhy-dev-mode ()
+;;   "Install editable jedhy in `hy--jedhy-dev-dir'.?"
+;;   (interactive)
+;;   (when (y-or-n-p "Install *dev-version* of Jedhy?")
+;;     (hy--shell-send-async (hy--jedhy-format-install-dev-mode-cmd))
+;;     ;; message if successful
+;;     ;; message if failed
+;;     ;; message if already present
+;;     ;; message if should reinstall jedhy
+;;     ))
 
 
 ;;; Keybindings
@@ -1452,6 +1478,19 @@ It can be one of: 'annotation, 'completion, or 'eldoc."
   (interactive)
   (hy-shell-eval (hy--current-form-string) 'echo))
 
+
+;;;###autoload
+(defun hy-shell-eval-last-sexp ()
+  "Send form containing the last s-expression to shell."
+  (interactive)
+  (hy-shell-eval (hy--last-sexp-string) 'echo))
+
+
+;;;###autoload
+(defun hy-shell-eval-defun ()
+  (interactive)
+  (hy-shell-eval (hy--parent-defun-string)))
+
 
 ;;; hy-mode and inferior-hy-mode
 ;;;; Hy-mode setup
@@ -1517,11 +1556,6 @@ It can be one of: 'annotation, 'completion, or 'eldoc."
   (setq-local comint-prompt-regexp hy-shell-prompt-regexp)
 
   (ansi-color-for-comint-mode-on)
-  (setq-local comint-preoutput-filter-functions
-              '(
-                ;; ansi-color-process-output
-                hy--shell-preoutput-filter
-                ))
 
   ;; Don't startup font lock for internal processes
   (when hy--shell-font-lock-enable
@@ -1557,7 +1591,6 @@ It can be one of: 'annotation, 'completion, or 'eldoc."
   (hy--mode-setup-smartparens)
   (hy--mode-setup-syntax))
 
-;; Spacemacs users please see spacemacs-hy, all bindings defined there
 (set-keymap-parent hy-mode-map lisp-mode-shared-map)
 
 (hy-define-keys
@@ -1565,31 +1598,18 @@ It can be one of: 'annotation, 'completion, or 'eldoc."
  (kbd "C-c C-e") 'hy-shell-start-or-switch-to-shell
  (kbd "C-c C-b") 'hy-shell-eval-buffer
  (kbd "C-c C-t") 'hy-insert-pdb
- (kbd "C-c C-S-t") 'hy-insert-pdb-threaded)
+ (kbd "C-c C-S-t") 'hy-insert-pdb-threaded
+ (kbd "C-c C-z") 'hy-shell-start-or-switch-to-shell
+ (kbd "C-c C-b") 'hy-shell-eval-buffer
+ (kbd "C-c C-t") 'hy-insert-pdb
+ (kbd "C-c C-S-t") 'hy-insert-pdb-threaded
+ (kbd "C-c C-r") 'hy-shell-eval-region
+ (kbd "C-M-x") 'hy-shell-eval-current-form
+ (kbd "C-c C-e") 'hy-shell-eval-last-sexp)
+
+(define-key inferior-hy-mode-map (kbd "C-c C-z")
+  (lambda () (interactive) (other-window -1)))
 
 (provide 'hy-mode)
 
 ;;; hy-mode.el ends here
-
-;; JEDHY
-;; TODO in jedhy, nonsense.a will complete as if just "a"
-;; TODO inspect.obj-name not getting macro names
-
-;; (setv i 0)
-;; (for [_ (range 30_000_000)]
-;;      (+= i 1))
-;; i = 0
-;; for _ in range(30_000_000):
-;;     i += 1
-
-;; Hy Shell
-;; TODO The prompt is duplicated for every newline sent
-;; TODO Sending region just the for and += line will freeze
-;; but sending the for plus the i += 1 will not freeze
-;; TODO Don't want to inhibit tracebacks!
-
-;; TODO Place all --spy output within its own block
-;; eg. [in], [spy], [out]
-
-;; TODO Jedhy artifacts like `rail' are being completed
-(hi )
