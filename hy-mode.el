@@ -545,7 +545,8 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
 (defun hy--check-non-symbol-sexp (pos)
   "Check for a non-symbol yet symbol-like (tuple constructor comma) at POS."
-  (member (char-after pos) '(?\, ?\|)))
+  (and (member (char-after pos) '(?\, ?\|))
+       (char-equal (char-after (1+ pos)) ?\s)))
 
 ;;;; Normal Indent
 
