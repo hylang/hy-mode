@@ -77,6 +77,7 @@ Keep nil unless using specific Hy branch.")
     :fuzzy
     ("def"
      "with"
+     "let"
      "with/a"
      "fn"
      "fn/a"
@@ -129,16 +130,16 @@ will indent special. Exact forms require the symbol and def exactly match.")
   '("*map" "accumulate" "and" "assoc" "butlast" "calling-module-name" "car"
     "cdr" "chain" "coll?" "combinations" "comp" "complement" "compress" "cons"
     "cons?" "constantly" "count" "cut" "cycle" "dec" "defmain" "del"
-    "dict-comp" "disassemble" "distinct" "doto" "drop" "drop-last" "drop-while"
+    "dfor" "disassemble" "distinct" "doto" "drop" "drop-last" "drop-while"
     "empty?" "even?" "every?" "filter" "first" "flatten" "float?" "fraction"
     "genexpr" "gensym" "get" "group-by" "identity" "inc" "input"
     "instance?" "integer" "integer-char?" "integer?" "interleave" "interpose"
     "is" "is-not" "is_not" "islice" "iterable?" "iterate" "iterator?" "juxt"
-    "keyword" "keyword?" "last" "list*" "list-comp" "macroexpand"
+    "keyword" "keyword?" "last" "list*" "lfor" "macroexpand"
     "macroexpand-1" "map" "merge-with" "multicombinations" "name" "neg?" "none?"
     "nth" "numeric?" "odd?" "or" "partition" "permutations"
     "pos?" "product" "quasiquote" "quote" "range" "read" "read-str"
-    "reduce" "remove" "repeat" "repeatedly" "rest" "second" "setv" "set-comp"
+    "reduce" "remove" "repeat" "repeatedly" "rest" "second" "setv" "sfor"
     "slice" "some" "string" "string?" "symbol?" "take" "take-nth" "take-while"
     "tee" "unquote" "unquote-splice" "xor" "zero?" "zip" "zip-longest"
 
@@ -183,10 +184,9 @@ will indent special. Exact forms require the symbol and def exactly match.")
   "Hy exception keywords.")
 
 (defconst hy--kwds-defs
-  '("defn" "defn/a" "defun"
+  '("defn" "defn/a"
     "defmacro" "defmacro/g!" "defmacro!"
-    "defreader" "defsharp" "deftag"
-    "defmain" "defmulti"
+    "deftag" "defmain" "defmulti"
     "defmethod")
 
   "Hy definition keywords.")
@@ -216,6 +216,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
     ;; Functional
     "fn" "fn/a"
+    "await"
     "yield" "yield-from"
     "with" "with*" "with/a" "with/a*"
     "with-gensyms"
@@ -230,10 +231,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
     ;; Misc
     "global" "nonlocal"
-    "eval" "eval-and-compile" "eval-when-compile"
-
-    ;; Discontinued in Master
-    "apply" "kwapply")
+    "eval" "eval-and-compile" "eval-when-compile")
 
   "Hy special forms keywords.")
 
@@ -302,18 +300,18 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
 ;;;; Static
 
-(defconst hy--font-lock-kwds-aliases
-  (list
-   (rx (group-n 1 (or "defmacro-alias" "defn-alias" "defun-alias"))
-       (1+ space)
-       "["
-       (group-n 2 (1+ anything))
-       "]")
-
-   '(1 font-lock-keyword-face)
-   '(2 font-lock-function-name-face nil t))
-
-  "Hy aliasing keywords.")
+;; (defconst hy--font-lock-kwds-aliases
+;;   (list
+;;    (rx (group-n 1 (or "defmacro-alias" "defn-alias" "defun-alias"))
+;;        (1+ space)
+;;        "["
+;;        (group-n 2 (1+ anything))
+;;        "]")
+;;
+;;    '(1 font-lock-keyword-face)
+;;    '(2 font-lock-function-name-face nil t))
+;;
+;;   "Hy aliasing keywords.")
 
 (defconst hy--font-lock-kwds-class
   (list
@@ -364,8 +362,8 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defconst hy--font-lock-kwds-tag-macros
   (list
    (rx "#"
-       (not (any "*" "@" "["))  ; #* is unpacking, #@ decorator, #[ bracket str
-       (0+ word))
+       (not (any "*" "@" "[" ")" space))  ; #* is unpacking, #@ decorator, #[ bracket str
+       (0+ (syntax word)))
 
    '(0 font-lock-function-name-face))
 
@@ -457,7 +455,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 ;;;; Grouped
 
 (defconst hy-font-lock-kwds
-  (list hy--font-lock-kwds-aliases
+  (list ;hy--font-lock-kwds-aliases
         hy--font-lock-kwds-builtins
         hy--font-lock-kwds-class
         hy--font-lock-kwds-constants
