@@ -727,11 +727,15 @@ a string or comment."
   "Format a PROC-NAME with closing astericks."
   (->> proc-name (s-prepend "*") (s-append "*")))
 
+(defun hy-shell-get-process-name (&optional internal)
+  "Get process name corr. to `hy-shell-buffer-name'/`hy-shell-internal-buffer-name'."
+  (if internal
+      hy-shell-internal-buffer-name
+    hy-shell-buffer-name))
+
 (defun hy-shell-get-process (&optional internal)
   "Get process corr. to `hy-shell-buffer-name'/`hy-shell-internal-buffer-name'."
-  (-> (if internal hy-shell-internal-buffer-name hy-shell-buffer-name)
-     hy--shell-format-process-name
-     get-buffer-process))
+  (get-process (hy-shell-get-process-name internal)))
 
 (defun hy--shell-current-buffer-process ()
   "Get process associated with current buffer."
@@ -995,7 +999,7 @@ Eldoc, Anaconda, and other hy-mode features."))
            nil]
       (prog1
           (-> (hy--shell-calculate-command 'internal)
-             (hy--shell-make-comint hy-shell-internal-buffer-name nil 'internal)
+              (hy--shell-make-comint (hy-shell-get-process-name 'internal) nil 'internal)
              get-buffer-process)
         (hy--shell-send-internal-setup-code)
         (message "Hy internal process successfully started")))))
