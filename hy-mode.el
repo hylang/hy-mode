@@ -1018,7 +1018,6 @@ CMD defaults to the result of `hy--shell-calculate-command'."
 (defconst hy-eldoc-setup-code
   "(import builtins)
 (import inspect)
-(import [hy.macros [-hy-macros]])
 
 (defn --HYDOC-format-argspec [argspec]
   \"Lispy version of format argspec covering all defun kwords.\"
@@ -1117,7 +1116,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
   \"Get eldoc string for a macro.\"
   (try
     (do (setv obj (.replace obj \"-\" \"_\"))
-        (setv macros (get -hy-macros None))
+        (setv macros (get --macros-- None))
 
         (when (in obj macros)
           (--HYDOC-format-eldoc-string obj (get macros obj) :full full)))
@@ -1274,14 +1273,13 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (try
  (import [hy.lex.parser [hy-symbol-unmangle hy-symbol-mangle]])
  (except [e ImportError]
-         (import [hy.lex.parser [unmangle :as hy-symbol-unmangle
-                                 mangle :as hy-symbol-mangle]])))
+         (import [hy.lex [unmangle :as hy-symbol-unmangle
+                          mangle :as hy-symbol-mangle]])))
 (try
  (import [hy.compiler [-compile-table]])
  (except [e ImportError]
          (import [hy.compiler [-special-form-compilers :as -compile-table]])))
 
-(import [hy.macros [-hy-macros]])
 (import [hy.core.shadow [*]])
 (import [hy.core.language [*]])
 
@@ -1302,10 +1300,9 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
 (defn --HYCOMPANY-get-macros []
   \"Extract macro names from all namespaces and compile-table symbols.\"
-  (->> -hy-macros
-     (.values)
-     (map dict.keys)
-     (chain -compile-table)
+  (->> --macros--
+     (.keys)
+     (chain (.keys -compile-table))
      flatten
      (map --HYCOMPANY-get-name)
      (map hy-symbol-unmangle)
@@ -1372,10 +1369,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
 (defn --HYANNOTATE-search-macros [text]
   (setv text (hy-symbol-mangle text))
-  (for [macro-dict (.values -hy-macros)]
-    (when (in text macro-dict)
-      (return (get macro-dict text))))
-  None)
+  (.get --macros-- text None))
 
 (defn --HYANNOTATE [x]
   ;; only builtins format on case basis
