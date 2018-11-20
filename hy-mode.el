@@ -880,20 +880,32 @@ Constantly extracts current prompt text and executes and manages applying
 
 (defun hy--shell-send-string (string &optional process internal)
   "Internal implementation of shell send string functionality."
-  (let ((process (or process
-                     (hy-shell-get-process internal)))
-        (hy--shell-output-filter-in-progress t))
-
-    (->> string (s-append "\n") (comint-send-string process))
-
-    (while hy--shell-output-filter-in-progress
-      (accept-process-output process))))
+  (-let ((process (or process
+                      (hy-shell-get-process internal)))
+         (hy--shell-output-filter-in-progress t))
+    (unless process
+      (error "No active Hy process found/given!"))
+    (comint-send-string process string)
+    (when (or (not (string-match "\n\\'" string))
+              (string-match "\n[ \t].*\n?\\'" string))
+      (comint-send-string process "\n"))))
 
 (defun hy-shell-send-string-no-output (string &optional process internal)
   "Send STRING to hy PROCESS and inhibit printing output."
-  (-let [comint-preoutput-filter-functions
-         '(hy--shell-output-filter)]
-    (hy--shell-send-string string process internal)))
+  (let* ((comint-preoutput-filter-functions
+          '(hy--shell-output-filter))
+         (process (or process (hy-shell-get-process internal)))
+         (hy--shell-output-filter-in-progress t)
+         (inhibit-quit t))
+    (unless process
+      (error "No active Hy process found/given!"))
+    (or (with-local-quit
+          (hy--shell-send-string string process internal)
+          (while hy--shell-output-filter-in-progress
+            (accept-process-output process))
+          t)
+        (with-current-buffer (process-buffer process)
+          (comint-interrupt-subjob)))))
 
 (defun hy-shell-send-string-internal (string)
   "Send STRING to internal hy shell process."
