@@ -186,8 +186,8 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defconst hy--kwds-defs
   '("defn" "defn/a"
     "defmacro" "defmacro/g!" "defmacro!"
-    "deftag" "defmain" "defmulti"
-    "defmethod")
+    "deftag" "defmain"
+    "defnr" "defmulti" "defmethod")
 
   "Hy definition keywords.")
 
