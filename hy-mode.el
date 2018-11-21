@@ -1485,7 +1485,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
   (when (and (region-active-p)
              (not (region-noncontiguous-p)))
     (-let [text
-           (buffer-substring (region-beginning) (region-end))]
+           (buffer-substring-no-properties (region-beginning) (region-end))]
       (unless (hy--shell-buffer?)
         (hy-shell-start-or-switch-to-shell))
       (hy--shell-with-shell-buffer
