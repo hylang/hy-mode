@@ -779,11 +779,15 @@ a string or comment."
 
 (defmacro hy--shell-with-shell-buffer (&rest forms)
   "Execute FORMS in the shell buffer."
-  (-let [shell-process
-         (gensym)]
-    `(-let [,shell-process
-            (hy-shell-get-process)]
-       (with-current-buffer (process-buffer ,shell-process)
+  (let ((shell-process (gensym))
+        (shell-buffer (gensym)))
+    `(let* ((,shell-process (hy-shell-get-process))
+            (,shell-buffer (and ,shell-process
+                                (process-buffer ,shell-process))))
+       (unless ,shell-buffer
+         (error "No inferior Hy process for %s"
+                (or ,shell-process (current-buffer))))
+       (with-current-buffer ,shell-buffer
          ,@forms))))
 
 (defmacro hy--shell-with-font-locked-shell-buffer (&rest forms)
@@ -884,7 +888,7 @@ Constantly extracts current prompt text and executes and manages applying
                       (hy-shell-get-process internal)))
          (hy--shell-output-filter-in-progress t))
     (unless process
-      (error "No active Hy process found/given!"))
+      (error "No inferior Hy process running"))
     (comint-send-string process string)
     (when (or (not (string-match "\n\\'" string))
               (string-match "\n[ \t].*\n?\\'" string))
@@ -897,8 +901,6 @@ Constantly extracts current prompt text and executes and manages applying
          (process (or process (hy-shell-get-process internal)))
          (hy--shell-output-filter-in-progress t)
          (inhibit-quit t))
-    (unless process
-      (error "No active Hy process found/given!"))
     (or (with-local-quit
           (hy--shell-send-string string process internal)
           (while hy--shell-output-filter-in-progress
