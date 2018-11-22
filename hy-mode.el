@@ -734,41 +734,37 @@ a string or comment."
     hy-shell-buffer-name))
 
 (defun hy-shell-get-process (&optional internal)
-  "Get process corr. to `hy-shell-buffer-name'/`hy-shell-internal-buffer-name'."
+  "Get process corresponding to `hy-shell-get-process-name'."
   (get-process (hy-shell-get-process-name internal)))
-
-(defun hy--shell-current-buffer-process ()
-  "Get process associated with current buffer."
-  (get-buffer-process (current-buffer)))
 
 (defun hy--shell-current-buffer-a-process? ()
   "Is `current-buffer' a live process?"
-  (process-live-p (hy--shell-current-buffer-process)))
+  (process-live-p (hy-shell-get-process)))
 
 (defun hy--shell-get-or-create-buffer ()
   "Get or create `hy-shell-buffer' buffer for current hy shell process."
-  (if hy-shell-buffer
-      hy-shell-buffer
-    (hy--shell-with-shell-buffer
-     (-let [proc-name
-            (process-name (hy--shell-current-buffer-process))]
-       (generate-new-buffer proc-name)))))
+  (or (hy--shell-get-buffer)
+      (hy--shell-with-shell-buffer
+       (-let [proc-name
+              (process-name (hy-shell-get-process))]
+         (generate-new-buffer proc-name)))))
+
+(defun hy--shell-get-buffer (&optional internal)
+  (when-let ((process
+               (hy-shell-get-process internal)))
+    (process-buffer process)))
 
 (defun hy--shell-buffer? (&optional internal)
   "Is `hy-shell-buffer'/`hy-shell-internal-buffer' set and does it exist?"
-  (-let [buffer
-         (if internal hy-shell-internal-buffer hy-shell-buffer)]
-    (and buffer
-         (buffer-live-p buffer))))
+  (when-let ((buffer (hy--shell-get-buffer internal)))
+    (buffer-live-p buffer)))
 
 (defun hy--shell-kill-buffer (&optional internal)
   "Kill `hy-shell-buffer'/`hy-shell-internal-buffer'."
-  (-let [buffer
-         (if internal hy-shell-internal-buffer hy-shell-buffer)]
-    (when (hy--shell-buffer? internal)
-      (kill-buffer buffer)
-      (when (derived-mode-p 'inferior-hy-mode)
-        (setf buffer nil)))))
+  (when-let ((buffer (hy--shell-get-buffer internal)))
+    (kill-buffer buffer)
+    (when (derived-mode-p 'inferior-hy-mode)
+      (setf buffer nil))))
 
 (defun hy-shell-kill ()
   "Kill all hy processes."
@@ -779,14 +775,10 @@ a string or comment."
 
 (defmacro hy--shell-with-shell-buffer (&rest forms)
   "Execute FORMS in the shell buffer."
-  (let ((shell-process (gensym))
-        (shell-buffer (gensym)))
-    `(let* ((,shell-process (hy-shell-get-process))
-            (,shell-buffer (and ,shell-process
-                                (process-buffer ,shell-process))))
+  (let ((shell-buffer (gensym)))
+    `(let* ((,shell-buffer (hy--shell-get-buffer)))
        (unless ,shell-buffer
-         (error "No inferior Hy process for %s"
-                (or ,shell-process (current-buffer))))
+         (error "No inferior Hy process for %s" (current-buffer)))
        (with-current-buffer ,shell-buffer
          ,@forms))))
 
@@ -973,30 +965,40 @@ Right now the keybinding is not publically exposed."
               ""
             (hy--shell-calculate-interpreter-args))))
 
-(defun hy--shell-make-comint (cmd proc-name &optional show internal)
+(defun hy--shell-make-comint (cmd &optional show internal)
   "Create and return comint process PROC-NAME with CMD, opt. INTERNAL and SHOW."
-  (-when-let* ((proc-buffer-name
-                (hy--shell-format-process-name proc-name))
-               (_
-                (not (comint-check-proc proc-buffer-name)))
-               (cmdlist
-                (split-string-and-unquote cmd))
-               (buffer
-                (apply 'make-comint-in-buffer proc-name proc-buffer-name
-                       (car cmdlist) nil (cdr cmdlist)))
-               (process
-                (get-buffer-process buffer)))
-    (with-current-buffer buffer
-      (unless (derived-mode-p 'inferior-hy-mode)
-        (inferior-hy-mode)))
-    (when show
-      (display-buffer buffer))
-    (if internal
-        (progn
-          (set-process-query-on-exit-flag process nil)
-          (setq hy-shell-internal-buffer buffer))
-      (setq hy-shell-buffer buffer))
-    proc-buffer-name))
+  (let* ((proc-name (hy-shell-get-process-name internal))
+         (proc-buffer-name (hy--shell-format-process-name proc-name))
+         (buffer (get-buffer proc-buffer-name))
+         (process (and buffer (get-buffer-process buffer))))
+    (unless (and buffer process)
+      (let ((cmdlist (split-string-and-unquote cmd))
+            ;; TODO: Check if comint is good; restart if not.
+            ;; (_ (not (comint-check-proc proc-buffer-name)))
+            )
+         (setq buffer
+               (apply 'make-comint-in-buffer proc-name proc-buffer-name
+                      (car cmdlist) nil (cdr cmdlist))))
+       (setq process (get-buffer-process buffer)))
+     ;; unwind-protect
+     (condition-case err-info
+         (progn
+           (with-current-buffer buffer
+             (unless (derived-mode-p 'inferior-hy-mode)
+               (inferior-hy-mode)))
+           (when show
+             (display-buffer buffer))
+           (if internal
+               (progn
+                 (set-process-query-on-exit-flag process nil)
+                 (setq hy-shell-internal-buffer buffer))
+             (setq hy-shell-buffer buffer)))
+       (error
+        (or (and process (delete-process process))
+            (and buffer (kill-buffer buffer)))
+        (message "hy-mode error (%S): %S"
+                 (car err-info) (cdr err-info))))
+     process))
 
 ;;;; Run Shell
 
@@ -1011,12 +1013,15 @@ Eldoc, Anaconda, and other hy-mode features."))
              (hy-installed?))
     (-let [hy--shell-font-lock-enable
            nil]
-      (prog1
-          (-> (hy--shell-calculate-command 'internal)
-              (hy--shell-make-comint (hy-shell-get-process-name 'internal) nil 'internal)
-             get-buffer-process)
-        (hy--shell-send-internal-setup-code)
-        (message "Hy internal process successfully started")))))
+      (let ((process
+             (-> (hy--shell-calculate-command 'internal)
+                 (hy--shell-make-comint nil 'internal))))
+        (if process
+            (progn
+              (hy--shell-send-internal-setup-code)
+              (message "Hy internal process successfully started")
+              process)
+          (error "Could not start internal Hy process"))))))
 
 (defun run-hy (&optional cmd)
   "Run an inferior Hy process.
@@ -1027,8 +1032,7 @@ CMD defaults to the result of `hy--shell-calculate-command'."
     (message "Hy not found, activate a virtual environment with Hy."))
 
   (-> (or cmd (hy--shell-calculate-command))
-     (hy--shell-make-comint hy-shell-buffer-name 'show)
-     get-buffer-process))
+      (hy--shell-make-comint 'show)))
 
 ;;; Eldoc
 ;;;; Setup Code
@@ -1462,7 +1466,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
 ;;;###autoload
 (defun hy-shell-start-or-switch-to-shell ()
   (interactive)
-  (if (and (hy--shell-buffer?) (get-buffer-process hy-shell-buffer))
+  (if (hy--shell-buffer?)
       (switch-to-buffer-other-window
        (hy--shell-get-or-create-buffer))
     (run-hy)))
@@ -1574,7 +1578,8 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
   ;; Highlight errors according to colorama python package
   (ansi-color-for-comint-mode-on)
-  (setq-local comint-output-filter-functions '(ansi-color-process-output))
+  (setq-local comint-output-filter-functions
+              '(ansi-color-process-output))
 
   ;; Don't startup font lock for internal processes
   (when hy--shell-font-lock-enable
@@ -1587,7 +1592,8 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
   ;; Fixes issue with "=>", no side effects from this advice
   (advice-add 'comint-previous-input :before
-              (lambda (&rest args) (setq-local comint-stored-incomplete-input ""))))
+              (lambda (&rest args)
+                (setq-local comint-stored-incomplete-input ""))))
 
 ;;; Core
 
