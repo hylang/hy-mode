@@ -737,17 +737,20 @@ a string or comment."
   "Get process corresponding to `hy-shell-get-process-name'."
   (get-process (hy-shell-get-process-name internal)))
 
+(defun hy-shell-get-or-create-internal-process ()
+  "Get or create an internal Hy process."
+  (or (hy-shell-get-process 'internal)
+      (run-hy-internal)))
+
 (defun hy--shell-current-buffer-a-process? ()
   "Is `current-buffer' a live process?"
   (process-live-p (hy-shell-get-process)))
 
 (defun hy--shell-get-or-create-buffer ()
-  "Get or create `hy-shell-buffer' buffer for current hy shell process."
+  "Get or create a buffer for the current hy shell process."
   (or (hy--shell-get-buffer)
-      (hy--shell-with-shell-buffer
-       (-let [proc-name
-              (process-name (hy-shell-get-process))]
-         (generate-new-buffer proc-name)))))
+      (and (run-hy)
+           (hy--shell-get-buffer))))
 
 (defun hy--shell-get-buffer (&optional internal)
   (when-let ((process
@@ -755,12 +758,12 @@ a string or comment."
     (process-buffer process)))
 
 (defun hy--shell-buffer? (&optional internal)
-  "Is `hy-shell-buffer'/`hy-shell-internal-buffer' set and does it exist?"
+  "Does a Hy shell buffer exist for the current buffer?"
   (when-let ((buffer (hy--shell-get-buffer internal)))
     (buffer-live-p buffer)))
 
 (defun hy--shell-kill-buffer (&optional internal)
-  "Kill `hy-shell-buffer'/`hy-shell-internal-buffer'."
+  "Kill the Hy shell buffer."
   (when-let ((buffer (hy--shell-get-buffer internal)))
     (kill-buffer buffer)
     (when (derived-mode-p 'inferior-hy-mode)
@@ -812,7 +815,7 @@ a string or comment."
         (setq pos next)))))
 
 (defun hy--shell-fontify-prompt-post-command-hook ()
-  "Fontify just the current line in `hy-shell-buffer' for `post-command-hook'.
+  "Fontify just the current line in the Hy shell buffer for `post-command-hook'.
 
 Constantly extracts current prompt text and executes and manages applying
 `hy--shell-faces-to-font-lock-faces' to the text."
@@ -835,8 +838,6 @@ Constantly extracts current prompt text and executes and manages applying
 (defun hy--shell-font-lock-turn-on ()
   "Turn on fontification of current line for hy shell."
   (hy--shell-with-shell-buffer
-   (hy--shell-kill-buffer)
-
    ;; Required - I don't understand why killing doesn't capture the end nil setq
    (setq-local hy-shell-buffer nil)
 
@@ -903,7 +904,9 @@ Constantly extracts current prompt text and executes and manages applying
 
 (defun hy-shell-send-string-internal (string)
   "Send STRING to internal hy shell process."
-  (hy-shell-send-string-no-output string nil 'internal))
+  (hy-shell-send-string-no-output string
+                                  (hy-shell-get-or-create-internal-process)
+                                  'internal))
 
 (defun hy--shell-send-internal-setup-code ()
   "Send setup code for autocompletion and eldoc to hy internal process."
@@ -919,7 +922,7 @@ Constantly extracts current prompt text and executes and manages applying
 (defun hy--shell-send-async (string)
   "Send STRING to internal hy process asynchronously."
   (let ((output-buffer " *Comint Hy Redirect Work Buffer*")
-        (proc (hy-shell-get-process 'internal)))
+        (proc (hy-shell-get-or-create-internal-process)))
     (with-current-buffer (get-buffer-create output-buffer)
       (erase-buffer)
       (comint-redirect-send-command-to-process string output-buffer proc nil t)
@@ -966,62 +969,58 @@ Right now the keybinding is not publically exposed."
             (hy--shell-calculate-interpreter-args))))
 
 (defun hy--shell-make-comint (cmd &optional show internal)
-  "Create and return comint process PROC-NAME with CMD, opt. INTERNAL and SHOW."
+  "Create and return comint process with CMD, opt. INTERNAL and SHOW."
   (let* ((proc-name (hy-shell-get-process-name internal))
          (proc-buffer-name (hy--shell-format-process-name proc-name))
          (buffer (get-buffer proc-buffer-name))
-         (process (and buffer (get-buffer-process buffer))))
+         (process (and buffer
+                       (comint-check-proc buffer)
+                       (get-buffer-process buffer))))
     (unless (and buffer process)
-      (let ((cmdlist (split-string-and-unquote cmd))
-            ;; TODO: Check if comint is good; restart if not.
-            ;; (_ (not (comint-check-proc proc-buffer-name)))
-            )
-         (setq buffer
-               (apply 'make-comint-in-buffer proc-name proc-buffer-name
-                      (car cmdlist) nil (cdr cmdlist))))
-       (setq process (get-buffer-process buffer)))
-     ;; unwind-protect
-     (condition-case err-info
-         (progn
-           (with-current-buffer buffer
-             (unless (derived-mode-p 'inferior-hy-mode)
-               (inferior-hy-mode)))
-           (when show
-             (display-buffer buffer))
-           (if internal
-               (progn
-                 (set-process-query-on-exit-flag process nil)
-                 (setq hy-shell-internal-buffer buffer))
-             (setq hy-shell-buffer buffer)))
-       (error
-        (or (and process (delete-process process))
-            (and buffer (kill-buffer buffer)))
-        (message "hy-mode error (%S): %S"
-                 (car err-info) (cdr err-info))))
-     process))
+      (let ((cmdlist (split-string-and-unquote cmd)))
+        (setq buffer
+              (apply 'make-comint-in-buffer proc-name proc-buffer-name
+                     (car cmdlist) nil (cdr cmdlist))))
+      (setq process (get-buffer-process buffer)))
+    (condition-case err-info
+        (with-current-buffer buffer
+          (unless (derived-mode-p 'inferior-hy-mode)
+            (inferior-hy-mode)))
+      (if internal
+          (progn
+            (set-process-query-on-exit-flag process nil)
+            (setq hy-shell-internal-buffer buffer))
+        (progn
+          (when show
+            (display-buffer buffer))
+          (setq hy-shell-buffer buffer)))
+      (error
+       (or (and process (delete-process process))
+           (and buffer (kill-buffer buffer)))
+       (error "Hy-mode error (%S): %S"
+              (car err-info) (cdr err-info))))
+    process))
 
 ;;;; Run Shell
 
 (defun run-hy-internal ()
-  "Start an inferior hy process in the background for autocompletion."
-  (interactive)
+  "Start an inferior hy process in the background for autocompletion and return
+ that process."
   (unless (hy-installed?)
-    (message "Hy not found, activate a virtual environment containing Hy to use
+    (error "Hy not found, activate a virtual environment containing Hy to use
 Eldoc, Anaconda, and other hy-mode features."))
-
-  (when (and (not (hy-shell-get-process 'internal))
-             (hy-installed?))
-    (-let [hy--shell-font-lock-enable
-           nil]
-      (let ((process
-             (-> (hy--shell-calculate-command 'internal)
-                 (hy--shell-make-comint nil 'internal))))
-        (if process
+  (or (hy-shell-get-process 'internal)
+      (let* ((hy--shell-font-lock-enable nil)
+             (inferior-hy-mode-hook nil)
+             (process
+              (-> (hy--shell-calculate-command 'internal)
+                  (hy--shell-make-comint nil 'internal))))
+        (if (and process (process-live-p process))
             (progn
               (hy--shell-send-internal-setup-code)
-              (message "Hy internal process successfully started")
-              process)
-          (error "Could not start internal Hy process"))))))
+              (message "Hy internal process successfully started"))
+          (error "Could not start internal Hy process"))
+        process)))
 
 (defun run-hy (&optional cmd)
   "Run an inferior Hy process.
@@ -1029,10 +1028,9 @@ Eldoc, Anaconda, and other hy-mode features."))
 CMD defaults to the result of `hy--shell-calculate-command'."
   (interactive)
   (unless (hy-installed?)
-    (message "Hy not found, activate a virtual environment with Hy."))
-
-  (-> (or cmd (hy--shell-calculate-command))
-      (hy--shell-make-comint 'show)))
+    (error "Hy not found, activate a virtual environment with Hy."))
+  (hy--shell-make-comint (or cmd (hy--shell-calculate-command))
+                         'show))
 
 ;;; Eldoc
 ;;;; Setup Code
@@ -1184,7 +1182,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
   "Traverse and inspect innermost sexp and return formatted string for eldoc."
   (save-excursion
     (-when-let (function
-                (and (hy-shell-get-process 'internal)
+                (and (hy-shell-get-or-create-internal-process)
                      (-some-> (syntax-ppss) hy--sexp-inermost-char goto-char)
                      (not (hy--not-function-form-p))
                      (progn (forward-char) (thing-at-point 'symbol))))
@@ -1266,6 +1264,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
             (replace-regexp-in-string kwarg-newline-regexp
                                       "newline" it nil t 1))))
 
+;;;###autoload
 (defun hy-describe-thing-at-point ()
   "Implement shift-k docs lookup for `spacemacs/evil-smart-doc-lookup'."
   (interactive)
@@ -1466,10 +1465,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
 ;;;###autoload
 (defun hy-shell-start-or-switch-to-shell ()
   (interactive)
-  (if (hy--shell-buffer?)
-      (switch-to-buffer-other-window
-       (hy--shell-get-or-create-buffer))
-    (run-hy)))
+  (switch-to-buffer-other-window (hy--shell-get-or-create-buffer)))
 
 ;;;###autoload
 (defun hy-shell-eval-buffer ()
@@ -1534,13 +1530,6 @@ Not all defuns can be argspeced - eg. C defuns.\"
           (font-lock-syntactic-face-function  ; Differentiates (doc)strings
            . hy-font-lock-syntactic-face-function))))
 
-(defun hy--mode-setup-inferior ()
-  ;; (add-to-list 'company-backends 'company-hy)
-  (setenv "PYTHONIOENCODING" "UTF-8")
-
-  (run-hy-internal)
-  (add-hook 'pyvenv-post-activate-hooks 'run-hy-internal nil t))
-
 (defun hy--mode-setup-syntax ()
   ;; Bracket string literals require context sensitive highlighting
   (setq-local syntax-propertize-function 'hy-syntax-propertize-function)
@@ -1570,6 +1559,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
 ;;;; Inferior-hy-mode setup
 
 (defun hy--inferior-mode-setup ()
+  (setenv "PYTHONIOENCODING" "UTF-8")
   ;; Comint config
   (setq mode-line-process '(":%s"))
   (setq-local indent-tabs-mode nil)
@@ -1603,29 +1593,30 @@ Not all defuns can be argspeced - eg. C defuns.\"
 ;;;###autoload
 (define-derived-mode inferior-hy-mode comint-mode "Inferior Hy"
   "Major mode for Hy inferior process."
-  (hy--inferior-mode-setup))
+  (hy--inferior-mode-setup)
+  (define-key inferior-hy-mode-map (kbd "C-c C-z") (lambda ()
+                                                     (interactive)
+                                                     (other-window -1))))
 
 ;;;###autoload
 (define-derived-mode hy-mode prog-mode "Hy"
   "Major mode for editing Hy files."
-  (hy--mode-setup-eldoc)
   (hy--mode-setup-font-lock)
-  (hy--mode-setup-inferior)
   (hy--mode-setup-smartparens)
-  (hy--mode-setup-syntax))
+  (hy--mode-setup-syntax)
+  (hy--mode-setup-eldoc))
 
-;; Spacemacs users please see spacemacs-hy, all bindings defined there
-(set-keymap-parent hy-mode-map lisp-mode-shared-map)
-(define-key hy-mode-map (kbd "C-c C-z") 'hy-shell-start-or-switch-to-shell)
-(define-key hy-mode-map (kbd "C-c C-b") 'hy-shell-eval-buffer)
-(define-key hy-mode-map (kbd "C-c C-t") 'hy-insert-pdb)
-(define-key hy-mode-map (kbd "C-c C-S-t") 'hy-insert-pdb-threaded)
-(define-key hy-mode-map (kbd "C-c C-r") 'hy-shell-eval-region)
-(define-key hy-mode-map (kbd "C-M-x") 'hy-shell-eval-current-form)
-(define-key hy-mode-map (kbd "C-c C-e") 'hy-shell-eval-last-sexp)
-(define-key inferior-hy-mode-map (kbd "C-c C-z") (lambda ()
-                                                   (interactive)
-                                                   (other-window -1)))
+(defvar hy-mode-map
+  (let ((map (set-keymap-parent hy-mode-map lisp-mode-shared-map)))
+    (define-key map (kbd "C-c C-z") 'hy-shell-start-or-switch-to-shell)
+    (define-key map (kbd "C-c C-b") 'hy-shell-eval-buffer)
+    (define-key map (kbd "C-c C-t") 'hy-insert-pdb)
+    (define-key map (kbd "C-c C-S-t") 'hy-insert-pdb-threaded)
+    (define-key map (kbd "C-c C-r") 'hy-shell-eval-region)
+    (define-key map (kbd "C-M-x") 'hy-shell-eval-current-form)
+    (define-key map (kbd "C-c C-e") 'hy-shell-eval-last-sexp)
+    map))
+
 
 (provide 'hy-mode)
 
