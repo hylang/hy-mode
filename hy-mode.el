@@ -332,8 +332,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
         (: symbol-start
            "with-decorator"
            symbol-end
-           (1+ space)))
-    (1+ word))
+           (1+ space))))
 
    '(0 font-lock-type-face))
 
