@@ -68,6 +68,7 @@
     :fuzzy
     ("def"
      "with"
+     "let"
      "with/a"
      "fn"
      "fn/a"
@@ -124,16 +125,16 @@ will indent special. Exact forms require the symbol and def exactly match.")
   '("*map" "accumulate" "and" "assoc" "butlast" "calling-module-name" "car"
     "cdr" "chain" "coll?" "combinations" "comp" "complement" "compress" "cons"
     "cons?" "constantly" "count" "cut" "cycle" "dec" "defmain" "del"
-    "dict-comp" "disassemble" "distinct" "doto" "drop" "drop-last" "drop-while"
+    "dfor" "disassemble" "distinct" "doto" "drop" "drop-last" "drop-while"
     "empty?" "even?" "every?" "filter" "first" "flatten" "float?" "fraction"
     "genexpr" "gensym" "get" "group-by" "identity" "inc" "input"
     "instance?" "integer" "integer-char?" "integer?" "interleave" "interpose"
     "is" "is-not" "is_not" "islice" "iterable?" "iterate" "iterator?" "juxt"
-    "keyword" "keyword?" "last" "list*" "list-comp" "macroexpand"
+    "keyword" "keyword?" "last" "list*" "lfor" "macroexpand"
     "macroexpand-1" "map" "merge-with" "multicombinations" "name" "neg?" "none?"
     "nth" "numeric?" "odd?" "or" "partition" "permutations"
     "pos?" "product" "quasiquote" "quote" "range" "read" "read-str"
-    "reduce" "remove" "repeat" "repeatedly" "rest" "second" "setv" "set-comp"
+    "reduce" "remove" "repeat" "repeatedly" "rest" "second" "setv" "sfor"
     "slice" "some" "string" "string?" "symbol?" "take" "take-nth" "take-while"
     "tee" "unquote" "unquote-splice" "xor" "zero?" "zip" "zip-longest"
 
@@ -181,10 +182,9 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
 
 (defconst hy--kwds-defs
-  '("defn" "defn/a" "defun"
+  '("defn" "defn/a"
     "defmacro" "defmacro/g!" "defmacro!"
-    "defreader" "defsharp" "deftag"
-    "defmain" "defmulti"
+    "deftag" "defmain" "defmulti"
     "defmethod")
 
   "Hy definition keywords.")
@@ -217,6 +217,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
     ;; Functional
     "fn" "fn/a"
+    "await"
     "yield" "yield-from"
     "with" "with*" "with/a" "with/a*"
     "with-gensyms"
@@ -231,10 +232,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
     ;; Misc
     "global" "nonlocal"
-    "eval" "eval-and-compile" "eval-when-compile"
-
-    ;; Discontinued in Master
-    "apply" "kwapply")
+    "eval" "eval-and-compile" "eval-when-compile")
 
   "Hy special forms keywords.")
 
@@ -308,20 +306,6 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
 ;;;; Static
 
-(defconst hy--font-lock-kwds-aliases
-  (list
-   (rx (group-n 1 (or "defmacro-alias" "defn-alias" "defun-alias"))
-       (1+ space)
-       "["
-       (group-n 2 (1+ anything))
-       "]")
-
-   '(1 font-lock-keyword-face)
-   '(2 font-lock-function-name-face nil t))
-
-  "Hy aliasing keywords.")
-
-
 (defconst hy--font-lock-kwds-class
   (list
    (rx (group-n 1 "defclass")
@@ -375,8 +359,8 @@ will indent special. Exact forms require the symbol and def exactly match.")
 (defconst hy--font-lock-kwds-tag-macros
   (list
    (rx "#"
-       (not (any "*" "@" "["))  ; #* is unpacking, #@ decorator, #[ bracket str
-       (0+ word))
+       (not (any "*" "@" "[" ")" space))  ; #* is unpacking, #@ decorator, #[ bracket str
+       (0+ (syntax word)))
 
    '(0 font-lock-function-name-face))
 
@@ -472,8 +456,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 ;;;; Grouped
 
 (defconst hy-font-lock-kwds
-  (list hy--font-lock-kwds-aliases
-        hy--font-lock-kwds-builtins
+  (list hy--font-lock-kwds-builtins
         hy--font-lock-kwds-class
         hy--font-lock-kwds-constants
         hy--font-lock-kwds-defs
@@ -611,7 +594,8 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
 (defun hy--check-non-symbol-sexp (pos)
   "Check for a non-symbol yet symbol-like (tuple constructor comma) at POS."
-  (member (char-after pos) '(?\, ?\|)))
+  (and (member (char-after pos) '(?\, ?\|))
+       (char-equal (char-after (1+ pos)) ?\s)))
 
 ;;;; Normal Indent
 
@@ -1019,21 +1003,33 @@ Constantly extracts current prompt text and executes and manages applying
 
 (defun hy--shell-send-string (string &optional process internal)
   "Internal implementation of shell send string functionality."
-  (let ((process (or process
-                     (hy-shell-get-process internal)))
-        (hy--shell-output-filter-in-progress t))
-
-    (->> string (s-append "\n") (comint-send-string process))
-
-    (while hy--shell-output-filter-in-progress
-      (accept-process-output process))))
+  (-let ((process (or process
+                      (hy-shell-get-process internal)))
+         (hy--shell-output-filter-in-progress t))
+    (unless process
+      (error "No active Hy process found/given!"))
+    (comint-send-string process string)
+    (when (or (not (string-match "\n\\'" string))
+              (string-match "\n[ \t].*\n?\\'" string))
+      (comint-send-string process "\n"))))
 
 
 (defun hy-shell-send-string-no-output (string &optional process internal)
   "Send STRING to hy PROCESS and inhibit printing output."
-  (-let [comint-preoutput-filter-functions
-         '(hy--shell-output-filter)]
-    (hy--shell-send-string string process internal)))
+  (let* ((comint-preoutput-filter-functions
+          '(hy--shell-output-filter))
+         (process (or process (hy-shell-get-process internal)))
+         (hy--shell-output-filter-in-progress t)
+         (inhibit-quit t))
+    (unless process
+      (error "No active Hy process found/given!"))
+    (or (with-local-quit
+          (hy--shell-send-string string process internal)
+          (while hy--shell-output-filter-in-progress
+            (accept-process-output process))
+          t)
+        (with-current-buffer (process-buffer process)
+          (comint-interrupt-subjob)))))
 
 
 (defun hy-shell-send-string-internal (string)
@@ -1126,7 +1122,8 @@ to continue."
                (process
                 (get-buffer-process buffer)))
     (with-current-buffer buffer
-      (inferior-hy-mode))
+      (unless (derived-mode-p 'inferior-hy-mode)
+        (inferior-hy-mode)))
     (when show
       (display-buffer buffer))
     (if internal
@@ -1141,17 +1138,20 @@ to continue."
 (defun run-hy-internal ()
   "Start an inferior hy process in the background for autocompletion."
   (interactive)
-  (hy--when-installed
-   (unless (hy-shell-internal-process?)
-     (let ((hy--shell-font-lock-enable nil)
-           (cmd (hy--shell-calculate-command 'internal))
-           (buffer (hy-buffer 'name 'internal)))
+  (unless (hy-installed?)
+    (message "Hy not found, activate a virtual environment containing Hy to use
+Eldoc, Anaconda, and other hy-mode features."))
 
-       (hy--shell-make-comint cmd buffer nil 'internal)
-       ;; TODO Only do the following if jedhy is already installed!
-       (hy-shell-send-string-internal hy-shell-internal-setup-code)
-
-       (message "Hy internal process successfully started")))))
+  (when (and (not (hy-shell-get-process 'internal))
+             (hy-installed?))
+    (-let [hy--shell-font-lock-enable
+           nil]
+      (prog1
+          (-> (hy--shell-calculate-command 'internal)
+              (hy--shell-make-comint (hy-shell-get-process-name 'internal) nil 'internal)
+             get-buffer-process)
+        (hy--shell-send-internal-setup-code)
+        (message "Hy internal process successfully started")))))
 
 
 (defun hy--restart-hy-internal ()
@@ -1332,6 +1332,7 @@ It can be one of: 'annotation, 'completion, or 'eldoc."
 ;;; Company
 ;;;; Candidate methods
 
+
 (defun hy--company-eldoc (candidate)
   "Get company meta, the eldoc, for CANDIDATE."
   (-> candidate hy--eldoc-documentation-function-internal hy--str-or-empty))
@@ -1452,7 +1453,7 @@ It can be one of: 'annotation, 'completion, or 'eldoc."
 ;;;###autoload
 (defun hy-shell-start-or-switch-to-shell ()
   (interactive)
-  (if (hy--shell-buffer?)
+  (if (and (hy--shell-buffer?) (get-buffer-process hy-shell-buffer))
       (switch-to-buffer-other-window
        (hy--shell-get-or-create-buffer))
     (run-hy)))
