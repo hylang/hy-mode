@@ -733,8 +733,10 @@ a string or comment."
     hy-shell-buffer-name))
 
 (defun hy-shell-get-process (&optional internal)
-  "Get process corresponding to `hy-shell-get-process-name'."
-  (get-process (hy-shell-get-process-name internal)))
+  "Get process corresponding to `hy-shell-get-process-name' or the current buffer."
+  (or (get-process (hy-shell-get-process-name internal))
+      (and (derived-mode-p 'inferior-hy-mode)
+           (get-buffer-process (current-buffer)))))
 
 (defun hy-shell-get-or-create-internal-process ()
   "Get or create an internal Hy process."
@@ -742,8 +744,10 @@ a string or comment."
       (run-hy-internal)))
 
 (defun hy--shell-current-buffer-a-process? ()
-  "Is `current-buffer' a live process?"
-  (process-live-p (hy-shell-get-process)))
+  "Is `current-buffer' a live Hy process?"
+  (and (derived-mode-p 'inferior-hy-mode)
+       (get-buffer-process (current-buffer))
+       (process-live-p (current-buffer))))
 
 (defun hy--shell-get-or-create-buffer ()
   "Get or create a buffer for the current hy shell process."
@@ -752,9 +756,11 @@ a string or comment."
            (hy--shell-get-buffer))))
 
 (defun hy--shell-get-buffer (&optional internal)
-  (when-let ((process
-               (hy-shell-get-process internal)))
-    (process-buffer process)))
+  (if (derived-mode-p 'inferior-hy-mode)
+      (current-buffer)
+    (when-let ((process
+                (hy-shell-get-process internal)))
+      (process-buffer process))))
 
 (defun hy--shell-buffer? (&optional internal)
   "Does a Hy shell buffer exist for the current buffer?"
