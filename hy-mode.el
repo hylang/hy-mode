@@ -849,7 +849,10 @@ Constantly extracts current prompt text and executes and manages applying
    (add-hook 'post-command-hook
              'hy--shell-fontify-prompt-post-command-hook nil 'local)
    (add-hook 'kill-buffer-hook
-             'hy--shell-kill-buffer nil 'local)))
+             (lambda ()
+               (unless (derived-mode-p 'inferior-hy-mode)
+                 (hy--shell-kill-buffer)))
+             nil 'local)))
 
 (defun hy--shell-font-lock-spy-output (string)
   "Applies font-locking to hy outputted python blocks when `--spy' is enabled."
