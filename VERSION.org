@@ -13,6 +13,8 @@
 *** DONE Forms opening with parenthesis indent
     CLOSED: [2017-10-28 Sat 19:28]
 ** Syntax
+*** DONE And, or highlighted as kwds not builtins, like python
+   CLOSED: [2019-03-10 Sun 12:15]
 *** DONE #54: Bracket string syntax
    CLOSED: [2017-09-20 Wed 16:15]
 *** DONE #52: back- slurp and barf don't recognize unquote-splice
