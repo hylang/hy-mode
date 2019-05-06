@@ -45,6 +45,9 @@
 ;;; Configuration
 ;;;; Inferior shell
 
+(defvar hy-shell-internal? t
+  "Should internal hy process be initiated for IDE components?")
+
 (defconst hy-shell-interpreter "hy"
   "Default Hy interpreter name.")
 
@@ -456,28 +459,28 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
 (defconst hy-font-lock-kwds
   (list ;hy--font-lock-kwds-aliases
-        hy--font-lock-kwds-builtins
-        hy--font-lock-kwds-class
-        hy--font-lock-kwds-constants
-        hy--font-lock-kwds-defs
-        hy--font-lock-kwds-decorators
-        hy--font-lock-kwds-exceptions
-        hy--font-lock-kwds-func-modifiers
-        hy--font-lock-kwds-imports
-        hy--font-lock-kwds-kwargs
-        hy--font-lock-kwds-self
-        hy--font-lock-kwds-shebang
-        hy--font-lock-kwds-special-forms
-        hy--font-lock-kwds-tag-macros
-        hy--font-lock-kwds-unpacking
-        hy--font-lock-kwds-variables
+   hy--font-lock-kwds-builtins
+   hy--font-lock-kwds-class
+   hy--font-lock-kwds-constants
+   hy--font-lock-kwds-defs
+   hy--font-lock-kwds-decorators
+   hy--font-lock-kwds-exceptions
+   hy--font-lock-kwds-func-modifiers
+   hy--font-lock-kwds-imports
+   hy--font-lock-kwds-kwargs
+   hy--font-lock-kwds-self
+   hy--font-lock-kwds-shebang
+   hy--font-lock-kwds-special-forms
+   hy--font-lock-kwds-tag-macros
+   hy--font-lock-kwds-unpacking
+   hy--font-lock-kwds-variables
 
-        ;; Advanced kwds
-        hy--font-lock-kwds-tag-comment-prefix
+   ;; Advanced kwds
+   hy--font-lock-kwds-tag-comment-prefix
 
-        ;; Optional kwds
-        (when hy-font-lock-highlight-percent-args?
-          hy--font-lock-kwds-anonymous-funcs))
+   ;; Optional kwds
+   (when hy-font-lock-highlight-percent-args?
+     hy--font-lock-kwds-anonymous-funcs))
 
   "All Hy font lock keywords.")
 
@@ -824,17 +827,17 @@ Constantly extracts current prompt text and executes and manages applying
                (_ (and prompt-end
                        (> (point) prompt-end)  ; new command is being entered
                        (hy--shell-current-buffer-a-process?))))  ; process alive?
-      (let* ((input (buffer-substring-no-properties prompt-end (point-max)))
-             (deactivate-mark nil)
-             (buffer-undo-list t)
-             (font-lock-buffer-pos nil)
-             (text (hy--shell-with-font-locked-shell-buffer
-                    (delete-region (line-beginning-position) (point-max))
-                    (setq font-lock-buffer-pos (point))
-                    (insert input)
-                    (font-lock-ensure)
-                    (buffer-substring font-lock-buffer-pos (point-max)))))
-        (hy--shell-faces-to-font-lock-faces text prompt-end))))
+    (let* ((input (buffer-substring-no-properties prompt-end (point-max)))
+           (deactivate-mark nil)
+           (buffer-undo-list t)
+           (font-lock-buffer-pos nil)
+           (text (hy--shell-with-font-locked-shell-buffer
+                  (delete-region (line-beginning-position) (point-max))
+                  (setq font-lock-buffer-pos (point))
+                  (insert input)
+                  (font-lock-ensure)
+                  (buffer-substring font-lock-buffer-pos (point-max)))))
+      (hy--shell-faces-to-font-lock-faces text prompt-end))))
 
 (defun hy--shell-font-lock-turn-on ()
   "Turn on fontification of current line for hy shell."
@@ -861,9 +864,9 @@ Constantly extracts current prompt text and executes and manages applying
           (insert python-block)
           (font-lock-default-fontify-buffer)
           (-> (buffer-string)
-             hy--shell-faces-to-font-lock-faces
-             s-chomp
-             (s-concat hy-shell-spy-delim hy-output)))
+              hy--shell-faces-to-font-lock-faces
+              s-chomp
+              (s-concat hy-shell-spy-delim hy-output)))
       string)))
 
 ;;;; Send strings
@@ -1012,7 +1015,7 @@ Eldoc, Anaconda, and other hy-mode features."))
       (prog1
           (-> (hy--shell-calculate-command 'internal)
               (hy--shell-make-comint (hy-shell-get-process-name 'internal) nil 'internal)
-             get-buffer-process)
+              get-buffer-process)
         (hy--shell-send-internal-setup-code)
         (message "Hy internal process successfully started")))))
 
@@ -1025,8 +1028,8 @@ CMD defaults to the result of `hy--shell-calculate-command'."
     (message "Hy not found, activate a virtual environment with Hy."))
 
   (-> (or cmd (hy--shell-calculate-command))
-     (hy--shell-make-comint hy-shell-buffer-name 'show)
-     get-buffer-process))
+      (hy--shell-make-comint hy-shell-buffer-name 'show)
+      get-buffer-process))
 
 ;;; Eldoc
 ;;;; Setup Code
@@ -1150,9 +1153,9 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defun hy--eldoc-chomp-output (text)
   "Chomp prefixes and suffixes from eldoc process output."
   (->> text
-     (s-chop-suffixes '("\n=> " "=> " "\n"))
-     (s-chop-prefixes '("\"" "'" "\"'" "'\""))
-     (s-chop-suffixes '("\"" "'" "\"'" "'\""))))
+       (s-chop-suffixes '("\n=> " "=> " "\n"))
+       (s-chop-prefixes '("\"" "'" "\"'" "'\""))
+       (s-chop-suffixes '("\"" "'" "\"'" "'\""))))
 
 (defun hy--eldoc-remove-syntax-errors (text)
   "Quick fix to address parsing an incomplete dot-dsl."
@@ -1163,10 +1166,10 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defun hy--eldoc-send (string)
   "Send STRING for eldoc to internal process returning output."
   (-> string
-     hy--shell-send-async
-     hy--eldoc-chomp-output
-     hy--eldoc-remove-syntax-errors
-     hy--str-or-nil))
+      hy--shell-send-async
+      hy--eldoc-chomp-output
+      hy--eldoc-remove-syntax-errors
+      hy--str-or-nil))
 
 (defun hy--eldoc-format-command (symbol &optional full raw)
   "Inspect SYMBOL with hydoc, optionally include FULL docs for a buffer."
@@ -1238,15 +1241,15 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defun hy-eldoc-documentation-function ()
   "Drives `eldoc-mode', retrieves eldoc msg string for inner-most symbol."
   (-> (hy--eldoc-get-inner-symbol)
-     hy--eldoc-get-docs))
+      hy--eldoc-get-docs))
 
 ;;; Describe thing at point
 
 (defun hy--docs-for-thing-at-point ()
   "Mirrors `hy-eldoc-documentation-function' formatted for a buffer, not a msg."
   (-> (thing-at-point 'symbol)
-     (hy--eldoc-get-docs t)
-     hy--format-docs-for-buffer))
+      (hy--eldoc-get-docs t)
+      hy--format-docs-for-buffer))
 
 (defun hy--format-docs-for-buffer (text)
   "Format raw hydoc TEXT for inserting into hyconda buffer."
@@ -1256,9 +1259,9 @@ Not all defuns can be argspeced - eg. C defuns.\"
              (group-n 1 "\\\n")
              (1+ (not (any "," ")"))))]
     (-some--> text
-            (s-replace "\\n" "\n" it)
-            (replace-regexp-in-string kwarg-newline-regexp
-                                      "newline" it nil t 1))))
+              (s-replace "\\n" "\n" it)
+              (replace-regexp-in-string kwarg-newline-regexp
+                                        "newline" it nil t 1))))
 
 (defun hy-describe-thing-at-point ()
   "Implement shift-k docs lookup for `spacemacs/evil-smart-doc-lookup'."
@@ -1420,20 +1423,20 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defun hy--company-annotate (candidate)
   "Get company annotation for CANDIDATE string."
   (-some->> candidate
-          hy--company-format-annotate-str
-          hy--shell-send-async
-          s-chomp
-          (s-chop-prefix "'")
-          (s-chop-suffix "'")))
+            hy--company-format-annotate-str
+            hy--shell-send-async
+            s-chomp
+            (s-chop-prefix "'")
+            (s-chop-suffix "'")))
 
 (defun hy--company-candidates (string)
   "Get candidates for completion of STRING."
   (unless (s-starts-with? "." string)
     (-some->> string
-            hy--company-format-str
-            hy--shell-send-async
-            (s-match-strings-all hy--company-regexp)
-            (-select-column 1))))
+              hy--company-format-str
+              hy--shell-send-async
+              (s-match-strings-all hy--company-regexp)
+              (-select-column 1))))
 
 (defun company-hy (command &optional arg &rest ignored)
   (interactive (list 'interactive))
@@ -1602,7 +1605,8 @@ Not all defuns can be argspeced - eg. C defuns.\"
   "Major mode for editing Hy files."
   (hy--mode-setup-eldoc)
   (hy--mode-setup-font-lock)
-  (hy--mode-setup-inferior)
+  (when hy-shell-internal?
+    (hy--mode-setup-inferior))
   (hy--mode-setup-smartparens)
   (hy--mode-setup-syntax))
 
