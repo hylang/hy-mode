@@ -130,7 +130,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
   "Hy anaphoric contrib keywords.")
 
 (defconst hy--kwds-builtins
-  '("*map" "accumulate" "and" "assoc" "butlast" "calling-module-name" "car"
+  '("*map" "accumulate" "assoc" "butlast" "calling-module-name" "car"
     "cdr" "chain" "coll?" "combinations" "comp" "complement" "compress" "cons"
     "cons?" "constantly" "count" "cut" "cycle" "dec" "defmain" "del"
     "dfor" "disassemble" "distinct" "doto" "drop" "drop-last" "drop-while"
@@ -140,7 +140,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
     "is" "is-not" "is_not" "islice" "iterable?" "iterate" "iterator?" "juxt"
     "keyword" "keyword?" "last" "list*" "lfor" "macroexpand"
     "macroexpand-1" "map" "merge-with" "multicombinations" "name" "neg?" "none?"
-    "nth" "numeric?" "odd?" "or" "partition" "permutations"
+    "nth" "numeric?" "odd?" "partition" "permutations"
     "pos?" "product" "quasiquote" "quote" "range" "read" "read-str"
     "reduce" "remove" "repeat" "repeatedly" "rest" "second" "setv" "sfor"
     "slice" "some" "string" "string?" "symbol?" "take" "take-nth" "take-while"
@@ -229,7 +229,7 @@ will indent special. Exact forms require the symbol and def exactly match.")
 
     ;; Special
     "print"
-    "not"
+    "not" "and" "or"
     "in" "not-in"
 
     ;; Misc
