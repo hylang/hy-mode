@@ -10,5 +10,7 @@ Spacemacs users - Hy has its own layer in its dev branch.
 
 ** Installation
 
-~hy-mode~ requires Emacs 24+ and is available in MELPA. For the most current set
-of features use master.
+Master branch is currently in development. Please use the latest tagged release
+for a smoother experience.
+
+~hy-mode~ requires Emacs 24+ and is available in MELPA.
