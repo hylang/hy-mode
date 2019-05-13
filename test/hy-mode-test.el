@@ -368,7 +368,44 @@ c]+-])" :indented))
         (expect "#[delim-1«s:[foo]»delim-2]" :faces))
 
       (it "many bracket strings"
-        (expect "#[«s:[foo]»] \nfoo \n #[«s:[foo]»]" :faces)))))
+        (expect "#[«s:[foo]»] \nfoo \n #[«s:[foo]»]" :faces))))
+
+  (describe "characters"
+    (before-all (hy--mode-setup-syntax))
+    (after-each (delete-region (point-min) (point-max)))
+
+    (describe "symbols"
+      (it "dots"
+        (insert "foo.bar")
+        (expect (thing-at-point 'symbol) :to-equal "foo.bar"))
+
+      (it "dashes"
+        (insert "foo-bar")
+        (expect (thing-at-point 'symbol) :to-equal "foo-bar"))
+
+      ;; FIXME What did I decide on again?
+      (xit "hashtag"
+        (insert "#foo")
+        (expect (thing-at-point 'symbol) :to-equal "#foo")))
+
+    (describe "quotes"
+      (it "tick"
+        (insert "'foo")
+        (expect (thing-at-point 'symbol) :to-equal "foo"))
+
+      (it "backtick"
+        (insert "`foo")
+        (expect (thing-at-point 'symbol) :to-equal "foo"))
+
+      ;; FIXME
+      (xit "tilde"
+        (insert "~foo")
+        (expect (thing-at-point 'symbol) :to-equal "foo"))
+
+      ;; FIXME
+      (xit "unquote-splice"
+        (insert "~@foo")
+        (expect (thing-at-point 'symbol) :to-equal "foo")))))
 
 ;;; Docstrings - Buttercup-Based
 
@@ -384,42 +421,6 @@ c]+-])" :indented))
   ;; FIXME - Not Implemented, known issue
   (xit "has only first string of a defn as the docstring"
     (expect "(«k:defn» «f:foo» [] «d:\"bar\"» «s:\"baz\"»)" :faces)))
-
-;;; Syntax Tests
-;;;; Symbols
-
-(ert-deftest syntax::symbols-include-dots ()
-  :tags '(syntax)
-  (hy-with-hy-mode
-   (insert "foo.bar")
-   (s-assert "foo.bar" (thing-at-point 'symbol))))
-
-
-(ert-deftest syntax::symbols-include-dashes ()
-  :tags '(syntax)
-  (hy-with-hy-mode
-   (insert "foo-bar")
-   (s-assert "foo-bar" (thing-at-point 'symbol))))
-
-
-(ert-deftest syntax::symbols-include-tags ()
-  :tags '(syntax)
-  (hy-with-hy-mode
-   (insert "#foo")
-   (s-assert "#foo" (thing-at-point 'symbol))))
-
-
-(ert-deftest syntax::symbols-exclude-quote-chars ()
-  :tags '(syntax)
-  (hy-with-hy-mode
-   (insert "'foo")
-   (s-assert "foo" (thing-at-point 'symbol))
-   (insert "`foo")
-   (s-assert "foo" (thing-at-point 'symbol))
-   (insert "~foo")
-   (s-assert "foo" (thing-at-point 'symbol))
-   (insert "~@foo")
-   (s-assert "foo" (thing-at-point 'symbol))))
 
 ;;; Keybindings
 
