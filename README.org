@@ -14,3 +14,9 @@ Master branch is currently in development. Please use the latest tagged release
 for a smoother experience.
 
 ~hy-mode~ requires Emacs 24+ and is available in MELPA.
+
+** Contributing
+
+~hy-mode~ is well-tested. It uses [[https://github.com/jorgenschaefer/emacs-buttercup][buttercup]] rather than ~ert~.
+
+Execute tests after running ~cask install~ with the command: ~cask exec buttercup -L .~
