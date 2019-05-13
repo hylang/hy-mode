@@ -9,7 +9,6 @@
 (depends-on "s")
 
 (development
- ;; (depends-on "ert-runner")
- (depends-on "faceup")
  (depends-on "buttercup")
+ (depends-on "faceup")
  (depends-on "f"))

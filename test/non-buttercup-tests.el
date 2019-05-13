@@ -1,6 +1,33 @@
 ;; Dumping ground for tests that haven't been ported yet to buttercup atm
 ;; for one reason or another.
 
+;;; Macros
+
+(defmacro hy-with-hy-mode (&rest forms)
+  "Execute FORMS in a temporary `hy-mode' buffer."
+  `(with-temp-buffer
+     (hy-mode)
+     ,@forms))
+
+
+(defmacro hy-with-hy-shell (&rest forms)
+  "Execute FORMS with an active hy process."
+  `(-let [hy-shell-interpreter-args ""]
+     (hy-shell-kill)
+     (save-window-excursion (run-hy))
+     (set-process-query-on-exit-flag (hy-shell-get-process) nil)
+     ,@forms
+     (hy-shell-kill)))
+
+
+(defmacro hy-with-hy-shell-internal (&rest forms)
+  "Execute FORMS with an active hy internal process."
+  `(progn
+     (hy-shell-kill)
+     (run-hy-internal)
+     ,@forms
+     (hy-shell-kill)))
+
 ;;; Misc Tests
 
 (ert-deftest misc::current-form-string-extracts-bracket-likes ()
