@@ -1,39 +1,31 @@
 ;;; hy-mode-test.el --- Hy Mode Tests -*- lexical-binding: t -*-
 
-;; PRIOR TO BUTTERCUP
-;; - TESTED -
-;; Indentation
-;; Font-locks
-;; Syntax
-;; Context Sensitive Syntax
-;; Docstring Detection
-;; Keybindings
+;; `hy-mode' is well-tested for a major-mode.
+;; See `hy-test.el' for extensions made to Buttercup to support testing.
 
-;; - REMAINING -
-;; Shell
-;; Eldoc
-;; Autocompletion
-;; Shift-k documentation lookup
-
-;; POST BUTTERCUP
-;; ~ TEST COVERAGE ~
+;; Not all tests are passing - marked with `xit' and FIXME comments
 
 ;; Covered:
-;; -
-
-;; Implicitly Covered:
-;; -
+;; - Indentation
+;; - Font Locks
+;; - Syntax
+;;   - Syntax Table Components
+;;   - Docstring Detection
+;;   - Context Sensitive (Bracket Strings)
+;; - All IDE features (tested within Jedhy, not this repo)
 
 ;; Not Covered:
-;; -
+;; - All process-based stuff and Jedhy interaction
+;; - Form and other text extraction for sending to shell
+;; - Some misc stuff
 
-;;; Load Files
+;;; Load hy-test and hy-mode
 
 (progn (require 'f)
        (add-to-list 'load-path (f-parent (f-parent (f-this-file))))
        (require 'hy-test))
 
-;;; Indentation - Buttercup-Based
+;;; Indentation
 
 (describe "Indentation"
   (before-all (hy--mode-setup-syntax))
@@ -158,7 +150,8 @@
 [:a
  b]" :indented)))
 
-    (it "tuple constructor"
+    ;; FIXME
+    (xit "tuple constructor"
       (expect "
 (,
  a)
@@ -166,17 +159,17 @@
    b)
 (, a b
    c)
-"))
+" :indented))
 
     (it "or operator"
       (expect "
 (|
- a)
+  a)
 (| a
    b)
 (| a b
    c)
-")))
+" :indented)))
 
   ;; ~~
   ;; NONSTANDARD CASES
@@ -274,7 +267,7 @@ c]+-])" :indented))
    => not a string])
 ") :indented)))
 
-;;; Font Lock - Buttercup-Based
+;;; Font Lock
 
 (describe "Font Lock face application"
   (it "to builtins"
@@ -340,7 +333,7 @@ c]+-])" :indented))
   (it "to #* and #** unpacking sugar"
     (expect "«k:#*» args «k:#**» kwargs" :faces)))
 
-;;; Syntax - Buttercup-Based
+;;; Syntax
 
 (describe "Syntax Table"
   (describe "comments"
@@ -407,7 +400,7 @@ c]+-])" :indented))
         (insert "~@foo")
         (expect (thing-at-point 'symbol) :to-equal "foo")))))
 
-;;; Docstrings - Buttercup-Based
+;;; Docstrings
 
 (describe "Docstring Detection"
   (it "distinguishes module docstrings"
@@ -421,105 +414,3 @@ c]+-])" :indented))
   ;; FIXME - Not Implemented, known issue
   (xit "has only first string of a defn as the docstring"
     (expect "(«k:defn» «f:foo» [] «d:\"bar\"» «s:\"baz\"»)" :faces)))
-
-;;; Keybindings
-
-(ert-deftest keybinding::insert-pdbs ()
-  :tags '(misc)
-  (hy-with-hy-mode
-   (hy-insert-pdb)
-   (s-assert (buffer-string)
-             "(do (import pdb) (pdb.set-trace))")
-   (delete-region (point-min) (point-max))
-   (hy-insert-pdb-threaded)
-   (s-assert (buffer-string)
-             "((fn [x] (import pdb) (pdb.set-trace) x))")))
-
-;; `hy-shell-eval-buffer'
-;; `hy-shell-eval-region'
-;; `hy-shell-eval-current-form'
-;; `hy-shell-start-or-switch-to-shell'
-
-;;; Misc Tests
-
-(ert-deftest misc::current-form-string-extracts-bracket-likes ()
-  :tags '(misc)
-  (hy--assert-current-form-string "[foo]")
-  (hy--assert-current-form-string "{foo bar}"))
-
-
-(ert-deftest misc::current-form-string-extracts-simple-form ()
-  :tags '(misc)
-  (hy--assert-current-form-string "(foo)")
-  (hy--assert-current-form-string "(foo bar)"))
-
-
-(ert-deftest misc::current-form-string-extracts-form-with-forms ()
-  :tags '(misc)
-  (hy--assert-current-form-string "(foo (bar))"))
-
-;;; Shell
-;;;; No Process Requirement
-
-(ert-deftest shell::process-names ()
-  :tags '(shell)
-  (s-assert (hy--shell-format-process-name "Foo")
-            "*Foo*"))
-
-
-(ert-deftest shell::interpreter-args-no-args ()
-  :tags '(shell)
-  (let ((hy-shell-interpreter-args "")
-        (hy-shell-use-control-codes? nil))
-    (should (s-blank? (hy--shell-calculate-interpreter-args))))
-
-  (let ((hy-shell-interpreter-args "")
-        (hy-shell-use-control-codes? t))
-    (should (s-blank? (hy--shell-calculate-interpreter-args)))))
-
-
-(ert-deftest shell::interpreter-args-args-no-spy ()
-  :tags '(shell)
-  (let ((hy-shell-interpreter-args "foo")
-        (hy-shell-use-control-codes? nil))
-    (s-assert (hy--shell-calculate-interpreter-args)
-              "foo"))
-
-  (let ((hy-shell-interpreter-args "foo")
-        (hy-shell-use-control-codes? t))
-    (s-assert (hy--shell-calculate-interpreter-args)
-              "foo")))
-
-
-(ert-deftest shell::interpreter-args-args-with-spy ()
-  :tags '(shell)
-  (let ((hy-shell-interpreter-args "--spy")
-        (hy-shell-use-control-codes? nil))
-    (s-assert (hy--shell-calculate-interpreter-args)
-              "--spy"))
-
-  (let ((hy-shell-interpreter-args "--spy")
-        (hy-shell-use-control-codes? t))
-    (s-assert (hy--shell-calculate-interpreter-args)
-              "--spy --control-codes")))
-
-;;;; Requires Process
-
-(ert-deftest shell::manages-hy-shell-buffer-vars ()
-  :tags '(shell) (skip-unless (hy-installed?))
-
-  (hy-with-hy-shell (should (hy--shell-buffer?)))
-  (hy-with-hy-shell-internal (should (hy--shell-buffer? 'internal)))
-
-  (should-not (hy--shell-buffer?))
-  (should-not (hy--shell-buffer? 'internal)))
-
-
-(ert-deftest shell::gets-hy-processes ()
-  :tags '(shell) (skip-unless (hy-installed?))
-
-  (hy-with-hy-shell (should (hy-shell-get-process)))
-  (hy-with-hy-shell-internal (should (hy-shell-get-process 'internal)))
-
-  (should-not (hy-shell-get-process))
-  (should-not (hy-shell-get-process 'internal)))
