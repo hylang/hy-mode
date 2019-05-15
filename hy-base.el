@@ -66,6 +66,26 @@
     (when (hy--goto-inner-sexp syntax)
       (thing-at-point 'symbol))))
 
+;;; Form Captures
+
+(defun hy--current-form-string ()
+  "Get form containing current point as string plus a trailing newline."
+  (save-excursion
+    (-when-let (start (hy--goto-inner-char (syntax-ppss)))
+      (while (ignore-errors (forward-sexp)))
+
+      (s-concat (buffer-substring-no-properties start (point))
+                "\n"))))
+
+(defun hy--last-sexp-string ()
+  "Get form containing last s-exp point as string plus a trailing newline."
+  (save-excursion
+    (-when-let (start (hy--goto-last-sexp-start (syntax-ppss)))
+      (while (ignore-errors (forward-sexp)))
+
+      (s-concat (buffer-substring-no-properties start (point))
+                "\n"))))
+
 ;;; Legacy
 
 (defun hy--sexp-inermost-char (state)

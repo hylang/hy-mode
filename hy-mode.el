@@ -102,13 +102,13 @@ Fuzzy matches expect a match at start of symbol (eg. with-foo).")
     (modify-syntax-entry ?\@ "'" table)
 
     ;; "," is a symbol in Hy, namely the tuple constructor
-    (modify-syntax-entry ?\, "_ p" table)
+    (modify-syntax-entry ?\, "_" table)
 
     ;; "|" is a symbol in hy, naming the or operator
-    (modify-syntax-entry ?\| "_ p" table)
+    (modify-syntax-entry ?\| "_" table)
 
     ;; "#" is a tag macro, we include # in the symbol
-    (modify-syntax-entry ?\# "_ p" table)
+    (modify-syntax-entry ?\# "_" table)
 
     table)
   "Hy mode's syntax table.")
@@ -116,45 +116,18 @@ Fuzzy matches expect a match at start of symbol (eg. with-foo).")
 (defconst inferior-hy-mode-syntax-table (copy-syntax-table hy-mode-syntax-table)
   "`inferior-hy-mode' inherits `hy-mode-syntax-table'.")
 
-;;; Form Captures
-
-(defun hy--current-form-string ()
-  "Get form containing current point as string plus a trailing newline."
-  (save-excursion
-    (-when-let (start (hy--goto-inner-char (syntax-ppss)))
-      (while (ignore-errors (forward-sexp)))
-
-      (s-concat (buffer-substring-no-properties start (point))
-                "\n"))))
-
-(defun hy--last-sexp-string ()
-  "Get form containing last s-exp point as string plus a trailing newline."
-  (save-excursion
-    (-when-let (start (hy--goto-last-sexp-start (syntax-ppss)))
-      (while (ignore-errors (forward-sexp)))
-
-      (s-concat (buffer-substring-no-properties start (point))
-                "\n"))))
-
 ;;; Indentation
-;;;; Utilities
-
-(defun hy--anything-before? (pos)
-  "Determine if chars before POS in current line."
-  (s-matches? (rx (not blank))
-              (buffer-substring (line-beginning-position) pos)))
-
-(defun hy--anything-after? (pos)
-  "Determine if POS is before line-end-position."
-  (when pos
-    (< pos (line-end-position))))
-
-(defun hy--check-non-symbol-sexp (pos)
-  "Check for a non-symbol yet symbol-like (tuple constructor comma) at POS."
-  (and (member (char-after pos) '(?\, ?\|))
-       (char-equal (char-after (1+ pos)) ?\s)))
-
 ;;;; Normal Indent
+
+(defun hy--start-of-sexp-including-quotes (sexp-start)
+  "Updated SEXP-START pos to include quote chars if present."
+  (- sexp-start
+     (cond ((-contains? '(?\' ?\` ?\~ ?\#) (char-before))
+            1)
+           ((and (eq ?\@ (char-before))
+                 (eq ?\~ (char-before (1- sexp-start))))
+            2)
+           (t 0))))
 
 (defun hy--normal-indent (last-sexp)
   "Determine normal indentation column of LAST-SEXP.
@@ -164,60 +137,39 @@ Example:
        e
        f))
 
-1. Indent e => start at d -> c -> b.
-Then backwards-sexp will throw error trying to jump to a.
-Observe 'a' need not be on the same line as the ( will cause a match.
-Then we determine indentation based on whether there is an arg or not.
+1. Indent e => start at d (the last sexp) -> c -> b -> err.
+=> backwards-sexp will throw error trying to jump to a
+=> normal-indent will return nil
+=> by magic (ie. lisp-mode recalling stuff) we get the right indent
 
-2. Indenting f will go to e.
-Now since there is a prior sexp d but we have no sexps-before on same line,
-the loop will terminate without error and the prior lines indentation is it."
+2. Indent f => start at e (the last sexp) -> backward-sexp loop terminates
+=> return indent of e
+
+If step 1 is confusing, it is to me too."
   (goto-char last-sexp)
-  (-let [last-sexp-start nil]
-    (if (ignore-errors
-          (while (hy--anything-before? (point))
-            (setq last-sexp-start (prog1
-                                      ;; Indentation should ignore quote chars
-                                      (cond
-                                       ((-contains? '(?\' ?\` ?\~ ?\#)
-                                                    (char-before))
-                                        (1- (point)))
 
-                                       ((and (eq ?\@ (char-before))
-                                             (save-excursion
-                                               (forward-char -1)
-                                               (eq ?\~ (char-before))))
-                                        (- (point) 2))
+  ;; Normal indentation can return nil! Lisp-mode handles that case!
+  (let ((last-sexp-start))
+    (cond
+     ;; Try to find the function argument to align with
+     ((ignore-errors
+        (while (<= (current-indentation) (current-column))
+          (setq last-sexp-start (prog1 (point) (backward-sexp))))
+        t)
+      (current-column))
 
-                                       (t (point)))
-
-                                    (backward-sexp))))
-          t)
-        (current-column)
-      (if (not (hy--anything-after? last-sexp-start))
-          (1+ (current-column))
-        (goto-char last-sexp-start)  ; Align with function argument
-        (current-column)))))
-
-;;;; Function or form
-
-(defun hy--not-function-form-p ()
-  "Non-nil if form at point doesn't represent a function call."
-  (or (-contains? '(?\[ ?\{) (char-after))
-      (not (looking-at (rx anything  ; Skips form opener
-                           (or (syntax symbol) (syntax word)))))))
+     ;; No function arguments to align with
+     ((null last-sexp-start)
+      (progn
+        (goto-char (hy--start-of-sexp-including-quotes (point)))
+        (1+ (current-column)))))))
 
 ;;;; Hy find indent spec
 
 (defun hy--find-indent-spec (state)
-  "Return integer for special indentation of form or nil to use normal indent.
-
-Note that `hy--not-function-form-p' filters out forms that are lists and dicts.
-Point is always at the start of a function."
-  (-when-let
-      (function (and (hy--prior-sexp? state)
-                     (thing-at-point 'symbol)))
-
+  "Return integer for special indentation of form or nil to use normal indent."
+  (-when-let (function (and (hy--prior-sexp? state)
+                            (thing-at-point 'symbol)))
     (or (-contains? (plist-get hy-indent-special-forms :exact)
                     function)
         (-some (-cut s-matches? <> function)
@@ -227,20 +179,16 @@ Point is always at the start of a function."
 
 (defun hy-indent-function (indent-point state)
   "Indent at INDENT-POINT where STATE is `parse-partial-sexp' for INDENT-POINT."
-  (goto-char (hy--sexp-inermost-char state))
+  (hy--goto-inner-sexp state)
 
-  (if (hy--not-function-form-p)
-      (1+ (current-column))  ; Indent after [, {, ... is always 1
-    (forward-char 1)  ; Move to start of sexp
+  (cond
+   ((-contains? '(?\[ ?\{) (char-before))
+    (current-column))
 
-    (cond ((hy--check-non-symbol-sexp (point))  ; Comma tuple constructor
-           (+ 2 (current-column)))
+   ((hy--find-indent-spec state)
+    (1+ (current-column)))
 
-          ((hy--find-indent-spec state)  ; Special form uses fixed indendation
-           (1+ (current-column)))
-
-          (t
-           (hy--normal-indent calculate-lisp-indent-last-sexp)))))
+   (t (hy--normal-indent calculate-lisp-indent-last-sexp))))
 
 ;;; Bracket String Literals
 
@@ -758,13 +706,20 @@ Not all defuns can be argspeced - eg. C defuns.\"
           (if raw symbol (s-concat "\"" symbol "\""))
           (if full "True" "False")))
 
+(defun hy--not-function-form? ()
+  "Non-nil if form at point doesn't represent a function call."
+  (or (-contains? '(?\[ ?\{) (char-after))
+      (not (looking-at (rx anything  ; Skips form opener
+                           (or (syntax symbol) (syntax word)))))))
+
+
 (defun hy--eldoc-get-inner-symbol ()
   "Traverse and inspect innermost sexp and return formatted string for eldoc."
   (save-excursion
     (-when-let (function
                 (and (hy-shell-get-process 'internal)
                      (-some-> (syntax-ppss) hy--sexp-inermost-char goto-char)
-                     (not (hy--not-function-form-p))
+                     (not (hy--not-function-form?))
                      (progn (forward-char) (thing-at-point 'symbol))))
 
       ;; Attribute method call (eg. ".format str") needs following sexp
@@ -1120,6 +1075,9 @@ Not all defuns can be argspeced - eg. C defuns.\"
   (add-hook 'pyvenv-post-activate-hooks 'run-hy-internal nil t))
 
 (defun hy--mode-setup-syntax ()
+  ;; We explictly set it for tests that only call this setup-fn
+  (set-syntax-table hy-mode-syntax-table)
+
   ;; Bracket string literals require context sensitive highlighting
   (setq-local syntax-propertize-function 'hy-syntax-propertize-function)
 

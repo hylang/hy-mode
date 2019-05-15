@@ -150,11 +150,10 @@
 [:a
  b]" :indented)))
 
-    ;; FIXME
-    (xit "tuple constructor"
+    (it "tuple constructor"
       (expect "
 (,
- a)
+  a)
 (, a
    b)
 (, a b
@@ -172,33 +171,62 @@
 " :indented)))
 
   ;; ~~
-  ;; NONSTANDARD CASES
+  ;; OTHER CASES
   ;; ~~
 
   (describe "nonstandard cases"
     (it "form opens a form - only sexp on line"
       (expect "
 ((a b)
- c)
+  c)
 " :indented))
 
-    ;; FIXME
-    (xit "form opens a form - two+ sexps on line"
+    (it "form opens a form - two+ sexps on line"
       (expect "
 ((a b) c
-       d)
+ d)
 " :indented))
 
     (it "tag macro opens a form - only sexp on line"
       (expect "
 (#a
- c)" :indented))
+  c)" :indented))
 
-    ;; FIXME
-    (xit "tag macro opens a form - two+ sexps on line"
+    (it "tag macro opens a form - two+ sexps on line"
       (expect "
 (#a b
-    c)" :indented)))
+    c)" :indented))
+
+    (it "quoted symbol opens a form - only sexp on line"
+      (expect "
+('a
+  c)" :indented))
+
+    (it "quoted symbol opens a form - two+ sexps on line"
+      (expect "
+('a b
+    c)" :indented))
+
+    (it "tilde symbol opens a form - two+ sexps on line"
+      (expect "
+(~a b
+    c)" :indented))
+
+    (it "tilde symbol opens a form - only sexp on line"
+      (expect "
+(~a
+  c)" :indented))
+
+    (it "unquote-spliced symbol opens a form - two+ sexps on line"
+      (expect "
+(~@a b
+     c)" :indented))
+
+    (it "unquote-spliced symbol opens a form - only sexps on line"
+      (expect "
+(~@a
+  c)" :indented))
+    )
 
   ;; ~~
   ;; SPECIAL INDENT RULES
@@ -271,7 +299,7 @@ c]+-])" :indented))
 
 (describe "Font Lock face application"
   (it "to builtins"
-    (expect "«b:+» «b:flatten» «b:ap-each» map-foo map-do map.foo" :faces))
+    (expect "«b:+» «b:map» «b:ap-each» map-foo map-do map.foo" :faces))
 
   (it "to constants"
     (expect "«c:True» Truex xTrue" :faces))
@@ -285,10 +313,6 @@ c]+-])" :indented))
 
   (it "to special forms"
     (expect "«k:->» «k:for» forx xfor for.x x.for" :faces))
-
-  ;; FIXME - Think this is deprecated?
-  (xit "to aliases"
-    (expect "«k:defmacro-alias» [«f:arg1 arg2 arg3»]" :faces))
 
   (it "to class definitions"
     (expect "«k:defclass» «t:Klass» [parent]" :faces))
@@ -361,7 +385,7 @@ c]+-])" :indented))
         (expect "#[«s:[foo]»] \nfoo \n #[«s:[foo]»]" :faces))))
 
   (describe "characters"
-    (before-all (hy--mode-setup-syntax))
+    (before-all (set-syntax-table hy-mode-syntax-table))
     (after-each (delete-region (point-min) (point-max)))
 
     (describe "symbols"
@@ -373,8 +397,7 @@ c]+-])" :indented))
         (insert "foo-bar")
         (expect (thing-at-point 'symbol) :to-equal "foo-bar"))
 
-      ;; FIXME What did I decide on again?
-      (xit "hashtag"
+      (it "hashtag"
         (insert "#foo")
         (expect (thing-at-point 'symbol) :to-equal "#foo")))
 
@@ -387,13 +410,11 @@ c]+-])" :indented))
         (insert "`foo")
         (expect (thing-at-point 'symbol) :to-equal "foo"))
 
-      ;; FIXME
-      (xit "tilde"
+      (it "tilde"
         (insert "~foo")
         (expect (thing-at-point 'symbol) :to-equal "foo"))
 
-      ;; FIXME
-      (xit "unquote-splice"
+      (it "unquote-splice"
         (insert "~@foo")
         (expect (thing-at-point 'symbol) :to-equal "foo")))))
 
