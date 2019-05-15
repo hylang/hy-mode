@@ -116,32 +116,7 @@ Fuzzy matches expect a match at start of symbol (eg. with-foo).")
 (defconst inferior-hy-mode-syntax-table (copy-syntax-table hy-mode-syntax-table)
   "`inferior-hy-mode' inherits `hy-mode-syntax-table'.")
 
-;;; Utilities
-;;;; Sexp Navigation
-
-;; Aliases for `parse-partial-sexp' value
-(defun hy--sexp-inermost-char (state)
-  (nth 1 state))
-(defun hy--start-of-last-sexp (state)
-  (nth 2 state))
-(defun hy--in-string? (state)
-  (nth 3 state))
-(defun hy--in-string-or-comment? (state)
-  (or (nth 3 state) (nth 4 state)))
-(defun hy--start-of-string (state)
-  (nth 8 state))
-(defun hy--prior-sexp? (state)
-  (number-or-marker-p (hy--start-of-last-sexp state)))
-
-;;;; General purpose
-
-(defun hy--str-or-nil (text)
-  "If TEXT is non-blank, return TEXT else nil."
-  (and (not (s-blank? text)) text))
-
-(defun hy--str-or-empty (text)
-  "Return TEXT or the empty string it TEXT is nil."
-  (if text text ""))
+;;; Form Captures
 
 (defun hy--current-form-string ()
   "Get form containing current point as string plus a trailing newline."

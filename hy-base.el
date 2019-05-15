@@ -22,10 +22,50 @@
 
 ;; Common requires and utilities for `hy-mode'.
 
+;;; Code:
+
 (require 'cl)
 (require 'dash)
 (require 'dash-functional)
 (require 's)
+
+;;; Syntax State Aliases
+
+;; Alias `parse-partial-sexp' and `syntax-ppss' components
+
+(defun hy--sexp-inermost-char (state)
+  "Return innermost char of syntax STATE."
+  (nth 1 state))
+
+(defun hy--start-of-last-sexp (state)
+  "Return start of last sexp of syntax STATE."
+  (nth 2 state))
+
+(defun hy--in-string? (state)
+  "Is syntax STATE in a string?"
+  (nth 3 state))
+
+(defun hy--in-string-or-comment? (state)
+  "Is syntax STATE in a string or comment?"
+  (or (nth 3 state) (nth 4 state)))
+
+(defun hy--start-of-string (state)
+  "Return start of syntax STATE that is in a string."
+  (nth 8 state))
+
+(defun hy--prior-sexp? (state)
+  "Is there a prior sexp from syntax STATE?"
+  (number-or-marker-p (hy--start-of-last-sexp state)))
+
+;;; General Purpose
+
+(defun hy--str-or-nil (text)
+  "If TEXT is non-blank, return TEXT else nil."
+  (and (not (s-blank? text)) text))
+
+(defun hy--str-or-empty (text)
+  "Return TEXT or the empty string it TEXT is nil."
+  (if text text ""))
 
 ;;; Provide:
 
