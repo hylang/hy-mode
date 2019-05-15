@@ -29,9 +29,28 @@
 (require 'dash-functional)
 (require 's)
 
-;;; Syntax State Aliases
+;;; Syntax State Methods
+;;;; Alias `syntax-ppss' and `parse-partial-sexp'
 
-;; Alias `parse-partial-sexp' and `syntax-ppss' components
+(defun hy--syntax->inner-char (syntax)
+  "Get innermost char of SYNTAX."
+  (nth 1 syntax))
+
+(defun hy--syntax->string-start (syntax)
+  "Return start of STATE that is in a string."
+  (nth 8 syntax))
+
+(defun hy--goto-inner-sexp (syntax)
+  "Goto innermost sexp of SYNTAX."
+  (-some-> syntax hy--syntax->inner-char 1+ goto-char))
+
+(defun hy--syntax->inner-symbol (syntax)
+  "Get innermost sexp of SYNTAX."
+  (save-excursion
+    (when (hy--goto-inner-sexp syntax)
+      (thing-at-point 'symbol))))
+
+;;;; Old
 
 (defun hy--sexp-inermost-char (state)
   "Return innermost char of syntax STATE."
@@ -52,6 +71,8 @@
 (defun hy--start-of-string (state)
   "Return start of syntax STATE that is in a string."
   (nth 8 state))
+
+;;;; Methods
 
 (defun hy--prior-sexp? (state)
   "Is there a prior sexp from syntax STATE?"

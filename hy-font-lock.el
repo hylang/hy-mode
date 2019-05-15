@@ -22,7 +22,8 @@
 
 ;; Font lock definitions and setup for `hy-mode'.
 
-;; Font locks are organized and exposed at the end via `hy-font-lock-kwds'
+;; Font locks are organized and exposed at the end: `hy-font-lock-kwds'
+;; Also implements docstring detection: `hy-font-lock-syntactic-face-function'
 
 ;;; Code:
 
@@ -519,7 +520,31 @@
         '(1 font-lock-comment-face t))
   "Support for higlighting #_(form) the form as a comment.")
 
+;;; Syntactic Face Function
+;;;; Utilities
+
+(defun hy-font-lock--string-is-module-docstring? (syntax)
+  "Is string SYNTAX specifically a module docstring?"
+  (= 1 (hy--syntax->string-start syntax)))
+
+(defun hy-font-lock--string-is-function-docstring? (syntax)
+  "Is string SYNTAX specifically a function docstring?"
+  (-when-let (inner-symbol (hy--syntax->inner-symbol syntax))
+    (unless (s-equals? inner-symbol "defmethod")
+      (s-matches? (rx "def"
+                      (not blank))
+                  inner-symbol))))
+
 ;;; Font Lock Keywords
+
+(defun hy-font-lock-syntactic-face-function (syntax)
+  "Return syntactic face function for synatax STATE."
+  (if (hy--in-string? syntax)
+      (if (or (hy-font-lock--string-is-module-docstring? syntax)
+              (hy-font-lock--string-is-function-docstring? syntax))
+          font-lock-doc-face
+        font-lock-string-face)
+    font-lock-comment-face))
 
 (defconst hy-font-lock-kwds
   (list hy-font-lock--kwds-builtins
@@ -544,7 +569,6 @@
         ;; Optional kwds
         (when hy-font-lock-highlight-percent-args?
           hy-font-lock--kwds-anonymous-funcs))
-
   "All Hy font lock keywords.")
 
 ;;; Provide:

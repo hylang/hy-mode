@@ -279,30 +279,6 @@ and determined by `font-lock-mode' internals when making an edit to a buffer."
       (put-text-property (match-end 1) (1+ (match-end 1))
                          'syntax-table (string-to-syntax "|")))))
 
-;;; Font Lock Syntactics
-
-(defun hy--string-in-doc-position? (state)
-  "Is STATE within a docstring?"
-  (if (= 1 (hy--start-of-string state))  ; Identify module docstring
-      t
-    (-when-let* ((first-sexp (hy--sexp-inermost-char state))
-                 (function (save-excursion
-                             (goto-char (1+ first-sexp))
-                             (thing-at-point 'symbol))))
-      (and (s-matches? (rx "def" (not blank)) function)
-           (not (s-matches? (rx "defmethod") function))))))
-
-(defun hy-font-lock-syntactic-face-function (state)
-  "Return syntactic face function for the position represented by STATE.
-STATE is a `parse-partial-sexp' state, and the returned function is the
-Lisp font lock syntactic face function. String is shorthand for either
-a string or comment."
-  (if (hy--in-string? state)
-      (if (hy--string-in-doc-position? state)
-          font-lock-doc-face
-        font-lock-string-face)
-    font-lock-comment-face))
-
 ;;; Shell Integration
 ;;;; Configuration
 
