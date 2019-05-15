@@ -271,7 +271,7 @@ c]+-])" :indented))
 
 (describe "Font Lock face application"
   (it "to builtins"
-    (expect "«b:+» «b:map» «b:ap-each» map-foo map-do map.foo" :faces))
+    (expect "«b:+» «b:flatten» «b:ap-each» map-foo map-do map.foo" :faces))
 
   (it "to constants"
     (expect "«c:True» Truex xTrue" :faces))

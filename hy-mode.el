@@ -27,15 +27,16 @@
 
 ;;; Commentary:
 
-;; Provides font-lock, indentation, and navigation for the Hy
-;; language. (http://hylang.org)
+;; Provides font-lock, indentation, navigation, autocompletion, and other
+;; features for working productively in Hy (http://hylang.org).
+
+;; Hy is a lisp embedded in Python.
 
 ;;; Code:
 
-(require 'cl)
-(require 'dash)
-(require 'dash-functional)
-(require 's)
+(require 'hy-base)
+
+(require 'hy-font-lock)
 
 (defgroup hy-mode nil
   "A mode for Hy"
@@ -79,22 +80,18 @@ Keep nil unless using specific Hy branch.")
 
     :fuzzy
     ("def"
-     "with"
      "let"
-     "with/a"
-     "fn"
-     "fn/a"
-     "lambda"))
+     "with" "with/a"
+     "fn" "fn/a"))
   "Special forms to always indent following line by +1.
 
-Fuzzy forms require match at start of symbol (eg. with-something)
-will indent special. Exact forms require the symbol and def exactly match.")
+Exact matches expect the symbol to match the given word exactly.
+Fuzzy matches expect a match at start of symbol (eg. with-foo).")
 
 ;;; Syntax Table
 
 (defconst hy-mode-syntax-table
-  (-let [table
-         (copy-syntax-table lisp-mode-syntax-table)]
+  (let ((table (copy-syntax-table lisp-mode-syntax-table)))
     (modify-syntax-entry ?\{ "(}" table)
     (modify-syntax-entry ?\} "){" table)
     (modify-syntax-entry ?\[ "(]" table)
@@ -116,373 +113,8 @@ will indent special. Exact forms require the symbol and def exactly match.")
     table)
   "Hy mode's syntax table.")
 
-(defconst inferior-hy-mode-syntax-table
-  (copy-syntax-table hy-mode-syntax-table)
-  "Inferior Hy mode's syntax tables inherits Hy mode's table.")
-
-;;; Keywords
-
-(defconst hy--kwds-anaphorics
-  '("ap-if" "ap-each" "ap-each-while" "ap-map" "ap-map-when" "ap-filter"
-    "ap-reject" "ap-dotimes" "ap-first" "ap-last" "ap-reduce" "ap-pipe"
-    "ap-compose" "xi")
-
-  "Hy anaphoric contrib keywords.")
-
-(defconst hy--kwds-builtins
-  '("*map" "accumulate" "assoc" "butlast" "calling-module-name" "car"
-    "cdr" "chain" "coll?" "combinations" "comp" "complement" "compress" "cons"
-    "cons?" "constantly" "count" "cut" "cycle" "dec" "defmain" "del"
-    "dfor" "disassemble" "distinct" "doto" "drop" "drop-last" "drop-while"
-    "empty?" "even?" "every?" "filter" "first" "flatten" "float?" "fraction"
-    "genexpr" "gensym" "get" "group-by" "identity" "inc" "input"
-    "instance?" "integer" "integer-char?" "integer?" "interleave" "interpose"
-    "is" "is-not" "is_not" "islice" "iterable?" "iterate" "iterator?" "juxt"
-    "keyword" "keyword?" "last" "list*" "lfor" "macroexpand"
-    "macroexpand-1" "map" "merge-with" "multicombinations" "name" "neg?" "none?"
-    "nth" "numeric?" "odd?" "partition" "permutations"
-    "pos?" "product" "quasiquote" "quote" "range" "read" "read-str"
-    "reduce" "remove" "repeat" "repeatedly" "rest" "second" "setv" "sfor"
-    "slice" "some" "string" "string?" "symbol?" "take" "take-nth" "take-while"
-    "tee" "unquote" "unquote-splice" "xor" "zero?" "zip" "zip-longest"
-
-    ;; Pure python builtins
-    "abs" "all" "any" "bin" "bool" "callable" "chr"
-    "compile" "complex" "delattr" "dict" "dir" "divmod" "enumerate"
-    "eval" "float" "format" "frozenset" "getattr" "globals" "hasattr"
-    "hash" "help" "hex" "id" "isinstance" "issubclass" "iter" "len"
-    "list" "locals" "max" "memoryview" "min" "next" "object" "oct" "open"
-    "ord" "pow" "repr" "reversed" "round" "set" "setattr"
-    "sorted" "str" "sum" "super" "tuple" "type" "vars"
-    "ascii" "bytearray" "bytes" "exec"
-    "--package--" "__package__" "--import--" "__import__"
-    "--all--" "__all__" "--doc--" "__doc__" "--name--" "__name__")
-
-  "Hy builtin keywords.")
-
-(defconst hy--kwds-constants
-  '("True" "False" "None"
-    "Ellipsis"
-    "NotImplemented"
-    "nil"  ; For those that alias None as nil
-    )
-
-  "Hy constant keywords.")
-
-(defconst hy--kwds-exceptions
-  '("ArithmeticError" "AssertionError" "AttributeError" "BaseException"
-    "DeprecationWarning" "EOFError" "EnvironmentError" "Exception"
-    "FloatingPointError" "FutureWarning" "GeneratorExit" "IOError"
-    "ImportError" "ImportWarning" "IndexError" "KeyError"
-    "KeyboardInterrupt" "LookupError" "MemoryError" "NameError"
-    "NotImplementedError" "OSError" "OverflowError"
-    "PendingDeprecationWarning" "ReferenceError" "RuntimeError"
-    "RuntimeWarning" "StopIteration" "SyntaxError" "SyntaxWarning"
-    "SystemError" "SystemExit" "TypeError" "UnboundLocalError"
-    "UnicodeDecodeError" "UnicodeEncodeError" "UnicodeError"
-    "UnicodeTranslateError" "UnicodeWarning" "UserWarning" "VMSError"
-    "ValueError" "Warning" "WindowsError" "ZeroDivisionError"
-    "BufferError" "BytesWarning" "IndentationError" "ResourceWarning" "TabError")
-
-  "Hy exception keywords.")
-
-(defconst hy--kwds-defs
-  '("defn" "defn/a"
-    "defmacro" "defmacro/g!" "defmacro!"
-    "deftag" "defmain" "defmulti"
-    "defmethod")
-
-  "Hy definition keywords.")
-
-(defconst hy--kwds-operators
-  '("!=" "%" "%=" "&" "&=" "*" "**" "**=" "*=" "+" "+=" "," "-"
-    "-=" "/" "//" "//=" "/=" "<" "<<" "<<=" "<=" "=" ">" ">=" ">>" ">>="
-    "^" "^=" "|" "|=" "~")
-
-  "Hy operator keywords.")
-
-(defconst hy--kwds-special-forms
-  '(;; Looping
-    "loop" "recur"
-    "for" "for*" "for/a" "for/a*"
-
-    ;; Threading
-    "->" "->>" "as->"
-
-    ;; Flow control
-    "return"
-    "if" "if*" "if-not" "lif" "lif-not"
-    "else" "unless" "when"
-    "break" "continue"
-    "while" "cond"
-    "do" "progn"
-
-    ;; Functional
-    "fn" "fn/a"
-    "await"
-    "yield" "yield-from"
-    "with" "with*" "with/a" "with/a*"
-    "with-gensyms"
-
-    ;; Error Handling
-    "except" "try" "throw" "raise" "catch" "finally" "assert"
-
-    ;; Special
-    "print"
-    "not" "and" "or"
-    "in" "not-in"
-
-    ;; Misc
-    "global" "nonlocal"
-    "eval" "eval-and-compile" "eval-when-compile")
-
-  "Hy special forms keywords.")
-
-;;; Font Locks
-;;;; Definitions
-
-(defconst hy--font-lock-kwds-builtins
-  (list
-   (rx-to-string
-    `(: symbol-start
-        (or ,@hy--kwds-operators
-            ,@hy--kwds-builtins
-            ,@hy--kwds-anaphorics)
-        symbol-end))
-
-   '(0 font-lock-builtin-face))
-
-  "Hy builtin keywords.")
-
-(defconst hy--font-lock-kwds-constants
-  (list
-   (rx-to-string
-    `(: symbol-start
-        (or ,@hy--kwds-constants)
-        symbol-end))
-
-   '(0 font-lock-constant-face))
-
-  "Hy constant keywords.")
-
-(defconst hy--font-lock-kwds-defs
-  (list
-   (rx-to-string
-    `(: "("
-        symbol-start
-        (group-n 1 (or ,@hy--kwds-defs))
-        (1+ space)
-        (group-n 2 (1+ word))))
-
-   '(1 font-lock-keyword-face)
-   '(2 font-lock-function-name-face nil t))
-
-  "Hy definition keywords.")
-
-(defconst hy--font-lock-kwds-exceptions
-  (list
-   (rx-to-string
-    `(: symbol-start
-        (or ,@hy--kwds-exceptions)
-        symbol-end))
-
-   '(0 font-lock-type-face))
-
-  "Hy exception keywords.")
-
-(defconst hy--font-lock-kwds-special-forms
-  (list
-   (rx-to-string
-    `(: symbol-start
-        (or ,@hy--kwds-special-forms)
-        symbol-end))
-
-   '(0 font-lock-keyword-face))
-
-  "Hy special forms keywords.")
-
-;;;; Static
-
-;; (defconst hy--font-lock-kwds-aliases
-;;   (list
-;;    (rx (group-n 1 (or "defmacro-alias" "defn-alias" "defun-alias"))
-;;        (1+ space)
-;;        "["
-;;        (group-n 2 (1+ anything))
-;;        "]")
-;;
-;;    '(1 font-lock-keyword-face)
-;;    '(2 font-lock-function-name-face nil t))
-;;
-;;   "Hy aliasing keywords.")
-
-(defconst hy--font-lock-kwds-class
-  (list
-   (rx (group-n 1 "defclass")
-       (1+ space)
-       (group-n 2 (1+ word)))
-
-   '(1 font-lock-keyword-face)
-   '(2 font-lock-type-face))
-
-  "Hy class keywords.")
-
-(defconst hy--font-lock-kwds-decorators
-  (list
-   (rx
-    (or (: "#@"
-           (syntax open-parenthesis))
-        (: symbol-start
-           "with-decorator"
-           symbol-end
-           (1+ space)))
-    (1+ word))
-
-   '(0 font-lock-type-face))
-
-  "Hylight the symbol after `#@' or `with-decorator' macros.")
-
-(defconst hy--font-lock-kwds-imports
-  (list
-   (rx symbol-start
-       (or "import" "require" ":as")
-       symbol-end)
-
-   '(0 font-lock-keyword-face))
-
-  "Hy import keywords.")
-
-(defconst hy--font-lock-kwds-self
-  (list
-   (rx symbol-start
-       (group "self")
-       (or "." symbol-end))
-
-   '(1 font-lock-keyword-face))
-
-  "Hy self keyword.")
-
-(defconst hy--font-lock-kwds-tag-macros
-  (list
-   (rx "#"
-       (not (any "*" "@" "[" ")" space))  ; #* is unpacking, #@ decorator, #[ bracket str
-       (0+ (syntax word)))
-
-   '(0 font-lock-function-name-face))
-
-  "Hylight tag macros, ie. `#tag-macro', so they stand out.")
-
-;;;; Misc
-
-(defconst hy--font-lock-kwds-anonymous-funcs
-  (list
-   (rx symbol-start
-       (group "%" (1+ digit))
-       (or "." symbol-end))
-
-   '(1 font-lock-variable-name-face))
-
-  "Hy '#%(print %1 %2)' styling anonymous variables.")
-
-(defconst hy--font-lock-kwds-func-modifiers
-  (list
-   (rx symbol-start "&" (1+ word))
-
-   '(0 font-lock-type-face))
-
-  "Hy '&rest/&kwonly/...' styling.")
-
-(defconst hy--font-lock-kwds-kwargs
-  (list
-   (rx symbol-start ":" (1+ word))
-
-   '(0 font-lock-constant-face))
-
-  "Hy ':kwarg' styling.")
-
-(defconst hy--font-lock-kwds-shebang
-  (list
-   (rx buffer-start "#!" (0+ not-newline) eol)
-
-   '(0 font-lock-comment-face))
-
-  "Hy shebang line.")
-
-(defconst hy--font-lock-kwds-unpacking
-  (list
-   (rx (or "#*" "#**")
-       symbol-end)
-
-   '(0 font-lock-keyword-face))
-
-  "Hy #* arg and #** kwarg unpacking keywords.")
-
-(defconst hy--font-lock-kwds-variables
-  (list
-   (rx symbol-start
-       "setv"
-       symbol-end
-       (1+ space)
-       (group (1+ word)))
-
-   '(1 font-lock-variable-name-face))
-
-  "Hylight variable names in setv/def, only first name.")
-
-;;;; Advanced Keywords
-
-(defconst hy--tag-comment-prefix-rgx
-  (rx "#_" (* " ") (group-n 1 (not (any " "))))
-  "The regex to match #_ tag comment prefixes.")
-
-(defun hy--search-comment-macro (limit)
-  "Search for a comment forward stopping at LIMIT."
-  (-when-let* ((_ (re-search-forward hy--tag-comment-prefix-rgx limit t))
-               (md (match-data))
-               (start (match-beginning 1))
-               (state (syntax-ppss start)))
-    (if (hy--in-string-or-comment? state)
-        (hy--search-comment-macro limit)
-      (goto-char start)
-      (forward-sexp)
-      (setf (elt md 3) (point))
-      (set-match-data md)
-      t)))
-
-(defconst hy--font-lock-kwds-tag-comment-prefix
-  (list 'hy--search-comment-macro
-
-        '(1 font-lock-comment-face t))
-  "Support for higlighting #_(form) the form as a comment.")
-
-;;;; Grouped
-
-(defconst hy-font-lock-kwds
-  (list ;hy--font-lock-kwds-aliases
-   hy--font-lock-kwds-builtins
-   hy--font-lock-kwds-class
-   hy--font-lock-kwds-constants
-   hy--font-lock-kwds-defs
-   hy--font-lock-kwds-decorators
-   hy--font-lock-kwds-exceptions
-   hy--font-lock-kwds-func-modifiers
-   hy--font-lock-kwds-imports
-   hy--font-lock-kwds-kwargs
-   hy--font-lock-kwds-self
-   hy--font-lock-kwds-shebang
-   hy--font-lock-kwds-special-forms
-   hy--font-lock-kwds-tag-macros
-   hy--font-lock-kwds-unpacking
-   hy--font-lock-kwds-variables
-
-   ;; Advanced kwds
-   hy--font-lock-kwds-tag-comment-prefix
-
-   ;; Optional kwds
-   (when hy-font-lock-highlight-percent-args?
-     hy--font-lock-kwds-anonymous-funcs))
-
-  "All Hy font lock keywords.")
+(defconst inferior-hy-mode-syntax-table (copy-syntax-table hy-mode-syntax-table)
+  "`inferior-hy-mode' inherits `hy-mode-syntax-table'.")
 
 ;;; Utilities
 ;;;; Sexp Navigation

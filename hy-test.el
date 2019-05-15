@@ -59,12 +59,14 @@
 (buttercup-define-matcher :faces (text)
   (let ((text (funcall text))
         (hy-shell-internal?))
+
     (when (fboundp 'rainbow-delimiters-mode-disable)
       (advice-add 'hy-mode :after 'rainbow-delimiters-mode-disable))
-    (if (prog1 (faceup-test-font-lock-string 'hy-mode text)
-          (advice-remove 'hy-mode 'rainbow-delimiters-mode-disable))
-        t
-      `(nil . ,(format "Faceup for %s failed" text)))))
+
+    (prog1 (if (faceup-test-font-lock-string 'hy-mode text)
+               t
+             `(nil . ,(format "Faceup for %s failed" text)))
+      (advice-remove 'hy-mode 'rainbow-delimiters-mode-disable))))
 
 ;;; Provide
 

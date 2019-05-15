@@ -20,11 +20,19 @@
 
 ;;; Commentary:
 
-;; Font lock definitions and setup for `hy-mode'
+;; Font lock definitions and setup for `hy-mode'.
 
-;; This file is long but organized.
+;; Font locks are organized and exposed at the end via `hy-font-lock-kwds'
 
-;;; Hy Builtins
+;;; Code:
+
+(require 'hy-base)
+
+(defvar hy-font-lock-highlight-percent-args? t
+  "Whether to highlight '%i' symbols in Hy's clojure-like syntax for lambdas.")
+
+;;; Names Lists
+;;;; Hy Builtins
 
 (defconst hy-font-lock--hy-builtins
   '("*map"
@@ -122,7 +130,7 @@
     "--macros--" "__macros__")
   "Hy-only builtin names.")
 
-;;; Python Builtins
+;;;; Python Builtins
 
 (defconst hy-font-lock--python-builtins
   '("abs"
@@ -192,7 +200,7 @@
     "--name--" "__name__")
   "Builtin names available in Python normally.")
 
-;;; Constants
+;;;; Constants
 
 (defconst hy-font-lock--constants
   '("True"
@@ -204,7 +212,7 @@
     )
   "Constant names in Hy.")
 
-;;; Exceptions
+;;;; Exceptions
 
 (defconst hy-font-lock--exceptions
   '("ArithmeticError" "AssertionError" "AttributeError" "BaseException"
@@ -221,7 +229,7 @@
     "TabError")
   "Exception and error names.")
 
-;;; Definitions
+;;;; Definitions
 
 (defconst hy-font-lock--definitions
   '(;; Functions
@@ -240,7 +248,7 @@
     "defmulti" "defmethod")
   "Names in Hy that define functions, macros, etc.")
 
-;;; Operators
+;;;; Operators
 
 (defconst hy-font-lock--operators
   '("!=" "%" "%=" "&" "&=" "*" "**" "**=" "*=" "+" "+=" "," "-"
@@ -248,7 +256,7 @@
     "^" "^=" "|" "|=" "~")
   "Operators in Hy.")
 
-;;; Special Names
+;;;; Special Names
 
 (defconst hy-font-lock--special-names
   '(;; Looping
@@ -289,7 +297,7 @@
     "eval" "eval-and-compile" "eval-when-compile")
   "Special names like compiler stuff to highlight as keywords.")
 
-;;; Anaphorics
+;;;; Anaphorics
 
 (defconst hy-font-lock--anaphorics
   '("ap-dotimes"
@@ -304,6 +312,240 @@
     "ap-reduce"
     "ap-reject")
   "Hy anaphoric contrib keywords.")
+
+;;; Keywords
+;;;; Based on Names Lists
+
+(defconst hy-font-lock--kwds-builtins
+  (list
+   (rx-to-string
+    `(: symbol-start
+        (or ,@hy-font-lock--hy-builtins
+            ,@hy-font-lock--python-builtins
+            ,@hy-font-lock--operators
+            ,@hy-font-lock--anaphorics)
+        symbol-end))
+
+   '(0 font-lock-builtin-face))
+  "Hy builtin keywords.")
+
+(defconst hy-font-lock--kwds-constants
+  (list
+   (rx-to-string
+    `(: symbol-start
+        (or ,@hy-font-lock--constants)
+        symbol-end))
+
+   '(0 font-lock-constant-face))
+  "Hy constant keywords.")
+
+(defconst hy-font-lock--kwds-definitions
+  (list
+   (rx-to-string
+    `(: "("
+        symbol-start
+        (group-n 1 (or ,@hy-font-lock--definitions))
+        (1+ space)
+        (group-n 2 (1+ word))))
+
+   '(1 font-lock-keyword-face)
+   '(2 font-lock-function-name-face nil t))
+  "Hy definition keywords.")
+
+(defconst hy-font-lock--kwds-exceptions
+  (list
+   (rx-to-string
+    `(: symbol-start
+        (or ,@hy-font-lock--exceptions)
+        symbol-end))
+
+   '(0 font-lock-type-face))
+  "Hy exception keywords.")
+
+(defconst hy-font-lock--kwds-special-names
+  (list
+   (rx-to-string
+    `(: symbol-start
+        (or ,@hy-font-lock--special-names)
+        symbol-end))
+
+   '(0 font-lock-keyword-face))
+  "Hy special names keywords.")
+
+;;;; Static
+
+(defconst hy-font-lock--kwds-class
+  (list
+   (rx (group-n 1 "defclass")
+       (1+ space)
+       (group-n 2 (1+ word)))
+
+   '(1 font-lock-keyword-face)
+   '(2 font-lock-type-face))
+  "Hy class keywords.")
+
+(defconst hy-font-lock--kwds-decorators
+  (list
+   (rx
+    (or (: "#@"
+           (syntax open-parenthesis))
+        (: symbol-start
+           "with-decorator"
+           symbol-end
+           (1+ space)))
+    (1+ word))
+
+   '(0 font-lock-type-face))
+  "Hylight the symbol after `#@' or `with-decorator' macros keywords.")
+
+(defconst hy-font-lock--kwds-imports
+  (list
+   (rx symbol-start
+       (or "import"
+           "require"
+           ":as")
+       symbol-end)
+
+   '(0 font-lock-keyword-face))
+  "Hy import keywords.")
+
+(defconst hy-font-lock--kwds-self
+  (list
+   (rx symbol-start
+       (group "self")
+       (or "." symbol-end))
+
+   '(1 font-lock-keyword-face))
+  "Hy self keyword.")
+
+(defconst hy-font-lock--kwds-tag-macros
+  (list
+   (rx "#"
+       ;; #* is unpacking, #@ decorator, #[ bracket str
+       (not (any "*"
+                 "@"
+                 "["
+                 ")"
+                 space))
+       (0+ (syntax word)))
+
+   '(0 font-lock-function-name-face))
+  "Hylight tag macros, ie. `#tag-macro', so they stand out.")
+
+;;;; Misc
+
+(defconst hy-font-lock--kwds-anonymous-funcs
+  (list
+   (rx symbol-start
+       (group "%" (1+ digit))
+       (or "." symbol-end))
+
+   '(1 font-lock-variable-name-face))
+  "Hy '#%(print %1 %2)' styling anonymous variables.")
+
+(defconst hy-font-lock--kwds-func-modifiers
+  (list
+   (rx symbol-start
+       "&"
+       (1+ word))
+
+   '(0 font-lock-type-face))
+  "Hy '&rest/&kwonly/...' styling.")
+
+(defconst hy-font-lock--kwds-kwargs
+  (list
+   (rx symbol-start
+       ":"
+       (1+ word))
+
+   '(0 font-lock-constant-face))
+  "Hy ':kwarg' styling.")
+
+(defconst hy-font-lock--kwds-shebang
+  (list
+   (rx buffer-start
+       "#!"
+       (0+ not-newline)
+       eol)
+
+   '(0 font-lock-comment-face))
+  "Hy shebang line.")
+
+(defconst hy-font-lock--kwds-unpacking
+  (list
+   (rx (or "#*"
+           "#**")
+       symbol-end)
+
+   '(0 font-lock-keyword-face))
+  "Hy #* arg and #** kwarg unpacking keywords.")
+
+(defconst hy-font-lock--kwds-variables
+  (list
+   (rx symbol-start
+       "setv"
+       symbol-end
+       (1+ space)
+       (group (1+ word)))
+
+   '(1 font-lock-variable-name-face))
+  "Hylight variable names in setv/def, only first name.")
+
+;;;; Advanced
+
+(defconst hy-font-lock--tag-comment-prefix-rx
+  (rx "#_"
+      (* " ")
+      (group-n 1 (not (any " "))))
+  "The regex to match #_ tag comment prefixes.")
+
+(defun hy-font-lock--search-comment-macro (limit)
+  "Search for a comment forward stopping at LIMIT."
+  (-when-let* ((_ (re-search-forward hy-font-lock--tag-comment-prefix-rx limit t))
+               (md (match-data))
+               (start (match-beginning 1))
+               (state (syntax-ppss start)))
+    (if (hy--in-string-or-comment? state)
+        (hy-font-lock--search-comment-macro limit)
+      (goto-char start)
+      (forward-sexp)
+      (setf (elt md 3) (point))
+      (set-match-data md)
+      t)))
+
+(defconst hy-font-lock--kwds-tag-comment-prefix
+  (list #'hy-font-lock--search-comment-macro
+
+        '(1 font-lock-comment-face t))
+  "Support for higlighting #_(form) the form as a comment.")
+
+;;; Font Lock Keywords
+
+(defconst hy-font-lock-kwds
+  (list hy-font-lock--kwds-builtins
+        hy-font-lock--kwds-class
+        hy-font-lock--kwds-constants
+        hy-font-lock--kwds-definitions
+        hy-font-lock--kwds-decorators
+        hy-font-lock--kwds-exceptions
+        hy-font-lock--kwds-func-modifiers
+        hy-font-lock--kwds-imports
+        hy-font-lock--kwds-kwargs
+        hy-font-lock--kwds-self
+        hy-font-lock--kwds-shebang
+        hy-font-lock--kwds-special-names
+        hy-font-lock--kwds-tag-macros
+        hy-font-lock--kwds-unpacking
+        hy-font-lock--kwds-variables
+
+        ;; Advanced kwds
+        hy-font-lock--kwds-tag-comment-prefix
+
+        ;; Optional kwds
+        (when hy-font-lock-highlight-percent-args?
+          hy-font-lock--kwds-anonymous-funcs))
+
+  "All Hy font lock keywords.")
 
 ;;; Provide:
 
