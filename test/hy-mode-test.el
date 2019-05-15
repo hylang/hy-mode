@@ -299,9 +299,6 @@ c]+-])" :indented))
   (it "to with decorator"
     (expect "(«t:with-decorator a-dec» func-def)" :faces))
 
-  (it "to with decorator"
-    (expect "(«t:with-decorator a-dec» func-def)" :faces))
-
   (it "to imports"
     (expect "(«k:import» x [y «k::as» z])" :faces))
 
@@ -412,5 +409,5 @@ c]+-])" :indented))
     (expect "(«k:defn» «f:foo» [] [«s:\"bar\"»])" :faces))
 
   ;; FIXME - Not Implemented, known issue
-  (xit "has only first string of a defn as the docstring"
+  (it "has only first string of a defn as the docstring"
     (expect "(«k:defn» «f:foo» [] «d:\"bar\"» «s:\"baz\"»)" :faces)))

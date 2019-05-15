@@ -530,10 +530,15 @@
 (defun hy-font-lock--string-is-function-docstring? (syntax)
   "Is string SYNTAX specifically a function docstring?"
   (-when-let (inner-symbol (hy--syntax->inner-symbol syntax))
-    (unless (s-equals? inner-symbol "defmethod")
-      (s-matches? (rx "def"
-                      (not blank))
-                  inner-symbol))))
+    (when (and (not (s-equals? "defmethod" inner-symbol))
+               (s-matches? (rx "def" (not blank)) inner-symbol))
+      (let ((start-point (point)))
+        (save-excursion
+          (hy--goto-inner-sexp syntax)
+
+          (-when-let* ((start (ignore-errors (scan-sexps (point) 3)))
+                       (end (ignore-errors (scan-sexps (point) 4))))
+            (<= start start-point end)))))))
 
 ;;; Font Lock Keywords
 
