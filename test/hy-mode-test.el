@@ -417,26 +417,43 @@ c]+-])" :indented))
   (before-all (hy--mode-setup-syntax))
   (after-each (delete-region (point-min) (point-max)))
 
-  (it "captures a simple parenthetical form"
-    (setq text "(foo bar)")
-    (insert text)
-    (backward-char)
+  (describe "current form"
+    (it "captures a simple parenthetical form"
+      (setq text "(foo bar)")
+      (insert text)
+      (backward-char)
 
-    (expect (hy--current-form-string) :to-equal (s-concat text "\n")))
+      (expect (hy--current-form-string) :to-equal (s-concat text "\n")))
 
-  (it "captures a simple list form"
-    (setq text "[foo bar]")
-    (insert text)
-    (backward-char)
+    (it "captures a simple list form"
+      (setq text "[foo bar]")
+      (insert text)
+      (backward-char)
 
-    (expect (hy--current-form-string) :to-equal (s-concat text "\n")))
+      (expect (hy--current-form-string) :to-equal (s-concat text "\n")))
 
-  (it "captures nested forms"
-    (setq text "[foo (foo bar) bar]")
-    (setq paren-start 7)
-    (insert text)
-    (backward-char)
+    (it "captures nested forms"
+      (setq text "[foo (foo bar) bar]")
+      (setq paren-start 6)
+      (insert text)
+      (backward-char)
 
-    (expect (hy--current-form-string) :to-equal (s-concat text "\n"))
-    (goto-char paren-start)
-    (expect (hy--current-form-string) :to-equal (s-concat "(foo bar)" "\n"))))
+      (expect (hy--current-form-string) :to-equal (s-concat text "\n"))
+      (goto-char (1+ paren-start))
+      (expect (hy--current-form-string) :to-equal (s-concat "(foo bar)" "\n"))))
+
+  (describe "last sexp"
+    (it "captures a simple parenthetical form"
+      (setq text "(foo bar)")
+      (insert text)
+
+      (expect (hy--last-sexp-string) :to-equal (s-concat "(foo bar)" "\n")))
+
+    (it "captures nested forms"
+      (setq text "[foo (foo bar) bar]")
+      (setq paren-end 14)
+      (insert text)
+
+      (expect (hy--last-sexp-string) :to-equal (s-concat text "\n"))
+      (goto-char (1+ paren-end))
+      (expect (hy--last-sexp-string) :to-equal (s-concat "(foo bar)" "\n")))))

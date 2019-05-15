@@ -36,6 +36,10 @@
   "Get innermost char of SYNTAX."
   (nth 1 syntax))
 
+(defun hy--syntax->last-sexp-start (state)
+  "Return start of last sexp of syntax STATE."
+  (nth 2 state))
+
 (defun hy--syntax->string-start (syntax)
   "Return start of STATE that is in a string."
   (nth 8 syntax))
@@ -49,6 +53,10 @@
 (defun hy--goto-inner-sexp (syntax)
   "Goto innermost sexp of SYNTAX."
   (-some-> syntax hy--syntax->inner-char 1+ goto-char))
+
+(defun hy--goto-last-sexp-start (syntax)
+  "Goto start of last sexp of SYNTAX."
+  (-some-> syntax hy--syntax->last-sexp-start goto-char))
 
 ;;;; Utilities
 

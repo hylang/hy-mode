@@ -121,22 +121,20 @@ Fuzzy matches expect a match at start of symbol (eg. with-foo).")
 (defun hy--current-form-string ()
   "Get form containing current point as string plus a trailing newline."
   (save-excursion
-    (when (hy--goto-inner-char (syntax-ppss))
-      (let ((start (point)))
-        (while (ignore-errors (forward-sexp)))
+    (-when-let (start (hy--goto-inner-char (syntax-ppss)))
+      (while (ignore-errors (forward-sexp)))
 
-        (s-concat (buffer-substring-no-properties start (point))
-                  "\n")))))
+      (s-concat (buffer-substring-no-properties start (point))
+                "\n"))))
 
 (defun hy--last-sexp-string ()
   "Get form containing last s-exp point as string plus a trailing newline."
   (save-excursion
-    (-when-let* ((state (syntax-ppss))
-                 (start-pos (hy--start-of-last-sexp state)))
-      (goto-char start-pos)
+    (-when-let (start (hy--goto-last-sexp-start (syntax-ppss)))
       (while (ignore-errors (forward-sexp)))
 
-      (concat (buffer-substring-no-properties start-pos (point)) "\n"))))
+      (s-concat (buffer-substring-no-properties start (point))
+                "\n"))))
 
 ;;; Indentation
 ;;;; Utilities
