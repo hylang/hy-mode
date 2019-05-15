@@ -40,9 +40,17 @@
   "Return start of STATE that is in a string."
   (nth 8 syntax))
 
+;;;; Gotos
+
+(defun hy--goto-inner-char (syntax)
+  "Goto innermost char of SYNTAX."
+  (-some-> syntax hy--syntax->inner-char goto-char))
+
 (defun hy--goto-inner-sexp (syntax)
   "Goto innermost sexp of SYNTAX."
   (-some-> syntax hy--syntax->inner-char 1+ goto-char))
+
+;;;; Utilities
 
 (defun hy--syntax->inner-symbol (syntax)
   "Get innermost sexp of SYNTAX."
@@ -50,7 +58,7 @@
     (when (hy--goto-inner-sexp syntax)
       (thing-at-point 'symbol))))
 
-;;;; Old
+;;; Legacy
 
 (defun hy--sexp-inermost-char (state)
   "Return innermost char of syntax STATE."
@@ -78,7 +86,7 @@
   "Is there a prior sexp from syntax STATE?"
   (number-or-marker-p (hy--start-of-last-sexp state)))
 
-;;; General Purpose
+;;;; General Purpose
 
 (defun hy--str-or-nil (text)
   "If TEXT is non-blank, return TEXT else nil."

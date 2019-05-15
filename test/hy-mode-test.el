@@ -408,6 +408,35 @@ c]+-])" :indented))
     (expect "(«k:defn» «f:foo» [] «d:\"bar\"»)" :faces)
     (expect "(«k:defn» «f:foo» [] [«s:\"bar\"»])" :faces))
 
-  ;; FIXME - Not Implemented, known issue
   (it "has only first string of a defn as the docstring"
     (expect "(«k:defn» «f:foo» [] «d:\"bar\"» «s:\"baz\"»)" :faces)))
+
+;;; Form Captures
+
+(describe "Form Capturing"
+  (before-all (hy--mode-setup-syntax))
+  (after-each (delete-region (point-min) (point-max)))
+
+  (it "captures a simple parenthetical form"
+    (setq text "(foo bar)")
+    (insert text)
+    (backward-char)
+
+    (expect (hy--current-form-string) :to-equal (s-concat text "\n")))
+
+  (it "captures a simple list form"
+    (setq text "[foo bar]")
+    (insert text)
+    (backward-char)
+
+    (expect (hy--current-form-string) :to-equal (s-concat text "\n")))
+
+  (it "captures nested forms"
+    (setq text "[foo (foo bar) bar]")
+    (setq paren-start 7)
+    (insert text)
+    (backward-char)
+
+    (expect (hy--current-form-string) :to-equal (s-concat text "\n"))
+    (goto-char paren-start)
+    (expect (hy--current-form-string) :to-equal (s-concat "(foo bar)" "\n"))))
