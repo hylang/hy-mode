@@ -128,13 +128,15 @@ Example:
 => backwards-sexp will throw error trying to jump to a
 => `hy-indent-function' returns nil
 => black magic then yields the correct indent
-   (curious users can step through the part of `calculate-lisp-indent'
-    occurring right after `lisp-indent-function' is funcalled. Stepping through
-    the trace is particularly useful in understanding indentation commands).
 
 2. Indent f => start at e (the last sexp) -> loop done
 => backward-sexp loop terminates because the indentation caught up to the sexp
-=> return indent of e"
+=> return indent of e
+
+Users interested in the arcane (the nil case) can step through the part of
+`calculate-lisp-indent' occurring right after `lisp-indent-function' is called.
+Stepping through the trace is particularly useful in understanding indentation
+commands."
   (goto-char calculated-last-sexp-indent)
 
   (let ((last-sexp-start))
@@ -178,18 +180,14 @@ Example:
 
 ;;; Bracket String Literals
 
-(defun hy--match-bracket-string (limit)
-  "Search forward for a bracket string literal."
-  (re-search-forward
-   (rx "#["
-       (0+ not-newline)
-       "["
-       (group (1+ (not (any "]"))))
-       "]"
-       (0+ not-newline)
-       "]")
-   limit
-   t))
+(defconst hy--bracket-string-rx
+  (rx "#["
+      (0+ not-newline)
+      "["
+      (group (1+ (not (any "]"))))
+      "]"
+      (0+ not-newline)
+      "]"))
 
 (defun hy-syntax-propertize-function (start end)
   "Implements context sensitive syntax highlighting beyond `font-lock-keywords'.
@@ -200,16 +198,16 @@ and determined by `font-lock-mode' internals when making an edit to a buffer."
   (save-excursion
     (goto-char start)
 
-    ;; Start goes to current line, need to go to start of #[[ block
-    (when (nth 1 (syntax-ppss))  ; when inermost-char go to [ => [ => #
-      (goto-char (- (hy--sexp-inermost-char (syntax-ppss)) 2)))
+    ;; Go to the start of the #[[ block
+    (when (hy--goto-inner-char (syntax-ppss))
+      (ignore-errors (backward-char 2)))
 
-    (while (hy--match-bracket-string end)
-      (put-text-property (1- (match-beginning 1)) (match-beginning 1)
-                         'syntax-table (string-to-syntax "|"))
-
-      (put-text-property (match-end 1) (1+ (match-end 1))
-                         'syntax-table (string-to-syntax "|")))))
+    (while (re-search-forward hy--bracket-string-rx end 'noerror)
+      (-let ((a (match-beginning 1))
+             (b (match-end 1))
+             (string-fence (string-to-syntax "|")))
+        (put-text-property (1- a) a 'syntax-table string-fence)
+        (put-text-property b (1+ b) 'syntax-table string-fence)))))
 
 ;;; Shell Integration
 ;;;; Configuration
