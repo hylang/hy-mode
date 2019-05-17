@@ -37,6 +37,7 @@
 (require 'hy-base)
 
 (require 'hy-font-lock)
+(require 'hy-shell)
 
 (defgroup hy-mode nil
   "A mode for Hy"
