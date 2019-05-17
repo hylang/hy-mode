@@ -234,7 +234,7 @@
 
   (describe "special indent rules"
     (it "handles exact matches"
-      (let ((hy-indent-special-forms '(:exact ("foo") :fuzzy ())))
+      (let ((hy-indent--exactly '("foo")))
         (expect "
 (foo
   a)
@@ -245,7 +245,7 @@
 " :indented)))
 
     (it "handles fuzzy matches"
-      (let ((hy-indent-special-forms '(:exact () :fuzzy ("foo"))))
+      (let ((hy-indent--fuzzily '("foo")))
         (expect "
 (foo
   a)

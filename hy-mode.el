@@ -71,22 +71,19 @@ Keep nil unless using specific Hy branch.")
 
 ;;;; Indentation
 
-(defvar hy-indent-special-forms
-  '(:exact
-    ("when" "unless"
-     "for" "for*" "for/a" "for/a*"
-     "while"
-     "except" "catch")
+(defvar hy-indent--exactly
+  '("when" "unless"
+    "for" "for*" "for/a" "for/a*"
+    "while"
+    "except" "catch")
+  "Symbols that will have following lines indented +1 when matched.")
 
-    :fuzzy
-    ("def"
-     "let"
-     "with" "with/a"
-     "fn" "fn/a"))
-  "Special forms to always indent following line by +1.
-
-Exact matches expect the symbol to match the given word exactly.
-Fuzzy matches expect a match at start of symbol (eg. with-foo).")
+(defvar hy-indent--fuzzily
+  '("def"
+    "let"
+    "with" "with/a"
+    "fn" "fn/a")
+  "Symbols that will have following lines indented +1 when matched at start.")
 
 ;;; Syntax Table
 
@@ -129,7 +126,7 @@ Fuzzy matches expect a match at start of symbol (eg. with-foo).")
             2)
            (t 0))))
 
-(defun hy--normal-indent (last-sexp)
+(defun hy-indent--normal (last-sexp)
   "Determine normal indentation column of LAST-SEXP.
 
 Example:
@@ -143,37 +140,28 @@ Example:
 => by magic (ie. lisp-mode recalling stuff) we get the right indent
 
 2. Indent f => start at e (the last sexp) -> backward-sexp loop terminates
-=> return indent of e
-
-If step 1 is confusing, it is to me too."
+=> return indent of e"
   (goto-char last-sexp)
 
-  ;; Normal indentation can return nil! Lisp-mode handles that case!
   (let ((last-sexp-start))
-    (cond
-     ;; Try to find the function argument to align with
-     ((ignore-errors
-        (while (<= (current-indentation) (current-column))
-          (setq last-sexp-start (prog1 (point) (backward-sexp))))
-        t)
-      (current-column))
+    (cond ((ignore-errors
+             (while (<= (current-indentation) (current-column))
+               (setq last-sexp-start (prog1 (point) (backward-sexp))))
+             t)
+           (current-column))
 
-     ;; No function arguments to align with
-     ((null last-sexp-start)
-      (progn
-        (goto-char (hy--start-of-sexp-including-quotes (point)))
-        (1+ (current-column)))))))
+          ((null last-sexp-start)
+           (progn
+             (goto-char (hy--start-of-sexp-including-quotes (point)))
+             (1+ (current-column)))))))
 
-;;;; Hy find indent spec
+;;;; Indent Specs
 
-(defun hy--find-indent-spec (state)
+(defun hy--find-indent-spec (sym)
   "Return integer for special indentation of form or nil to use normal indent."
-  (-when-let (function (and (hy--prior-sexp? state)
-                            (thing-at-point 'symbol)))
-    (or (-contains? (plist-get hy-indent-special-forms :exact)
-                    function)
-        (-some (-cut s-matches? <> function)
-               (plist-get hy-indent-special-forms :fuzzy)))))
+  (when sym
+    (or (-contains? hy-indent--exactly sym)
+        (-some (-cut s-matches? <> sym) hy-indent--fuzzily))))
 
 ;;;; Hy indent function
 
@@ -181,14 +169,13 @@ If step 1 is confusing, it is to me too."
   "Indent at INDENT-POINT where STATE is `parse-partial-sexp' for INDENT-POINT."
   (hy--goto-inner-sexp state)
 
-  (cond
-   ((-contains? '(?\[ ?\{) (char-before))
-    (current-column))
+  (cond ((-contains? '(?\[ ?\{) (char-before))
+         (current-column))
 
-   ((hy--find-indent-spec state)
-    (1+ (current-column)))
+        ((hy--find-indent-spec (thing-at-point 'symbol))
+         (1+ (current-column)))
 
-   (t (hy--normal-indent calculate-lisp-indent-last-sexp))))
+        (t (hy-indent--normal calculate-lisp-indent-last-sexp))))
 
 ;;; Bracket String Literals
 
