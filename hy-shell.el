@@ -60,6 +60,71 @@
 (defvar hy-shell--output-filter-in-progress nil
   "Whether we are waiting for output in `hy-shell-send-string-no-output'.")
 
+;;; Fundamentals
+;;;; Accessing
+
+(defun hy-shell--installed? ()
+  "Is the command `hy-shell--interpreter' available?"
+  (executable-find hy-shell--interpreter))
+
+(defun hy-shell--get-buffer-create ()
+  "Get or create `hy-shell--buffer'."
+  (setq hy-shell--buffer
+        (get-buffer-create hy-shell--buffer-name)))
+
+(defun hy-shell--get-buffer-create-internal ()
+  "Get or create `hy-shell--buffer-internal'."
+  (setq hy-shell--buffer-internal
+        (get-buffer-create hy-shell--buffer-name-internal)))
+
+(defun hy-shell--format-proc-name (proc-name)
+  "Enclose PROC-NAME with astericks to follow process naming conventions."
+  (s-concat "*" proc-name "*"))
+
+(defun hy-shell--process ()
+  "Process corr. to `hy-shell--buffer-name'."
+  (get-process hy-shell--buffer-name))
+
+(defun hy-shell--process-internal ()
+  "Process corr. to `hy-shell--buffer-name-internal'."
+  (get-process hy-shell--buffer-name-internal))
+
+;;;; Status
+
+(defun hy-shell--live? ()
+  "Is Hy's shell alive?"
+  (process-live-p (hy-shell--process)))
+
+(defun hy-shell--buffer-live? ()
+  "Is Hy's shell buffer alive?"
+  (when hy-shell--buffer
+    (buffer-live-p hy-shell--buffer)))
+
+(defun hy-shell--live-internal? ()
+  "Is Hy's internal process alive?"
+  (process-live-p (hy-shell--process-internal)))
+
+(defun hy-shell--buffer-live-internal? ()
+  "Is Hy's shell buffer alive?"
+  (when hy-shell--buffer-internal
+    (buffer-live-p hy-shell--buffer-internal)))
+
+;;;; Commands
+
+(defun hy-shell--kill ()
+  "Kill `hy-shell--buffer'."
+  (when (hy-shell--buffer-live?)
+    (kill-buffer hy-shell--buffer)
+    (when (derived-mode-p 'inferior-hy-mode)
+      (setq hy-shell--buffer nil))))
+
+(defun hy-shell--kill-internal ()
+  "Kill `hy-shell--buffer-internal'."
+  (when (hy-shell--buffer-live-internal?)
+    (kill-buffer hy-shell--buffer-internal)
+    (when (derived-mode-p 'inferior-hy-mode)
+      (setq hy-shell--buffer-internal nil))))
+
 ;;; Provide:
 
 (provide 'hy-shell)
