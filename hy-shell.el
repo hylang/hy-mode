@@ -46,13 +46,16 @@
 
 ;;;; Managed
 
-(defvar hy-shell--buffer nil
-  "The buffer for the current Hy interpreter process we are operating on.")
-
 (defconst hy-shell--name "Hy"
-  "The buffer name to use for the Hy interpreter process.")
+  "The name to use for the Hy interpreter process.")
 
 (defconst hy-shell--name-internal (format "%s Internal" hy-shell--name)
+  "The name to use for the internal Hy interpreter process.")
+
+(defconst hy-shell--buffer-name (s-concat "*" hy-shell--name "*")
+  "The buffer name to use for the Hy interpreter process.")
+
+(defconst hy-shell--buffer-name-internal (s-concat "*" hy-shell--name-internal "*")
   "The buffer name to use for the internal Hy interpreter process.")
 
 ;;; Macros
@@ -60,29 +63,29 @@
 (defmacro hy-shell--with (&rest body)
   "Run BODY for Hy process, starting up if needed."
   (declare (indent 0))
-  `(when (hy-shell--warn-installed?)
-     (let ((hy-shell--buffer (get-buffer-create hy-shell--name)))
-       (with-current-buffer hy-shell--buffer
-         (let ((proc (hy-shell--make-comint)))
-           ,@body)))))
+  `(when (hy-shell--check-installed?)
+     (with-current-buffer (get-buffer-create hy-shell--buffer-name)
+       (hy-shell--make-comint)
+       ,@body)))
 
 (defmacro hy-shell--with-internal (&rest body)
   "Run BODY for internal Hy process, starting up if needed."
   (declare (indent 0))
-  `(when (hy-shell--warn-installed?)
-     (let ((hy-shell--buffer (get-buffer-create hy-shell--name-internal)))
-       (with-current-buffer hy-shell--buffer
-         (let ((proc (hy-shell--make-comint-internal)))
-           ,@body)))))
+  `(when (hy-shell--check-installed?)
+     (with-current-buffer (get-buffer-create hy-shell--buffer-name-internal)
+       (hy-shell--make-comint-internal)
+       ,@body)))
 
 ;;; Process Management
 ;;;; Utilities
 
+(defun hy-shell--current-process ()
+  "Run `get-buffer-process' on the `current-buffer'."
+  (get-buffer-process (current-buffer)))
+
 (defun hy-shell--internal? ()
   "Is current buffer for an internal Hy interpreter process?"
-  (s-equals? (buffer-name) hy-shell--name-internal))
-
-;;;; Creation
+  (s-equals? (buffer-name) hy-shell--buffer-name-internal))
 
 (defun hy-shell--format-startup-command ()
   "Format Hy shell startup command."
@@ -94,21 +97,28 @@
         prog
       (format "%s %s" prog switches))))
 
+(defun hy-shell--format-startup-name ()
+  "Format the Hy shell process name, for before we actually created it."
+  (if (hy-shell--internal?)
+      hy-shell--name-internal
+    hy-shell--name))
+
+;;;; Creation
+
 (defun hy-shell--make-comint ()
   "Create Hy shell comint process in current-buffer."
-  (unless (process-live-p (current-buffer))
-    (-let* (((prog . switches)
-             (split-string-and-unquote (hy-shell--format-startup-command))))
-      (apply #'make-comint-in-buffer (buffer-name) nil prog nil switches)
-
-      (unless (derived-mode-p 'inferior-hy-mode)
-        (inferior-hy-mode))
-
-      (get-buffer-process (buffer-name)))))
+  (unless (process-live-p (hy-shell--current-process))
+    (-let (((program . switches)
+            (split-string-and-unquote (hy-shell--format-startup-command)))
+           (name
+            (hy-shell--format-startup-name)))
+      (apply #'make-comint-in-buffer name nil program nil switches)
+      (unless (derived-mode-p 'inferior-hy-mode) (inferior-hy-mode))
+      (hy-shell--current-process))))
 
 (defun hy-shell--make-comint-internal ()
   "Run `hy-shell--make-comint' with additional setup for internal processes."
-  (let (proc ((hy-shell--make-comint)))
+  (-when-let (proc (hy-shell--make-comint))
     (set-process-query-on-exit-flag proc nil)
     proc))
 
@@ -142,11 +152,12 @@
 
 ;;; Notifications
 
-(defun hy-shell--warn-installed? ()
+(defun hy-shell--check-installed? ()
   "Warn if `hy-shell--interpreter' is not found, returning non-nil otherwise."
   (if (executable-find hy-shell--interpreter)
       t
-    (message "Hy executable not found. Install or activate a env with Hy.")))
+    (message "Hy executable not found. Install or activate a env with Hy.")
+    nil))
 
 (defun hy-shell--notify-process-success-internal ()
   (when hy-shell--notify?
@@ -159,13 +170,15 @@
   "Kill the Hy interpreter process."
   (interactive)
 
-  (hy-shell--with (kill-buffer (current-buffer))))
+  (hy-shell--with
+    (kill-buffer (current-buffer))))
 
 (defun hy-shell--kill-internal ()
   "Kill the internal Hy interpreter process."
   (interactive)
 
-  (hy-shell--with-internal (kill-buffer (current-buffer))))
+  (hy-shell--with-internal
+    (kill-buffer (current-buffer))))
 
 ;;;; Running
 
@@ -179,7 +192,8 @@
 (defun run-hy ()
   (interactive)
 
-  (hy-shell--with (display-buffer hy-shell--buffer)))
+  (hy-shell--with
+    (switch-to-buffer-other-window (current-buffer))))
 
 ;;; Provide:
 

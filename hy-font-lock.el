@@ -164,6 +164,7 @@
     "hex"
     "id"
     "input"
+    "int"
     "isinstance"
     "issubclass"
     "iter"
