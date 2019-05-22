@@ -2,6 +2,8 @@
 
 (require 'buttercup)
 (require 'faceup)
+(require 'pyvenv)
+
 (require 'hy-mode)
 
 ;;; Buttercup Extensions
@@ -67,6 +69,21 @@
                t
              `(nil . ,(format "Faceup for %s failed" text)))
       (advice-remove 'hy-mode 'rainbow-delimiters-mode-disable))))
+
+;;; Process Tests - EXPERIMENTAL
+
+(defvar hy-test--pyvenv-name "hackingenv"
+  "The name of a python virtual environment with Hy installed.
+
+If no name is given, then process-based tests will be skipped.")
+
+(defun hy-test--setup-env ()
+  "Setup virtual env for process-based tests."
+  (if hy-test--pyvenv-name
+      (if (ignore-errors (prog1 t (pyvenv-workon hy-test--pyvenv-name)))
+          (message "Pyvenv started successfully for tests.")
+        (message "Pyvenv failed to start for tests!"))
+    (message "`hy-test--pyvenv-name' is not set - no Hy process tests ran!")))
 
 ;;; Provide
 

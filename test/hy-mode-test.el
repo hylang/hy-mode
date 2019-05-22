@@ -23,7 +23,8 @@
 
 (progn (require 'f)
        (add-to-list 'load-path (f-parent (f-parent (f-this-file))))
-       (require 'hy-test))
+       (require 'hy-test)
+       (hy-test--setup-env))
 
 ;;; Indentation
 
@@ -317,7 +318,7 @@ c]+-])" :indented))
   (it "to class definitions"
     (expect "«k:defclass» «t:Klass» [parent]" :faces))
 
-  (it "to special forms"
+  (it "to tag macro decorator"
     (expect "«t:#@(a-dec» func-def)" :faces))
 
   (it "to with decorator"
