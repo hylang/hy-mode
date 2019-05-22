@@ -42,7 +42,7 @@
   "Whether the shell should font-lock the current line.")
 
 (defvar hy-shell--notify? t
-  "Should Hy message on successful instantiation, shutdown, etc?")
+  "Allow Hy to message on failure to find Hy, instantiation, shutdown, etc?")
 
 ;;;; Managed
 
@@ -118,11 +118,12 @@
 
 (defun hy-shell--make-comint-internal ()
   "Run `hy-shell--make-comint' with additional setup for internal processes."
-  (-when-let (proc (hy-shell--make-comint))
-    (set-process-query-on-exit-flag proc nil)
-    proc))
+  (let ((hy-shell--enable-font-lock?))
+    (-when-let (proc (hy-shell--make-comint))
+      (set-process-query-on-exit-flag proc nil)
+      proc)))
 
-;;; Sending Text - In progress
+;;; Sending Text - Transfer in Progress
 
 ;; (defun hy-shell--end-of-output? (text)
 ;;   "Does TEXT contain a prompt, and so, signal end of the output?"
@@ -154,10 +155,11 @@
 
 (defun hy-shell--check-installed? ()
   "Warn if `hy-shell--interpreter' is not found, returning non-nil otherwise."
-  (if (executable-find hy-shell--interpreter)
-      t
-    (message "Hy executable not found. Install or activate a env with Hy.")
-    nil))
+  (cond
+   ((executable-find hy-shell--interpreter))
+   (hy-shell--notify?
+    (prog1 nil
+      (message "Hy executable not found. Install or activate a env with Hy.")))))
 
 (defun hy-shell--notify-process-success-internal ()
   (when hy-shell--notify?

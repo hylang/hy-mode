@@ -228,7 +228,7 @@ and determined by `font-lock-mode' internals when making an edit to a buffer."
 (defvar hy--shell-output-filter-in-progress nil
   "Whether we are waiting for output in `hy-shell-send-string-no-output'.")
 
-(defvar hy--shell-font-lock-enable t
+(defvar hy-shell--enable-font-lock? t
   "Whether the shell should font-lock the current line.")
 
 (defconst hy--shell-spy-delim-uuid "#cbb4fcbe-b6ba-4812-afa3-4a5ac7b20501"
@@ -524,12 +524,12 @@ Eldoc, Anaconda, and other hy-mode features."))
 
   (when (and (not (hy-shell-get-process 'internal))
              (hy-installed?))
-    (-let [hy--shell-font-lock-enable
+    (-let [hy-shell--enable-font-lock?
            nil]
       (prog1
           (-> (hy--shell-calculate-command 'internal)
-              (hy--shell-make-comint (hy-shell-get-process-name 'internal) nil 'internal)
-              get-buffer-process)
+             (hy--shell-make-comint (hy-shell-get-process-name 'internal) nil 'internal)
+             get-buffer-process)
         (hy--shell-send-internal-setup-code)
         (message "Hy internal process successfully started")))))
 
@@ -1102,7 +1102,7 @@ Not all defuns can be argspeced - eg. C defuns.\"
   (setq-local comint-output-filter-functions '(ansi-color-process-output))
 
   ;; Don't startup font lock for internal processes
-  (when hy--shell-font-lock-enable
+  (when hy-shell--enable-font-lock?
     (if (fboundp 'xterm-color-filter)
         (setq-local comint-preoutput-filter-functions
                     `(xterm-color-filter hy--shell-font-lock-spy-output))
