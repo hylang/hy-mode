@@ -20,3 +20,7 @@ for a smoother experience.
 ~hy-mode~ is well-tested. It uses [[https://github.com/jorgenschaefer/emacs-buttercup][buttercup]] rather than ~ert~.
 
 Execute tests after running ~cask install~ with the command: ~cask exec buttercup -L .~
+
+Process-based tests currently rely on setting ~hy-test--pyvenv-name~ to the name
+of a virtual environment containing Hy, see ~hy-test.el~. If not set, then
+process-based tests will be skipped.

@@ -6,6 +6,13 @@
 
 (require 'hy-mode)
 
+;;; Configuration
+
+(defvar hy-test--pyvenv-name "hackingenv"
+  "The name of a python virtual environment with Hy installed.
+
+If no name is given, then process-based tests will be skipped.")
+
 ;;; Buttercup Extensions
 
 (defalias 'xnt-describe #'xdescribe)
@@ -71,11 +78,6 @@
       (advice-remove 'hy-mode 'rainbow-delimiters-mode-disable))))
 
 ;;; Process Tests - EXPERIMENTAL
-
-(defvar hy-test--pyvenv-name "hackingenv"
-  "The name of a python virtual environment with Hy installed.
-
-If no name is given, then process-based tests will be skipped.")
 
 (defun hy-test--setup-env ()
   "Setup virtual env for process-based tests."
