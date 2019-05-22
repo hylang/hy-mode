@@ -10,5 +10,10 @@
 
 (development
  (depends-on "buttercup")
+ (depends-on "f")
+
+ ;; For fontification and syntax
  (depends-on "faceup")
- (depends-on "f"))
+
+ ;; For processes
+ (depends-on "pyvenv"))

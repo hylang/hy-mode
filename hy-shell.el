@@ -182,9 +182,17 @@
   (hy-shell--with-internal
     (kill-buffer (current-buffer))))
 
+(defun hy-shell--kill-all ()
+  "Kill all Hy interpreter processes."
+  (interactive)
+
+  (hy-shell--kill)
+  (hy-shell--kill-internal))
+
 ;;;; Running
 
 (defun run-hy-internal ()
+  "Startup the internal Hy interpreter process."
   (interactive)
 
   (hy-shell--with-internal
@@ -192,6 +200,7 @@
     (hy-shell--notify-process-success-internal)))
 
 (defun run-hy ()
+  "Startup and/or switch to a Hy interpreter process."
   (interactive)
 
   (hy-shell--with
