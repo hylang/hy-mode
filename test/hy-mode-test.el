@@ -24,6 +24,9 @@
 (progn (require 'f)
        (add-to-list 'load-path (f-parent (f-parent (f-this-file))))
        (require 'hy-test)
+
+       ;; Shell based currently in progress
+       (require 'hy-shell)
        (hy-test--setup-env))
 
 ;;; Indentation
@@ -479,3 +482,19 @@ c]+-])" :indented))
       (expect (hy--last-sexp-string) :to-equal (s-concat text "\n"))
       (goto-char (1+ paren-end))
       (expect (hy--last-sexp-string) :to-equal (s-concat "(foo bar)" "\n")))))
+
+;;; Shell
+
+(describe "Shell"
+  (before-all (run-hy)
+              (switch-to-buffer hy-shell--buffer-name)
+              (set-process-query-on-exit-flag (hy-shell--current-process) nil))
+
+  (after-all (hy-shell--kill))
+
+  (describe "startup"
+    (it "sets the name and switches"
+      (expect (buffer-name) :to-equal hy-shell--buffer-name))
+
+    (it "starts the process and associates with the buffer"
+      (expect (process-live-p (hy-shell--current-process))))))
