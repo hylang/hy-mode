@@ -195,13 +195,7 @@ So what if we only fontify input regions?
            . hy-font-lock-syntactic-face-function)))
 
   (unless (hy-shell--internal?)
-    (font-lock-mode 1))
-
-  ;; (add-hook 'post-command-hook
-  ;;           #'hy--shell-fontify-prompt-post-command-hook nil 'local)
-  ;; (add-hook 'kill-buffer-hook
-  ;;           #'hy--shell-kill-buffer nil 'local)
-  )
+    (font-lock-mode 1)))
 
 (setq hy-font-lock--test-comint-rx
       (rx-to-string `(: (group symbol-start
@@ -210,34 +204,41 @@ So what if we only fontify input regions?
 
 (defun hy-font-lock--test-comint-search (limit)
   (when (re-search-forward hy-font-lock--test-comint-rx limit t)
-    (-let* ((md (match-data))
-            (start (match-beginning 1))
-            ((comint-last-start . comint-last-end) comint-last-prompt))
+    (-let ((start (match-beginning 1))
+           ((comint-last-start . comint-last-end) comint-last-prompt))
       (if (or (<= start comint-last-start)
               (hy--in-string-or-comment? (syntax-ppss)))
           (hy-font-lock--test-comint-search limit)
-        (goto-char start)
-        (forward-sexp)
-        (setf (elt md 3) (point))
-        (set-match-data md)
         t))))
 
-(setq hy-font-lock--kwds-test-comint (list #'hy-font-lock--test-comint-search
-                                          '(1 font-lock-keyword-face t)))
-(setq inferior-hy-font-lock-kwds (list hy-font-lock--kwds-test-comint))
+;; (setq hy-font-lock--kwds-test-comint (list #'hy-font-lock--test-comint-search
+;;                                           '(1 font-lock-keyword-face t)))
+;; (setq inferior-hy-font-lock-kwds (list hy-font-lock--kwds-test-comint))
 
-;;;; Post-Command-based
+(defun hy-font-lock--convert-kwd-for-comint (kwd)
+  (-let (((regex . rest) kwd))
+    `((lambda (limit)
+        (when (re-search-forward ,regex limit t)
+          ;; While the SUBEXP can be anything, this search always can use zero
+          (-let ((start (match-beginning 0))
+                 ((comint-last-start . comint-last-end) comint-last-prompt))
+            (if (or (<= start comint-last-start)
+                    ;; Have to manually do this in custom MATCHERs
+                    (hy--in-string-or-comment? (syntax-ppss)))
+                (hy-font-lock--test-comint-search limit)
+              t))))
+      ,@rest)))
 
-;; (defun hy-font-lock--convert-kwd-for-comint (kwd)
-;;   (-let (((regex . rest) kwd))
-;;     `((lambda (limit)
-;;         (-let (((comint-last-start . comint-last-end) comint-last-prompt)
-;;                (start (point)))
-;;           (when (re-search-forward ,regex limit nil t)
-;;             (and (<= start comint-last-start)
-;;                  ;; (<= (point) comint-last-end)
-;;                  ))))
-;;       rest)))
+(setq inferior-hy-font-lock-kwds
+      (list (hy-font-lock--convert-kwd-for-comint
+             hy-font-lock--kwds-special-names)))
+
+;; (-let (((comint-last-start . comint-last-end) comint-last-prompt)
+;;        (start (point)))
+;;   (when (re-search-forward ,regex limit nil t)
+;;     (and (<= start comint-last-start)
+;;          ;; (<= (point) comint-last-end)
+;;          )))
 
 ;; (defun hy-font-lock--comint-prompt-check (regex limit)
 ;;   (-let (((comint-last-start . comint-last-end) comint-last-prompt)
@@ -247,6 +248,7 @@ So what if we only fontify input regions?
 ;;            ;; (<= (point) comint-last-end)
 ;;            ))))
 
+;;;; Post-Command-based
 
 ;; (defun hy-shell--faces->font-lock-faces (text &optional start-pos)
 ;;   "Set all 'face in TEXT to 'font-lock-face optionally starting at START-POS."
