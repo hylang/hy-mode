@@ -185,12 +185,18 @@ Then we would fontify the shell output too, which can be arbitrary!
 So what if we only fontify input regions?
 (actually I'm trying this out right now)
 "
-  (setq-local font-lock-keywords inferior-hy-font-lock-kwds)
+  (setq font-lock-defaults
+        '(inferior-hy-font-lock-kwds
+          nil nil
+          (("+-*/.<>=!?$%_&~^:@" . "w"))  ; syntax alist
+          nil
+          (font-lock-mark-block-function . mark-defun)
+          (font-lock-syntactic-face-function  ; Differentiates (doc)strings
+           . hy-font-lock-syntactic-face-function)))
 
   (unless (hy-shell--internal?)
     (font-lock-mode 1))
 
-  (setq-local font-lock-keywords inferior-hy-font-lock-kwds)
   ;; (add-hook 'post-command-hook
   ;;           #'hy--shell-fontify-prompt-post-command-hook nil 'local)
   ;; (add-hook 'kill-buffer-hook
@@ -203,17 +209,18 @@ So what if we only fontify input regions?
                                symbol-end))))
 
 (defun hy-font-lock--test-comint-search (limit)
-  (-when-let* ((_ (re-search-forward hy-font-lock--test-comint-rx limit t))
-               (md (match-data))
-               (start (match-beginning 1))
-               ((comint-last-start . comint-last-end) comint-last-prompt))
-    (if (<= start comint-last-start)
-        (hy-font-lock--test-comint-search limit)
-      (goto-char start)
-      (forward-sexp)
-      (setf (elt md 3) (point))
-      (set-match-data md)
-      t)))
+  (when (re-search-forward hy-font-lock--test-comint-rx limit t)
+    (-let* ((md (match-data))
+            (start (match-beginning 1))
+            ((comint-last-start . comint-last-end) comint-last-prompt))
+      (if (or (<= start comint-last-start)
+              (hy--in-string-or-comment? (syntax-ppss)))
+          (hy-font-lock--test-comint-search limit)
+        (goto-char start)
+        (forward-sexp)
+        (setf (elt md 3) (point))
+        (set-match-data md)
+        t))))
 
 (setq hy-font-lock--kwds-test-comint (list #'hy-font-lock--test-comint-search
                                           '(1 font-lock-keyword-face t)))
