@@ -185,6 +185,53 @@
   (when hy-shell--notify?
     (message "Internal Hy shell process successfully started.")))
 
+;;; inferior-hy-mode
+;;;; Components
+
+(defun hy-inferior--support-colorama-output ()
+  "Support colorama'd shell output (like errors/traces) with `ansi-color'."
+  (ansi-color-for-comint-mode-on)
+  (add-to-list 'comint-output-filter-functions #'ansi-color-process-output))
+
+(defun hy-inferior--support-xterm-color ()
+  "Support `xterm-color' in shell output."
+  (when (fboundp #'xterm-color-filter)
+    (add-to-list 'comint-preoutput-filter-functions #'xterm-color-filter)))
+
+(defun hy-inferior--fix-comint-input-history-breaking ()
+  (advice-add #'comint-previous-input :before
+              (lambda (&rest args) (setq-local comint-stored-incomplete-input ""))))
+
+;; TODO Internal process startup handling and the pyvenv hook
+;; (defun hy--mode-setup-inferior ()
+;;   ;; (add-to-list 'company-backends 'company-hy)
+;;   (setenv "PYTHONIOENCODING" "UTF-8")
+
+;;   (run-hy-internal)
+;;   (add-hook 'pyvenv-post-activate-hooks 'run-hy-internal nil t))
+
+;;;; Mode Declaration
+
+;;;###autoload
+(define-derived-mode inferior-hy-mode comint-mode "Inferior Hy"
+  "Major mode for Hy inferior process."
+  ;; Comint config
+  (setq mode-line-process '(":%s"))
+  (setq-local indent-tabs-mode nil)
+  (setq-local comint-prompt-read-only t)
+  (setq-local comint-prompt-regexp (rx bol "=>" space))
+  (hy-inferior--fix-comint-input-history-breaking)
+
+  ;; Instantiate filters
+  (setq-local comint-preoutput-filter-functions nil)
+  (setq-local comint-output-filter-functions nil)
+
+  ;; Build Filters
+  (hy-inferior--support-colorama-output)
+  (hy-inferior--support-xterm-color)
+  (when hy-shell--enable-font-lock?
+    (hy--shell-font-lock-turn-on)))
+
 ;;; Commands
 ;;;; Killing
 

@@ -37,7 +37,7 @@
 (require 'hy-base)
 
 (require 'hy-font-lock)
-;; (require 'hy-shell)  ; In progress
+(require 'hy-shell)  ; In progress
 
 (defgroup hy-mode nil
   "A mode for Hy"
@@ -77,14 +77,26 @@ Keep nil unless using specific Hy branch.")
     "for" "for*" "for/a" "for/a*"
     "while"
     "except" "catch")
-  "Symbols that will have following lines indented +1 when matched.")
+  "Symbols that will have following lines indented +1 when matched.
+
+
+(when foo
+  body)
+(when-xx foo
+         body)")
+
 
 (defvar hy-indent--fuzzily
   '("def"
     "let"
     "with" "with/a"
     "fn" "fn/a")
-  "Symbols that will have following lines indented +1 when matched at start.")
+  "Symbols that will have following lines indented +1 when matched at start.
+
+(with foo
+  body)
+(with-xx foo
+  body)")
 
 ;;; Syntax Table
 
@@ -1088,41 +1100,16 @@ Not all defuns can be argspeced - eg. C defuns.\"
     (sp-local-pair '(inferior-hy-mode) "`" "" :actions nil)
     (sp-local-pair '(inferior-hy-mode) "'" "" :actions nil)))
 
-;;;; Inferior-hy-mode setup
-
-(defun hy--inferior-mode-setup ()
-  ;; Comint config
-  (setq mode-line-process '(":%s"))
-  (setq-local indent-tabs-mode nil)
-  (setq-local comint-prompt-read-only t)
-  (setq-local comint-prompt-regexp (rx bol "=>" space))
-
-  ;; Highlight errors according to colorama python package
-  (ansi-color-for-comint-mode-on)
-  (setq-local comint-output-filter-functions '(ansi-color-process-output))
-
-  ;; Don't startup font lock for internal processes
-  (when hy-shell--enable-font-lock?
-    (if (fboundp 'xterm-color-filter)
-        (setq-local comint-preoutput-filter-functions
-                    `(xterm-color-filter hy--shell-font-lock-spy-output))
-      (setq-local comint-preoutput-filter-functions
-                  `(hy--shell-font-lock-spy-output)))
-    (hy--shell-font-lock-turn-on))
-
-  ;; Fixes issue with "=>", no side effects from this advice
-  (advice-add 'comint-previous-input :before
-              (lambda (&rest args) (setq-local comint-stored-incomplete-input ""))))
-
 ;;; Core
 
 (add-to-list 'auto-mode-alist '("\\.hy\\'" . hy-mode))
 (add-to-list 'interpreter-mode-alist '("hy" . hy-mode))
 
+;; Now done in `hy-shell'
 ;;;###autoload
-(define-derived-mode inferior-hy-mode comint-mode "Inferior Hy"
-  "Major mode for Hy inferior process."
-  (hy--inferior-mode-setup))
+;; (define-derived-mode inferior-hy-mode comint-mode "Inferior Hy"
+;;   "Major mode for Hy inferior process."
+;;   (hy--inferior-mode-setup))
 
 ;;;###autoload
 (define-derived-mode hy-mode prog-mode "Hy"
