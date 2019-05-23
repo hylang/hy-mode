@@ -76,6 +76,18 @@
        (hy-shell--make-comint-internal)
        ,@body)))
 
+(defmacro hy-shell--with-live (&rest body)
+  "Run BODY for Hy process, when it's alive."
+  (declare (indent 0))
+  `(when (hy-shell--live?)
+     (hy-shell--with ,@body)))
+
+(defmacro hy-shell--with-internal-live (&rest body)
+  "Run BODY for internal Hy process, when it's alive."
+  (declare (indent 0))
+  `(when (hy-shell--live-internal?)
+     (hy-shell--with-internal ,@body)))
+
 ;;; Process Management
 ;;;; Utilities
 
@@ -180,17 +192,15 @@
   "Kill the Hy interpreter process."
   (interactive)
 
-  (when (hy-shell--live?)
-    (hy-shell--with
-      (kill-buffer (current-buffer)))))
+  (hy-shell--with-live
+    (kill-buffer (current-buffer))))
 
 (defun hy-shell--kill-internal ()
   "Kill the internal Hy interpreter process."
   (interactive)
 
-  (when (hy-shell--live-internal?)
-    (hy-shell--with-internal
-      (kill-buffer (current-buffer)))))
+  (hy-shell--with-internal-live
+    (kill-buffer (current-buffer))))
 
 (defun hy-shell--kill-all ()
   "Kill all Hy interpreter processes."
