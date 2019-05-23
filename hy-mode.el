@@ -369,35 +369,36 @@ Constantly extracts current prompt text and executes and manages applying
                   (buffer-substring font-lock-buffer-pos (point-max)))))
       (hy--shell-faces-to-font-lock-faces text prompt-end))))
 
-(defun hy--shell-font-lock-turn-on ()
-  "Turn on fontification of current line for hy shell."
-  (hy--shell-with-shell-buffer
-   (hy--shell-kill-buffer)
+;; (defun hy--shell-font-lock-turn-on ()
+;;   "Turn on fontification of current line for hy shell."
+;;   (hy--shell-with-shell-buffer
+;;    (hy--shell-kill-buffer)
 
-   ;; Required - I don't understand why killing doesn't capture the end nil setq
-   (setq-local hy-shell-buffer nil)
+;;    ;; Required - I don't understand why killing doesn't capture the end nil setq
+;;    (setq-local hy-shell-buffer nil)
 
-   (add-hook 'post-command-hook
-             'hy--shell-fontify-prompt-post-command-hook nil 'local)
-   (add-hook 'kill-buffer-hook
-             'hy--shell-kill-buffer nil 'local)))
+;;    (add-hook 'post-command-hook
+;;              'hy--shell-fontify-prompt-post-command-hook nil 'local)
+;;    (add-hook 'kill-buffer-hook
+;;              'hy--shell-kill-buffer nil 'local)))
 
-(defun hy--shell-font-lock-spy-output (string)
-  "Applies font-locking to hy outputted python blocks when `--spy' is enabled."
-  (with-temp-buffer
-    (if (s-contains? hy--shell-spy-delim-uuid string)
-        (-let ((python-indent-guess-indent-offset
-                nil)
-               ((python-block hy-output)
-                (s-split hy--shell-spy-delim-uuid string)))
-          (python-mode)
-          (insert python-block)
-          (font-lock-default-fontify-buffer)
-          (-> (buffer-string)
-              hy--shell-faces-to-font-lock-faces
-              s-chomp
-              (s-concat hy-shell-spy-delim hy-output)))
-      string)))
+;; NOTE No longer used atm
+;; (defun hy--shell-font-lock-spy-output (string)
+;;   "Applies font-locking to hy outputted python blocks when `--spy' is enabled."
+;;   (with-temp-buffer
+;;     (if (s-contains? hy--shell-spy-delim-uuid string)
+;;         (-let ((python-indent-guess-indent-offset
+;;                 nil)
+;;                ((python-block hy-output)
+;;                 (s-split hy--shell-spy-delim-uuid string)))
+;;           (python-mode)
+;;           (insert python-block)
+;;           (font-lock-default-fontify-buffer)
+;;           (-> (buffer-string)
+;;               hy--shell-faces-to-font-lock-faces
+;;               s-chomp
+;;               (s-concat hy-shell-spy-delim hy-output)))
+;;       string)))
 
 ;;;; Send strings
 

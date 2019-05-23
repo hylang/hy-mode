@@ -130,10 +130,12 @@
   (unless (process-live-p (hy-shell--current-process))
     (-let (((program . switches)
             (split-string-and-unquote (hy-shell--format-startup-command)))
-           (name
-            (hy-shell--format-startup-name)))
+           (name (hy-shell--format-startup-name)))
       (apply #'make-comint-in-buffer name nil program nil switches)
-      (unless (derived-mode-p 'inferior-hy-mode) (inferior-hy-mode))
+
+      (unless (derived-mode-p 'inferior-hy-mode)
+        (inferior-hy-mode))
+
       (hy-shell--current-process))))
 
 (defun hy-shell--make-comint-internal ()
@@ -165,6 +167,116 @@
 
 ;;     (let ((comint-text (hy-shell--text->comint-text text)))
 ;;       (comint-send-string proc comint-text))))
+
+;;; Font Locking - Transfer In Progress
+;;;; New Idea
+
+(defun hy-shell--support-font-lock-input ()
+  "Fontify the current line being entered in the Hy shell.
+
+The implementation:
+1. A fontification hook is added to `post-command-hook'.
+2. The current prompt being entered is replaced with a fontified version.
+
+This seems, and indeed is, an obtuse way to fontify input.
+Why don't we just add hy-mode's `font-lock-keywords' into `inferior-hy-mode'?
+Then we would fontify the shell output too, which can be arbitrary!
+
+So what if we only fontify input regions?
+(actually I'm trying this out right now)
+"
+  (setq-local font-lock-keywords inferior-hy-font-lock-kwds)
+
+  (unless (hy-shell--internal?)
+    (font-lock-mode 1))
+
+  (setq-local font-lock-keywords inferior-hy-font-lock-kwds)
+  ;; (add-hook 'post-command-hook
+  ;;           #'hy--shell-fontify-prompt-post-command-hook nil 'local)
+  ;; (add-hook 'kill-buffer-hook
+  ;;           #'hy--shell-kill-buffer nil 'local)
+  )
+
+(setq hy-font-lock--test-comint-rx
+      (rx-to-string `(: (group symbol-start
+                               (or ,@hy-font-lock--special-names)
+                               symbol-end))))
+
+(defun hy-font-lock--test-comint-search (limit)
+  (-when-let* ((_ (re-search-forward hy-font-lock--test-comint-rx limit t))
+               (md (match-data))
+               (start (match-beginning 1))
+               ((comint-last-start . comint-last-end) comint-last-prompt))
+    (if (<= start comint-last-start)
+        (hy-font-lock--test-comint-search limit)
+      (goto-char start)
+      (forward-sexp)
+      (setf (elt md 3) (point))
+      (set-match-data md)
+      t)))
+
+(setq hy-font-lock--kwds-test-comint (list #'hy-font-lock--test-comint-search
+                                          '(1 font-lock-keyword-face t)))
+(setq inferior-hy-font-lock-kwds (list hy-font-lock--kwds-test-comint))
+
+;;;; Post-Command-based
+
+;; (defun hy-font-lock--convert-kwd-for-comint (kwd)
+;;   (-let (((regex . rest) kwd))
+;;     `((lambda (limit)
+;;         (-let (((comint-last-start . comint-last-end) comint-last-prompt)
+;;                (start (point)))
+;;           (when (re-search-forward ,regex limit nil t)
+;;             (and (<= start comint-last-start)
+;;                  ;; (<= (point) comint-last-end)
+;;                  ))))
+;;       rest)))
+
+;; (defun hy-font-lock--comint-prompt-check (regex limit)
+;;   (-let (((comint-last-start . comint-last-end) comint-last-prompt)
+;;          (start (point)))
+;;     (when (re-search-forward ,regex limit nil t)
+;;       (and (<= start comint-last-start)
+;;            ;; (<= (point) comint-last-end)
+;;            ))))
+
+
+;; (defun hy-shell--faces->font-lock-faces (text &optional start-pos)
+;;   "Set all 'face in TEXT to 'font-lock-face optionally starting at START-POS."
+;;   (let ((pos 0)
+;;         (start-pos (or start-pos 0)))
+;;     (while (and (/= pos (length text))
+;;                 (setq next (next-single-property-change pos 'face text)))
+;;       (-let* ((plist (text-properties-at pos text))
+;;               ((&plist 'face face) plist))
+;;         (set-text-properties (+ start-pos pos) (+ start-pos next)
+;;                              (-doto plist
+;;                                (plist-put 'face nil)
+;;                                (plist-put 'font-lock-face face)))
+;;         (setq pos next)))))
+
+;; (defun hy--shell-fontify-prompt-post-command-hook ()
+;;   "Fontify just the current line in `hy-shell-buffer' for `post-command-hook'.
+
+;; Constantly extracts current prompt text and executes and manages applying
+;; `hy--shell-faces-to-font-lock-faces' to the text."
+;;   (-when-let ((_ . last-prompt-end) comint-last-prompt)
+;;     (when (and (hy-shell--current-process)
+;;                (> (point) last-prompt-end))  ; prompt currently being entered
+;;       (let* ((input (buffer-substring-no-properties last-prompt-end (point-max)))
+
+;;              ;; Hide our re-insertion from Emacs internals
+;;              (deactivate-mark)
+;;              (buffer-undo-list t)
+
+;;              ;; Build the text
+;;              (text (hy--shell-with-font-locked-shell-buffer
+;;                     (delete-region (line-beginning-position) (point-max))
+;;                     (setq font-lock-buffer-pos (point))
+;;                     (insert input)
+;;                     (font-lock-ensure)
+;;                     (buffer-substring font-lock-buffer-pos (point-max)))))
+;;         (hy--shell-faces-to-font-lock-faces text last-prompt-end)))))
 
 ;;; Jedhy
 
@@ -230,7 +342,7 @@
   (hy-inferior--support-colorama-output)
   (hy-inferior--support-xterm-color)
   (when hy-shell--enable-font-lock?
-    (hy--shell-font-lock-turn-on)))
+    (hy-shell--support-font-lock-input)))
 
 ;;; Commands
 ;;;; Killing
