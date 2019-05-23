@@ -485,24 +485,21 @@ c]+-])" :indented))
 
 ;;; Shell
 
-(describe "Shell"
-  (if (hy-shell--check-installed?)
-      (describe "Tests are skipped - hy not found, see hy-test.el.")
+(nt-shell-describe "Shell"
+  (before-all (run-hy)
+              (switch-to-buffer hy-shell--buffer-name)
+              (set-process-query-on-exit-flag (hy-shell--current-process) nil))
 
-    (before-all (run-hy)
-                (switch-to-buffer hy-shell--buffer-name)
-                (set-process-query-on-exit-flag (hy-shell--current-process) nil))
+  (after-all (hy-shell--kill))
 
-    (after-all (hy-shell--kill))
+  (describe "startup"
+    (it "sets the name and switches"
+      (expect (buffer-name) :to-equal hy-shell--buffer-name))
 
-    (describe "startup"
-      (it "sets the name and switches"
-        (expect (buffer-name) :to-equal hy-shell--buffer-name))
+    (it "sets inferior-hy-mode"
+      (expect major-mode :to-be 'inferior-hy-mode))
 
-      (it "sets inferior-hy-mode"
-        (expect major-mode :to-be 'inferior-hy-mode))
+    (it "starts the process and associates with the buffer"
+      (expect (process-live-p (hy-shell--current-process))))
 
-      (it "starts the process and associates with the buffer"
-        (expect (process-live-p (hy-shell--current-process))))
-
-      )))
+    ))

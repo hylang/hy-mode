@@ -16,6 +16,7 @@ If no name is given, then process-based tests will be skipped.")
 ;;; Buttercup Extensions
 
 (defalias 'xnt-describe #'xdescribe)
+(defalias 'xnt-shell-describe #'xdescribe)
 
 (defmacro nt-describe (description &rest body)
   "Equivalent to buttercup's `describe' but uses `-let*' on `:var' bindings."
@@ -25,6 +26,14 @@ If no name is given, then process-based tests will be skipped.")
                           ,@(cddr body)))
                     body)))
     `(buttercup-describe ,description (lambda () ,@new-body))))
+
+(defmacro nt-shell-describe (description &rest body)
+  "Run `nt-describe' with messages if hy interpreter not available."
+  (declare (indent 1) (debug (&define sexp def-body)))
+  (if (hy-shell--check-installed?)
+      `(nt-describe ,description ,@body)
+    `(describe ,description
+       (describe "Tests are skipped - hy not found, see hy-test.el."))))
 
 ;;; Buttercup Matchers
 ;;;; General Purpose
