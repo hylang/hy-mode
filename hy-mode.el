@@ -79,11 +79,13 @@ Keep nil unless using specific Hy branch.")
     "except" "catch")
   "Symbols that will have following lines indented +1 when matched.
 
+Examples:
 
 (when foo
   body)
 (when-xx foo
-         body)")
+         body)
+")
 
 
 (defvar hy-indent--fuzzily
@@ -93,10 +95,13 @@ Keep nil unless using specific Hy branch.")
     "fn" "fn/a")
   "Symbols that will have following lines indented +1 when matched at start.
 
+Examples:
+
 (with foo
   body)
 (with-xx foo
-  body)")
+  body)
+")
 
 ;;; Syntax Table
 
@@ -356,7 +361,6 @@ Constantly extracts current prompt text and executes and manages applying
     (let* ((input (buffer-substring-no-properties prompt-end (point-max)))
            (deactivate-mark nil)
            (buffer-undo-list t)
-           (font-lock-buffer-pos nil)
            (text (hy--shell-with-font-locked-shell-buffer
                   (delete-region (line-beginning-position) (point-max))
                   (setq font-lock-buffer-pos (point))
@@ -973,11 +977,14 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
 (defun company-hy (command &optional arg &rest ignored)
   (interactive (list 'interactive))
-  (cl-case command
-    (prefix (company-grab-symbol))
-    (candidates (hy--company-candidates arg))
-    (annotation (hy--company-annotate arg))
-    (meta (-> arg hy--eldoc-get-docs hy--str-or-empty))))
+  ;; FIXME Disabled atm
+  nil
+  ;; (cl-case command
+  ;;   (prefix (company-grab-symbol))
+  ;;   (candidates (hy--company-candidates arg))
+  ;;   (annotation (hy--company-annotate arg))
+  ;;   (meta (-> arg hy--eldoc-get-docs hy--str-or-empty)))
+  )
 
 ;;; Keybindings
 
@@ -1114,10 +1121,11 @@ Not all defuns can be argspeced - eg. C defuns.\"
 ;;;###autoload
 (define-derived-mode hy-mode prog-mode "Hy"
   "Major mode for editing Hy files."
-  (hy--mode-setup-eldoc)
   (hy--mode-setup-font-lock)
-  (when hy-shell-internal?
-    (hy--mode-setup-inferior))
+  ;; FIXME IDE Features being re-integrated
+  ;; (hy--mode-setup-eldoc)
+  ;; (when hy-shell-internal?
+  ;;   (hy--mode-setup-inferior))
   (hy--mode-setup-smartparens)
   (hy--mode-setup-syntax))
 
