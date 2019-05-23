@@ -86,7 +86,7 @@ If no name is given, then process-based tests will be skipped.")
              `(nil . ,(format "Faceup for %s failed" text)))
       (advice-remove 'hy-mode 'rainbow-delimiters-mode-disable))))
 
-;;; Process Tests - EXPERIMENTAL
+;;; Process Tests
 
 (defun hy-test--setup-env ()
   "Setup virtual env for process-based tests."
@@ -95,6 +95,14 @@ If no name is given, then process-based tests will be skipped.")
           (message "Pyvenv started successfully for process-based tests.")
         (message "Pyvenv failed to start for tests!"))
     (message "`hy-test--pyvenv-name' is not set - no Hy process tests ran!")))
+
+(defun hy-test--run-hy ()
+  "Do `run-hy' with some extra test friendly settings."
+  (let ((hy-shell--notify?)
+        (hy-shell--enable-font-lock?))
+    (run-hy)
+    (switch-to-buffer hy-shell--buffer-name)
+    (set-process-query-on-exit-flag (hy-shell--current-process) nil)))
 
 ;;; Provide
 

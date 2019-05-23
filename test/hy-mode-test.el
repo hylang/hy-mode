@@ -486,13 +486,10 @@ c]+-])" :indented))
 ;;; Shell
 
 (nt-shell-describe "Shell"
-  (before-all (run-hy)
-              (switch-to-buffer hy-shell--buffer-name)
-              (set-process-query-on-exit-flag (hy-shell--current-process) nil))
-
-  (after-all (hy-shell--kill))
-
   (describe "startup"
+    (before-all (hy-test--run-hy))
+    (after-all (hy-shell--kill))
+
     (it "sets the name and switches"
       (expect (buffer-name) :to-equal hy-shell--buffer-name))
 
@@ -500,6 +497,15 @@ c]+-])" :indented))
       (expect major-mode :to-be 'inferior-hy-mode))
 
     (it "starts the process and associates with the buffer"
-      (expect (process-live-p (hy-shell--current-process))))
+      (expect (process-live-p (hy-shell--current-process)))))
 
-    ))
+  (describe "teardown"
+    (before-each (hy-test--run-hy))
+    (after-each (hy-shell--kill))
+
+    (it "kills the buffer and process"
+      (expect (hy-shell--live?))
+      (expect (hy-shell--kill))
+      (expect (hy-shell--live?) :nil)
+      (expect (hy-shell--kill) :nil)))
+  )

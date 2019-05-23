@@ -79,6 +79,14 @@
 ;;; Process Management
 ;;;; Utilities
 
+(defun hy-shell--live? ()
+  "Is the Hy intereprter process alive?"
+  (get-buffer hy-shell--buffer-name))
+
+(defun hy-shell--live-internal? ()
+  "Is the internal Hy intereprter process alive?"
+  (get-buffer hy-shell--buffer-name-internal))
+
 (defun hy-shell--current-process ()
   "Run `get-buffer-process' on the `current-buffer'."
   (get-buffer-process (current-buffer)))
@@ -172,15 +180,17 @@
   "Kill the Hy interpreter process."
   (interactive)
 
-  (hy-shell--with
-    (kill-buffer (current-buffer))))
+  (when (hy-shell--live?)
+    (hy-shell--with
+      (kill-buffer (current-buffer)))))
 
 (defun hy-shell--kill-internal ()
   "Kill the internal Hy interpreter process."
   (interactive)
 
-  (hy-shell--with-internal
-    (kill-buffer (current-buffer))))
+  (when (hy-shell--live-internal?)
+    (hy-shell--with-internal
+      (kill-buffer (current-buffer)))))
 
 (defun hy-shell--kill-all ()
   "Kill all Hy interpreter processes."
