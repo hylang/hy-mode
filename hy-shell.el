@@ -215,24 +215,70 @@ So what if we only fontify input regions?
 ;;                                           '(1 font-lock-keyword-face t)))
 ;; (setq inferior-hy-font-lock-kwds (list hy-font-lock--kwds-test-comint))
 
-(defun hy-font-lock--convert-kwd-for-comint (kwd)
-  (-let (((regex . rest) kwd))
+;; (defun kwd->comint-kwd (kwd)
+;;   "Converts a `font-lock-keywords' KWD for `comint-mode' input fontification.
+
+;; The KWD must have as MATCHER a regex. The highlights may take any form as
+;; defined in `font-lock-keywords', typically just one or more MATCH-HIGHLIGHTs."
+;;   (-let (((regex . match-highlights) kwd))
+;;     `((lambda (limit)
+;;         (when (re-search-forward ,regex limit t)
+;;           ;; While the SUBEXP can be anything, this search always can use zero
+;;           (-let ((start (match-beginning 0))
+;;                  ((comint-last-start . comint-last-end) comint-last-prompt))
+;;             (if (or (<= start comint-last-start)
+;;                     ;; Have to manually do this in custom MATCHERs
+;;                     (hy--in-string-or-comment? (syntax-ppss)))
+;;                 (hy-font-lock--test-comint-search limit)
+;;               t))))
+;;       ,@match-highlights)))
+;; (setq inferior-hy-font-lock-kwds
+;;       (list (kwd->comint-kwd
+;;              hy-font-lock--kwds-special-names)))
+
+(defun kwd->comint-kwd (kwd)
+  "Converts a `font-lock-keywords' KWD for `comint-mode' input fontification.
+
+The KWD must have as MATCHER a regex. The highlights may take any form as
+defined in `font-lock-keywords', typically just one or more MATCH-HIGHLIGHTs."
+  (-let (((matcher . match-highlights) kwd))
     `((lambda (limit)
-        (when (re-search-forward ,regex limit t)
+        ;; Matcher can be a function or a regex
+        (when ,(if (symbolp matcher)
+                   `(,matcher limit)
+                 `(re-search-forward ,matcher limit t))
           ;; While the SUBEXP can be anything, this search always can use zero
           (-let ((start (match-beginning 0))
-                 ((comint-last-start . comint-last-end) comint-last-prompt))
-            (if (or (<= start comint-last-start)
-                    ;; Have to manually do this in custom MATCHERs
-                    (hy--in-string-or-comment? (syntax-ppss)))
-                (hy-font-lock--test-comint-search limit)
-              t))))
-      ,@rest)))
+                 ((comint-last-start . comint-last-end) comint-last-prompt)
+                 (state (syntax-ppss)))
+            (and (> start comint-last-start)
+                 ;; Make sure not in comment or string
+                 ;; have to manually do this in custom MATCHERs
+                 (not (or (nth 3 state) (nth 4 state)))))))
+      ,@match-highlights)))
 
-(setq inferior-hy-font-lock-kwds
-      (list (hy-font-lock--convert-kwd-for-comint
-             hy-font-lock--kwds-special-names)))
+(setq my-ielm-font-lock-kwds
+      `(,@(-map #'kwd->comint-kwd lisp-el-font-lock-keywords-2)
+        ,@(-map #'kwd->comint-kwd lisp-cl-font-lock-keywords-2)))
 
+(defun set-my-ielm-kwds ()
+  (interactive)
+  (setq-local font-lock-keywords
+              `(,@lisp-el-font-lock-keywords-2
+                ,@lisp-cl-font-lock-keywords-2))
+  ;; (setq-local font-lock-keywords my-ielm-font-lock-kwds)
+  )
+
+;; (add-hook 'ielm-mode-hook
+;;           (lambda () (setq-local font-lock-keywords my-ielm-font-lock-kwds)))
+
+;; Set everything for good measure
+;; (setq-local font-lock-defaults
+;;             `(,my-ielm-font-lock-kwds
+;;               nil nil nil nil
+;;               (font-lock-mark-block-function . mark-defun)
+;;               (font-lock-extra-managed-props help-echo)
+;;               (font-lock-syntactic-face-function . lisp-font-lock-syntactic-face-function)))
 ;; (-let (((comint-last-start . comint-last-end) comint-last-prompt)
 ;;        (start (point)))
 ;;   (when (re-search-forward ,regex limit nil t)
