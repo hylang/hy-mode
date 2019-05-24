@@ -196,29 +196,18 @@
   "Fontify the current line being entered in the Hy shell.
 
 The solution implemented is my own and was interesting enough to warrant
-a blog post: http://www.modernemacs.com/post/comint-highlighting/
-
-The implementation:
-1. A fontification hook is added to `post-command-hook'.
-2. The current prompt being entered is replaced with a fontified version.
-
-This seems, and indeed is, an obtuse way to fontify input.
-Why don't we just add hy-mode's `font-lock-keywords' into `inferior-hy-mode'?
-Then we would fontify the shell output too, which can be arbitrary!
-
-So what if we only fontify input regions?
-(actually I'm trying this out right now)
-"
-  (setq font-lock-defaults
-        '(inferior-hy-font-lock-kwds
-          nil nil
-          (("+-*/.<>=!?$%_&~^:@" . "w"))  ; syntax alist
-          nil
-          (font-lock-mark-block-function . mark-defun)
-          (font-lock-syntactic-face-function  ; Differentiates (doc)strings
-           . hy-font-lock-syntactic-face-function)))
-
+a blog post: http://www.modernemacs.com/post/comint-highlighting/."
+  ;; We never start up font locking for internal processes, for obv reasons
   (unless (hy-shell--internal?)
+    (setq font-lock-defaults
+          '(inferior-hy-font-lock-kwds
+            nil nil
+            (("+-*/.<>=!?$%_&~^:@" . "w"))  ; syntax alist
+            nil
+            (font-lock-mark-block-function . mark-defun)
+            (font-lock-syntactic-face-function  ; Differentiates (doc)strings
+             . hy-font-lock-syntactic-face-function)))
+    (setq-local syntax-propertize-function 'hy-syntax-propertize-function)
     (font-lock-mode 1)))
 
 (defun hy-inferior--support-colorama-output ()
@@ -234,6 +223,7 @@ So what if we only fontify input regions?
 ;;;; Comint Configurations
 
 (defun hy-inferior--fix-comint-input-history-breaking ()
+  "Temp resolves comint's history sometimes failing, no side effects I think."
   (advice-add #'comint-previous-input :before
               (lambda (&rest args) (setq-local comint-stored-incomplete-input ""))))
 
@@ -259,15 +249,15 @@ So what if we only fontify input regions?
   (setq-local comint-prompt-regexp (rx bol "=>" space))
   (hy-inferior--fix-comint-input-history-breaking)
 
-  ;; Instantiate filters
+  ;; Font Lock support
+  (when hy-shell--enable-font-lock?
+    (hy-inferior--support-font-locking-input))
+
+  ;; Instantiate and build filters
   (setq-local comint-preoutput-filter-functions nil)
   (setq-local comint-output-filter-functions nil)
-
-  ;; Build Filters
   (hy-inferior--support-colorama-output)
-  (hy-inferior--support-xterm-color)
-  (when hy-shell--enable-font-lock?
-    (hy-inferior--support-font-locking-input)))
+  (hy-inferior--support-xterm-color))
 
 ;;; Commands
 ;;;; Killing
