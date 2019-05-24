@@ -1,7 +1,7 @@
 ;;; hy-mode.el --- Major mode for Hylang -*- lexical-binding: t -*-
 
-;; Copyright © 2013 Julien Danjou <julien@danjou.info>
-;;           © 2017 Eric Kaschalk <ekaschalk@gmail.com>
+;; Copyright © 2013-2016 Julien Danjou <julien@danjou.info>
+;;           © 2017-2019 Eric Kaschalk <ekaschalk@gmail.com>
 ;;
 ;; Authors: Julien Danjou <julien@danjou.info>
 ;;          Eric Kaschalk <ekaschalk@gmail.com>

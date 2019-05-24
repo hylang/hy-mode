@@ -1,7 +1,7 @@
 ;;; hy-shell.el --- Shell and Process Support -*- lexical-binding: t -*-
 
-;; Copyright © 2013 Julien Danjou <julien@danjou.info>
-;;           © 2017 Eric Kaschalk <ekaschalk@gmail.com>
+;; Copyright © 2013-2016 Julien Danjou <julien@danjou.info>
+;;           © 2017-2019 Eric Kaschalk <ekaschalk@gmail.com>
 ;;
 ;; hy-mode is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by
@@ -119,12 +119,6 @@
         prog
       (format "%s %s" prog switches))))
 
-(defun hy-shell--format-startup-name ()
-  "Format the Hy shell process name, for before we actually created it."
-  (if (hy-shell--internal?)
-      hy-shell--name-internal
-    hy-shell--name))
-
 ;;;; Creation
 
 (defun hy-shell--make-comint ()
@@ -132,7 +126,8 @@
   (unless (process-live-p (hy-shell--current-process))
     (-let (((program . switches)
             (split-string-and-unquote (hy-shell--format-startup-command)))
-           (name (hy-shell--format-startup-name)))
+           (name
+            (if (hy-shell--internal?) hy-shell--name-internal hy-shell--name)))
       (apply #'make-comint-in-buffer name nil program nil switches)
 
       (unless (derived-mode-p 'inferior-hy-mode)
@@ -148,27 +143,48 @@
       proc)))
 
 ;;; Sending Text - Transfer in Progress
+;;;; Comint Notes
 
-;; (defun hy-shell--end-of-output? (text)
-;;   "Does TEXT contain a prompt, and so, signal end of the output?"
-;;   (s-matches? comint-prompt-regexp text))
+;; before `comint-send-input' isn't useful to look at
 
-;; (defun hy-shell--text->comint-text (text)
-;;   "Format TEXT before sending to comint."
-;;   (if (or (not (string-match "\n\\'" text))
-;;           (string-match "\n[ \t].*\n?\\'" text))
-;;       (s-concat text "\n")
-;;     text))
+;;;; Prior Implementation
 
-;; (defun hy-shell--send (text)
-;;   "Send TEXT to Hy."
-;;   (let ((proc (hy-shell--proc))
-;;         (hy-shell--output-in-progress t))
-;;     (unless proc
-;;       (error "No active Hy process found to send text to."))
+(defun hy-shell--end-of-output? (text)
+  "Does TEXT contain a prompt, and so, signal end of the output?"
+  (s-matches? comint-prompt-regexp text))
 
-;;     (let ((comint-text (hy-shell--text->comint-text text)))
-;;       (comint-send-string proc comint-text))))
+(defun hy-shell--text->comint-text (text)
+  "Format TEXT before sending to comint."
+  ;; TODO Potentially add this to `comint-input-filter-functions'
+  ;; if this section is really even needed
+  ;; TODO According to `comint-input-sender' I don't thik this should
+  ;; be necessary?
+  (if (or (not (string-match "\n\\'" text))
+          (string-match "\n[ \t].*\n?\\'" text))
+      (s-concat text "\n")
+    text))
+
+(defun hy-shell--send (text)
+  "Send TEXT to Hy interpreter, starting up if needed."
+  (hy-shell--with
+    (let ((hy-shell--output-in-progress t)
+          (comint-text (hy-shell--text->comint-text text))
+          (proc (hy-shell--current-process)))
+      (comint-send-string proc comint-text))))
+
+(defun hy-shell--send-inhibit-output (string &optional process internal)
+  "Send TEXT to Hy interpreter inhibiting output, starting up if needed."
+  (hy-shell--with
+    (let ((inhibit-quit t)
+          (hy-shell--output-in-progress t)
+          (comint-text (hy-shell--text->comint-text text))
+          (proc (hy-shell--current-process)))
+      (unless (with-local-quit
+                (comint-send-string proc comint-text)
+                (while hy-shell--output-in-progress
+                  (accept-process-output process))
+                t)
+        (comint-interrupt-subjob)))))
 
 ;;; Jedhy
 
@@ -243,7 +259,6 @@ a blog post: http://www.modernemacs.com/post/comint-highlighting/."
 (define-derived-mode inferior-hy-mode comint-mode "Inferior Hy"
   "Major mode for Hy inferior process."
   ;; Comint config
-  (setq mode-line-process '(":%s"))
   (setq-local indent-tabs-mode nil)
   (setq-local comint-prompt-read-only t)
   (setq-local comint-prompt-regexp (rx bol "=>" space))
@@ -254,6 +269,7 @@ a blog post: http://www.modernemacs.com/post/comint-highlighting/."
     (hy-inferior--support-font-locking-input))
 
   ;; Instantiate and build filters
+  ;; TODO Just use `add-hook' here
   (setq-local comint-preoutput-filter-functions nil)
   (setq-local comint-output-filter-functions nil)
   (hy-inferior--support-colorama-output)
