@@ -507,4 +507,12 @@ c]+-])" :indented))
       (expect (hy-shell--live?))
       (expect (hy-shell--kill))
       (expect (hy-shell--live?) :nil)
-      (expect (hy-shell--kill) :nil))))
+      (expect (hy-shell--kill) :nil)))
+
+  ;; FIXME Disabled as I can't get fontifying with :shell-faces-after to work
+  ;; But fontifying the prompt input does works
+  ;; (xdescribe "font locking"
+  ;;   (it "handles input fontification"
+  ;;     (expect "(«k:defn» «f:foo» [] «d:\"bar\"»)"
+  ;;             :shell-faces-after (point-min))))
+  )

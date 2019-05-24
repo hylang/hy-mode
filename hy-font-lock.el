@@ -23,6 +23,7 @@
 ;; Font lock definitions and setup for `hy-mode'.
 
 ;; Font locks are organized and exposed at the end: `hy-font-lock-kwds'
+;; Comint Font locks are exposed in: `inferior-hy-font-lock-kwds'
 ;; Also implements docstring detection: `hy-font-lock-syntactic-face-function'
 
 ;;; Code:

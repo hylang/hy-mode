@@ -75,9 +75,7 @@ If no name is given, then process-based tests will be skipped.")
 ;;;; Syntax Highlighting
 
 (buttercup-define-matcher :faces (text)
-  (let ((text (funcall text))
-        (hy-shell-internal?))
-
+  (let ((text (funcall text)))
     (when (fboundp 'rainbow-delimiters-mode-disable)
       (advice-add 'hy-mode :after 'rainbow-delimiters-mode-disable))
 
@@ -85,6 +83,22 @@ If no name is given, then process-based tests will be skipped.")
                t
              `(nil . ,(format "Faceup for %s failed" text)))
       (advice-remove 'hy-mode 'rainbow-delimiters-mode-disable))))
+
+;; TODO Make this work. Not sure why fontification isn't happening in testing.
+;; (buttercup-define-matcher :shell-faces-after (text pos)
+;;   (let ((text (funcall text))
+;;         (pos (funcall pos)))
+;;     (hy-test--run-hy)
+;;     (let ((comint-last-prompt (cons pos (point-max))))
+;;       (insert text)
+;;       (faceup-clean-buffer)
+;;       (font-lock-fontify-region (point-min) (point-max))
+;;       (let ((result (faceup-markup-buffer)))
+;;         (prog1 (if (faceup-test-equal text result)
+;;                    t
+;;                  `(nil . ,(format "Faceup for %s failed instead was %s"
+;;                                 text result)))
+;;           (hy-shell--kill))))))
 
 ;;; Process Tests
 
@@ -96,10 +110,10 @@ If no name is given, then process-based tests will be skipped.")
         (message "Pyvenv failed to start for tests!"))
     (message "`hy-test--pyvenv-name' is not set - no Hy process tests ran!")))
 
-(defun hy-test--run-hy ()
+(defun hy-test--run-hy (&optional enable-font-lock)
   "Do `run-hy' with some extra test friendly settings."
   (let ((hy-shell--notify?)
-        (hy-shell--enable-font-lock?))
+        (hy-shell--enable-font-lock? enable-font-lock))
     (run-hy)
     (switch-to-buffer hy-shell--buffer-name)
     (set-process-query-on-exit-flag (hy-shell--current-process) nil)))

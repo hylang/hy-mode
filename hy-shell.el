@@ -207,7 +207,7 @@ a blog post: http://www.modernemacs.com/post/comint-highlighting/."
             (font-lock-mark-block-function . mark-defun)
             (font-lock-syntactic-face-function  ; Differentiates (doc)strings
              . hy-font-lock-syntactic-face-function)))
-    (setq-local syntax-propertize-function 'hy-syntax-propertize-function)
+    (setq-local syntax-propertize-function #'hy-syntax-propertize-function)
     (font-lock-mode 1)))
 
 (defun hy-inferior--support-colorama-output ()
