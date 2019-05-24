@@ -294,45 +294,6 @@ defined in `font-lock-keywords', typically just one or more MATCH-HIGHLIGHTs."
 ;;            ;; (<= (point) comint-last-end)
 ;;            ))))
 
-;;;; Post-Command-based
-
-;; (defun hy-shell--faces->font-lock-faces (text &optional start-pos)
-;;   "Set all 'face in TEXT to 'font-lock-face optionally starting at START-POS."
-;;   (let ((pos 0)
-;;         (start-pos (or start-pos 0)))
-;;     (while (and (/= pos (length text))
-;;                 (setq next (next-single-property-change pos 'face text)))
-;;       (-let* ((plist (text-properties-at pos text))
-;;               ((&plist 'face face) plist))
-;;         (set-text-properties (+ start-pos pos) (+ start-pos next)
-;;                              (-doto plist
-;;                                (plist-put 'face nil)
-;;                                (plist-put 'font-lock-face face)))
-;;         (setq pos next)))))
-
-;; (defun hy--shell-fontify-prompt-post-command-hook ()
-;;   "Fontify just the current line in `hy-shell-buffer' for `post-command-hook'.
-
-;; Constantly extracts current prompt text and executes and manages applying
-;; `hy--shell-faces-to-font-lock-faces' to the text."
-;;   (-when-let ((_ . last-prompt-end) comint-last-prompt)
-;;     (when (and (hy-shell--current-process)
-;;                (> (point) last-prompt-end))  ; prompt currently being entered
-;;       (let* ((input (buffer-substring-no-properties last-prompt-end (point-max)))
-
-;;              ;; Hide our re-insertion from Emacs internals
-;;              (deactivate-mark)
-;;              (buffer-undo-list t)
-
-;;              ;; Build the text
-;;              (text (hy--shell-with-font-locked-shell-buffer
-;;                     (delete-region (line-beginning-position) (point-max))
-;;                     (setq font-lock-buffer-pos (point))
-;;                     (insert input)
-;;                     (font-lock-ensure)
-;;                     (buffer-substring font-lock-buffer-pos (point-max)))))
-;;         (hy--shell-faces-to-font-lock-faces text last-prompt-end)))))
-
 ;;; Jedhy
 
 (defun hy-shell--setup-jedhy ()
