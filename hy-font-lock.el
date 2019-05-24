@@ -561,6 +561,10 @@
 This is a rather clever solution to fontifying repl input. I wrote a post
 about this idea here: http://www.modernemacs.com/post/comint-highlighting/.
 
+The `comint-snapshot-last-prompt' call within `comint-send' is what makes
+this solution tick as future attempts to font-lock prior to the current
+prompt will be frozen by comint.
+
 It actually implements comint fontification for arbitrary major modes and have
 applied with success to `ielm'."
   (-let (((matcher . match-highlights) kwd))

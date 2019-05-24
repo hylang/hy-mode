@@ -146,6 +146,11 @@
 ;;;; Comint Notes
 
 ;; before `comint-send-input' isn't useful to look at
+;; /usr/local/Cellar/emacs-mac/emacs-26.1-z-mac-7.2/share/emacs/26.1/lisp/comint.el.gz:1860
+;; actually sets `comint-highlight-input'. Is this desirable?
+;; /usr/local/Cellar/emacs-mac/emacs-26.1-z-mac-7.2/share/emacs/26.1/lisp/comint.el.gz:3454
+;; Ah! So `comint-redirect-output-buffer' and friends were tailor made for the
+;; usecase of extracting output from a stateful process.
 
 ;;;; Prior Implementation
 
@@ -168,19 +173,17 @@
   "Send TEXT to Hy interpreter, starting up if needed."
   (hy-shell--with
     (let ((hy-shell--output-in-progress t)
-          (comint-text (hy-shell--text->comint-text text))
           (proc (hy-shell--current-process)))
-      (comint-send-string proc comint-text))))
+      (comint-send-string proc text))))
 
 (defun hy-shell--send-inhibit-output (string &optional process internal)
   "Send TEXT to Hy interpreter inhibiting output, starting up if needed."
   (hy-shell--with
     (let ((inhibit-quit t)
           (hy-shell--output-in-progress t)
-          (comint-text (hy-shell--text->comint-text text))
           (proc (hy-shell--current-process)))
       (unless (with-local-quit
-                (comint-send-string proc comint-text)
+                (comint-send-string proc text)
                 (while hy-shell--output-in-progress
                   (accept-process-output process))
                 t)
