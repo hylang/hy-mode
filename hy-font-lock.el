@@ -541,7 +541,7 @@
                        (end (ignore-errors (scan-sexps (point) 4))))
             (<= start start-point end)))))))
 
-;;; Font Lock Keywords
+;;;; Exposes
 
 (defun hy-font-lock-syntactic-face-function (syntax)
   "Return syntactic face function for synatax STATE."
@@ -551,6 +551,36 @@
           font-lock-doc-face
         font-lock-string-face)
     font-lock-comment-face))
+
+;;; Comint Support
+
+(defun hy-font-lock--kwd->comint-kwd (kwd)
+  "Converts a `font-lock-keywords' KWD for `comint-mode' input fontification.
+
+This is a rather clever solution to fontifying repl input. I wrote a post
+about this idea here: http://www.modernemacs.com/post/comint-highlighting/.
+
+It actually implements comint fontification for arbitrary major modes and have
+applied with success to `ielm'."
+  (-let (((matcher . match-highlights) kwd))
+    `((lambda (limit)
+        ;; Matcher can be a function or a regex
+        (when ,(if (symbolp matcher)
+                   `(,matcher limit)
+                 `(re-search-forward ,matcher limit t))
+
+          ;; While the SUBEXP can be anything, this search always can use zero
+          (-let ((start (match-beginning 0))
+                 ((comint-last-start . comint-last-end) comint-last-prompt)
+                 (state (syntax-ppss)))
+            (and (> start comint-last-start)
+                 ;; Make sure not in comment or string
+                 ;; have to manually do this in custom MATCHERs
+                 (not (or (nth 3 state) (nth 4 state)))))))
+
+      ,@match-highlights)))
+
+;;; Font Lock Keywords
 
 (defconst hy-font-lock-kwds
   (list hy-font-lock--kwds-builtins
@@ -576,6 +606,12 @@
         (when hy-font-lock-highlight-percent-args?
           hy-font-lock--kwds-anonymous-funcs))
   "All Hy font lock keywords.")
+
+(defconst inferior-hy-font-lock-kwds
+  (-map #'hy-font-lock--kwd->comint-kwd hy-font-lock-kwds)
+  "Comint-compatible version of `hy-font-lock-kwds'.
+
+See `hy-font-lock--kwd->comint-kwd' for details.")
 
 ;;; Provide:
 

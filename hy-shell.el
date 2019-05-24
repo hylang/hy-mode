@@ -26,6 +26,8 @@
 
 (require 'hy-base)
 
+(require 'hy-font-lock)
+
 ;;; Configuration
 ;;;; Configured
 
@@ -168,11 +170,33 @@
 ;;     (let ((comint-text (hy-shell--text->comint-text text)))
 ;;       (comint-send-string proc comint-text))))
 
-;;; Font Locking - Transfer In Progress
-;;;; New Idea
+;;; Jedhy
 
-(defun hy-shell--support-font-lock-input ()
+(defun hy-shell--setup-jedhy ()
+  "Stub.")
+
+;;; Notifications
+
+(defun hy-shell--check-installed? ()
+  "Warn if `hy-shell--interpreter' is not found, returning non-nil otherwise."
+  (cond
+   ((executable-find hy-shell--interpreter))
+   (hy-shell--notify?
+    (prog1 nil
+      (message "Hy executable not found. Install or activate a env with Hy.")))))
+
+(defun hy-shell--notify-process-success-internal ()
+  (when hy-shell--notify?
+    (message "Internal Hy shell process successfully started.")))
+
+;;; inferior-hy-mode
+;;;; Colorings
+
+(defun hy-inferior--support-font-locking-input ()
   "Fontify the current line being entered in the Hy shell.
+
+The solution implemented is my own and was interesting enough to warrant
+a blog post: http://www.modernemacs.com/post/comint-highlighting/
 
 The implementation:
 1. A fontification hook is added to `post-command-hook'.
@@ -197,125 +221,6 @@ So what if we only fontify input regions?
   (unless (hy-shell--internal?)
     (font-lock-mode 1)))
 
-(setq hy-font-lock--test-comint-rx
-      (rx-to-string `(: (group symbol-start
-                               (or ,@hy-font-lock--special-names)
-                               symbol-end))))
-
-(defun hy-font-lock--test-comint-search (limit)
-  (when (re-search-forward hy-font-lock--test-comint-rx limit t)
-    (-let ((start (match-beginning 1))
-           ((comint-last-start . comint-last-end) comint-last-prompt))
-      (if (or (<= start comint-last-start)
-              (hy--in-string-or-comment? (syntax-ppss)))
-          (hy-font-lock--test-comint-search limit)
-        t))))
-
-;; (setq hy-font-lock--kwds-test-comint (list #'hy-font-lock--test-comint-search
-;;                                           '(1 font-lock-keyword-face t)))
-;; (setq inferior-hy-font-lock-kwds (list hy-font-lock--kwds-test-comint))
-
-;; (defun kwd->comint-kwd (kwd)
-;;   "Converts a `font-lock-keywords' KWD for `comint-mode' input fontification.
-
-;; The KWD must have as MATCHER a regex. The highlights may take any form as
-;; defined in `font-lock-keywords', typically just one or more MATCH-HIGHLIGHTs."
-;;   (-let (((regex . match-highlights) kwd))
-;;     `((lambda (limit)
-;;         (when (re-search-forward ,regex limit t)
-;;           ;; While the SUBEXP can be anything, this search always can use zero
-;;           (-let ((start (match-beginning 0))
-;;                  ((comint-last-start . comint-last-end) comint-last-prompt))
-;;             (if (or (<= start comint-last-start)
-;;                     ;; Have to manually do this in custom MATCHERs
-;;                     (hy--in-string-or-comment? (syntax-ppss)))
-;;                 (hy-font-lock--test-comint-search limit)
-;;               t))))
-;;       ,@match-highlights)))
-;; (setq inferior-hy-font-lock-kwds
-;;       (list (kwd->comint-kwd
-;;              hy-font-lock--kwds-special-names)))
-
-(defun kwd->comint-kwd (kwd)
-  "Converts a `font-lock-keywords' KWD for `comint-mode' input fontification.
-
-The KWD must have as MATCHER a regex. The highlights may take any form as
-defined in `font-lock-keywords', typically just one or more MATCH-HIGHLIGHTs."
-  (-let (((matcher . match-highlights) kwd))
-    `((lambda (limit)
-        ;; Matcher can be a function or a regex
-        (when ,(if (symbolp matcher)
-                   `(,matcher limit)
-                 `(re-search-forward ,matcher limit t))
-          ;; While the SUBEXP can be anything, this search always can use zero
-          (-let ((start (match-beginning 0))
-                 ((comint-last-start . comint-last-end) comint-last-prompt)
-                 (state (syntax-ppss)))
-            (and (> start comint-last-start)
-                 ;; Make sure not in comment or string
-                 ;; have to manually do this in custom MATCHERs
-                 (not (or (nth 3 state) (nth 4 state)))))))
-      ,@match-highlights)))
-
-(setq my-ielm-font-lock-kwds
-      `(,@(-map #'kwd->comint-kwd lisp-el-font-lock-keywords-2)
-        ,@(-map #'kwd->comint-kwd lisp-cl-font-lock-keywords-2)))
-
-(defun set-my-ielm-kwds ()
-  (interactive)
-  (setq-local font-lock-keywords
-              `(,@lisp-el-font-lock-keywords-2
-                ,@lisp-cl-font-lock-keywords-2))
-  ;; (setq-local font-lock-keywords my-ielm-font-lock-kwds)
-  )
-
-;; (add-hook 'ielm-mode-hook
-;;           (lambda () (setq-local font-lock-keywords my-ielm-font-lock-kwds)))
-
-;; Set everything for good measure
-;; (setq-local font-lock-defaults
-;;             `(,my-ielm-font-lock-kwds
-;;               nil nil nil nil
-;;               (font-lock-mark-block-function . mark-defun)
-;;               (font-lock-extra-managed-props help-echo)
-;;               (font-lock-syntactic-face-function . lisp-font-lock-syntactic-face-function)))
-;; (-let (((comint-last-start . comint-last-end) comint-last-prompt)
-;;        (start (point)))
-;;   (when (re-search-forward ,regex limit nil t)
-;;     (and (<= start comint-last-start)
-;;          ;; (<= (point) comint-last-end)
-;;          )))
-
-;; (defun hy-font-lock--comint-prompt-check (regex limit)
-;;   (-let (((comint-last-start . comint-last-end) comint-last-prompt)
-;;          (start (point)))
-;;     (when (re-search-forward ,regex limit nil t)
-;;       (and (<= start comint-last-start)
-;;            ;; (<= (point) comint-last-end)
-;;            ))))
-
-;;; Jedhy
-
-(defun hy-shell--setup-jedhy ()
-  "Stub.")
-
-;;; Notifications
-
-(defun hy-shell--check-installed? ()
-  "Warn if `hy-shell--interpreter' is not found, returning non-nil otherwise."
-  (cond
-   ((executable-find hy-shell--interpreter))
-   (hy-shell--notify?
-    (prog1 nil
-      (message "Hy executable not found. Install or activate a env with Hy.")))))
-
-(defun hy-shell--notify-process-success-internal ()
-  (when hy-shell--notify?
-    (message "Internal Hy shell process successfully started.")))
-
-;;; inferior-hy-mode
-;;;; Components
-
 (defun hy-inferior--support-colorama-output ()
   "Support colorama'd shell output (like errors/traces) with `ansi-color'."
   (ansi-color-for-comint-mode-on)
@@ -326,9 +231,13 @@ defined in `font-lock-keywords', typically just one or more MATCH-HIGHLIGHTs."
   (when (fboundp #'xterm-color-filter)
     (add-to-list 'comint-preoutput-filter-functions #'xterm-color-filter)))
 
+;;;; Comint Configurations
+
 (defun hy-inferior--fix-comint-input-history-breaking ()
   (advice-add #'comint-previous-input :before
               (lambda (&rest args) (setq-local comint-stored-incomplete-input ""))))
+
+;;;; IDE Components
 
 ;; TODO Internal process startup handling and the pyvenv hook
 ;; (defun hy--mode-setup-inferior ()
@@ -358,7 +267,7 @@ defined in `font-lock-keywords', typically just one or more MATCH-HIGHLIGHTs."
   (hy-inferior--support-colorama-output)
   (hy-inferior--support-xterm-color)
   (when hy-shell--enable-font-lock?
-    (hy-shell--support-font-lock-input)))
+    (hy-inferior--support-font-locking-input)))
 
 ;;; Commands
 ;;;; Killing
