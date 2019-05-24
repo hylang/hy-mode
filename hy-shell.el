@@ -152,6 +152,23 @@
 ;; Ah! So `comint-redirect-output-buffer' and friends were tailor made for the
 ;; usecase of extracting output from a stateful process.
 
+;; See `comint-redirect-filter-functions'
+;; Use `comint-redirect-send-command' with `hy-shell--with-internal'
+;; Use `comint-redirect-results-list' for just taking regexp stuff from it
+;; Ah - due to the different usecases they don't enforce a timeout
+;; on the `accept-process-output' calls.
+;; Doing a server based solution is likely best, but this implementation
+;; should work well enough. Since I'm not doing a server based solution,
+;; but still need state,
+;; my best option is to redefine `comint-redirect-results-list' to have
+;; a timeout associated with the `accept-process-output' call.
+
+;; The no output sending variation also is likely best implemented in terms
+;; of redirection, except in that case, I don't timeout, and have to do
+;; some extra work on extracting/cleaning the output if I want to carry over
+;; eg. just the --spy output, or not much work at all, if I don't want anything
+;; carried over.
+
 ;;;; Prior Implementation
 
 (defun hy-shell--end-of-output? (text)
