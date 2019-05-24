@@ -285,6 +285,7 @@ a blog post: http://www.modernemacs.com/post/comint-highlighting/."
 
 ;;;; Running
 
+;;;###autoload
 (defun run-hy-internal ()
   "Startup the internal Hy interpreter process."
   (interactive)
@@ -293,6 +294,7 @@ a blog post: http://www.modernemacs.com/post/comint-highlighting/."
     (hy-shell--setup-jedhy)
     (hy-shell--notify-process-success-internal)))
 
+;;;###autoload
 (defun run-hy ()
   "Startup and/or switch to a Hy interpreter process."
   (interactive)
