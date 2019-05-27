@@ -46,6 +46,9 @@
 (defvar hy-shell--notify? t
   "Allow Hy to message on failure to find Hy, instantiation, shutdown, etc?")
 
+(defvar hy-shell--redirect-timeout 0.5
+  "Seconds to allow for redirection commands to complete before quitting.")
+
 ;;;; Managed
 
 (defconst hy-shell--name "Hy"
@@ -59,6 +62,9 @@
 
 (defconst hy-shell--buffer-name-internal (s-concat "*" hy-shell--name-internal "*")
   "The buffer name to use for the internal Hy interpreter process.")
+
+(defvar hy-shell--redirect-output-buffer " *Hy Comint Redirect Buffer"
+  "The buffer name to use for comint redirection of text sending commands.")
 
 ;;; Macros
 
@@ -142,33 +148,66 @@
       (set-process-query-on-exit-flag proc nil)
       proc)))
 
+;;; Redirected Sending
+
+;; Maybe in the future I build an nrepl or lsp implementation. Until that day,
+;; interacting with Hy's running processes programatically is done through the
+;; `hy-shell--redirect-send' and friends commands.
+
+;; They are rewrites of some components of comint's redirection commands.
+;; The redirection add-on for comint was developed to run SQL on a process
+;; with state. Similarly, we maintain state in jedhy's namespace. There
+;; are better, but more advanced, solutions. The one chosen should allow a
+;; pretty quick, and !easily testable!, integration of jedhy. It also allows
+;; some fancier things w.r.t shell output transformations and fontifying.
+
+;; The commands are rewritten because 1. we don't need all the options 2. we
+;; require a timeout during the accept process output 3. we have some macros
+;; that simplify things 4. easy to test this way.
+
+(defun hy-shell--redirect-check-prompt-regexp ()
+  "Avoid infinite loop in redirect if `comint-prompt-regexp' badly defined."
+  (when comint-redirect-perform-sanity-check
+    (save-excursion
+	    (goto-char (point-max))
+	    (or (re-search-backward comint-prompt-regexp nil t)
+		      (error "No prompt found or `comint-prompt-regexp' not set properly")))))
+
+(defun hy-shell--redirect-send-1 (text)
+  "Internal implementation of `comint-redirect-send-command-to-process'.
+
+Expected to be called within a Hy interpreter process buffer."
+  (hy-shell--redirect-check-prompt-regexp)
+
+  (let ((buffer (current-buffer))
+        (output-buffer hy-shell--redirect-output-buffer)
+        (process (hy-shell--current-process))
+        (timeout hy-shell--redirect-timeout))
+    ;; Setup local vars for the filter, temporarily overwrite comint filters
+    (comint-redirect-setup output-buffer buffer comint-prompt-regexp)
+    (add-function :around (process-filter process) #'comint-redirect-filter)
+
+    (process-send-string buffer (s-concat text "\n"))
+    (while (and (null comint-redirect-completed)
+		            (accept-process-output process timeout)))))
+
+(defun hy-shell--redirect-send (text)
+  "Send TEXT to Hy interpreter, capturing and removing the output."
+  (with-current-buffer (get-buffer-create hy-shell--redirect-output-buffer)
+    (erase-buffer)
+    (hy-shell--with
+      (hy-shell--redirect-send-1 text))
+    (buffer-substring-no-properties (point-min) (point-max))))
+
+(defun hy-shell--redirect-send-internal (text)
+  "Send TEXT to internal Hy interpreter, capturing and removing the output."
+  (with-current-buffer (get-buffer-create hy-shell--redirect-output-buffer)
+    (erase-buffer)
+    (hy-shell--with-internal
+      (hy-shell--redirect-send-1 text))
+    (buffer-substring-no-properties (point-min) (point-max))))
+
 ;;; Sending Text - Transfer in Progress
-;;;; Comint Notes
-
-;; before `comint-send-input' isn't useful to look at
-;; /usr/local/Cellar/emacs-mac/emacs-26.1-z-mac-7.2/share/emacs/26.1/lisp/comint.el.gz:1860
-;; actually sets `comint-highlight-input'. Is this desirable?
-;; /usr/local/Cellar/emacs-mac/emacs-26.1-z-mac-7.2/share/emacs/26.1/lisp/comint.el.gz:3454
-;; Ah! So `comint-redirect-output-buffer' and friends were tailor made for the
-;; usecase of extracting output from a stateful process.
-
-;; See `comint-redirect-filter-functions'
-;; Use `comint-redirect-send-command' with `hy-shell--with-internal'
-;; Use `comint-redirect-results-list' for just taking regexp stuff from it
-;; Ah - due to the different usecases they don't enforce a timeout
-;; on the `accept-process-output' calls.
-;; Doing a server based solution is likely best, but this implementation
-;; should work well enough. Since I'm not doing a server based solution,
-;; but still need state,
-;; my best option is to redefine `comint-redirect-results-list' to have
-;; a timeout associated with the `accept-process-output' call.
-
-;; The no output sending variation also is likely best implemented in terms
-;; of redirection, except in that case, I don't timeout, and have to do
-;; some extra work on extracting/cleaning the output if I want to carry over
-;; eg. just the --spy output, or not much work at all, if I don't want anything
-;; carried over.
-
 ;;;; Prior Implementation
 
 (defun hy-shell--end-of-output? (text)
