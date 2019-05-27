@@ -1,9 +1,9 @@
 ;;; hy-mode-test.el --- Hy Mode Tests -*- lexical-binding: t -*-
 
-;; `hy-mode' is well-tested for a major-mode.
-;; See `hy-test.el' for extensions made to Buttercup to support testing.
+;; `hy-mode' is very well-tested.
+;; *all* components are tested, including process-based commands.
 
-;; Not all tests are passing - marked with `xit' and FIXME comments
+;; See `hy-test.el' for extensions made to Buttercup and other utilities.
 
 ;; Covered:
 ;; - Indentation
@@ -12,12 +12,13 @@
 ;;   - Syntax Table Components
 ;;   - Docstring Detection
 ;;   - Context Sensitive (Bracket Strings)
-;; - All IDE features (tested within Jedhy, not this repo)
-
-;; Not Covered:
-;; - All process-based stuff and Jedhy interaction
-;; - Form and other text extraction for sending to shell
-;; - Some misc stuff
+;; - Shell support
+;;   - Startup/Teardown
+;;   - Font Locks
+;;   - Sending and getting from running processes
+;; - Jedhy (within Jedhy repo, not here)
+;; - Misc
+;;   - Form extraction
 
 ;;; Load hy-test and hy-mode
 
@@ -25,8 +26,7 @@
        (add-to-list 'load-path (f-parent (f-parent (f-this-file))))
        (require 'hy-test)
 
-       ;; Shell based currently in progress
-       (require 'hy-shell)
+       ;; Sets up process-based tests if we have a Hy interpreter to use
        (hy-test--setup-env))
 
 ;;; Indentation
