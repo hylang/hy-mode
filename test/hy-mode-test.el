@@ -509,23 +509,20 @@ c]+-])" :indented))
       (expect (hy-shell--live?) :nil)
       (expect (hy-shell--kill) :nil)))
 
+  ;; No need to copy over all the different face tests, as these are built as
+  ;; transforms of those keywords, rather than being new keywords entirely.
+  (describe "font locking"
+    (it "fontifies shell input"
+      (expect "(«k:defn» «f:foo» [] «d:\"bar\"»)" :shell-faces)))
+
   (describe "sending redirected"
     (before-all (hy-test--run-hy))
     (after-all (hy-shell--kill))
 
-    (it "sends text"
-      ;; Depends on the interpreter args
+    (it "extracts output properly"
+      ;; Depends on the interpreter args, improving this
       (expect (hy-shell--redirect-send "(+ 1 2)") :to-equal
               "1 + 2
 
 3
-")))
-
-
-  ;; FIXME Disabled as I can't get fontifying with :shell-faces-after to work
-  ;; But fontifying the prompt input does works
-  ;; (xdescribe "font locking"
-  ;;   (it "handles input fontification"
-  ;;     (expect "(«k:defn» «f:foo» [] «d:\"bar\"»)"
-  ;;             :shell-faces-after (point-min))))
-  )
+"))))

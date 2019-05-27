@@ -103,26 +103,38 @@ If no name is given, then process-based tests will be skipped.")
     (when (fboundp 'rainbow-delimiters-mode-disable)
       (advice-add 'hy-mode :after 'rainbow-delimiters-mode-disable))
 
+    ;; Later add the result to the fail message by doing
+    ;; the fontifying manually, like I do in :shell-faces matcher
     (prog1 (if (faceup-test-font-lock-string 'hy-mode text)
                t
              `(nil . ,(format "Faceup for %s failed" text)))
       (advice-remove 'hy-mode 'rainbow-delimiters-mode-disable))))
 
-;; TODO Make this work. Not sure why fontification isn't happening in testing.
-;; (buttercup-define-matcher :shell-faces-after (text pos)
-;;   (let ((text (funcall text))
-;;         (pos (funcall pos)))
-;;     (hy-test--run-hy)
-;;     (let ((comint-last-prompt (cons pos (point-max))))
-;;       (insert text)
-;;       (faceup-clean-buffer)
-;;       (font-lock-fontify-region (point-min) (point-max))
-;;       (let ((result (faceup-markup-buffer)))
-;;         (prog1 (if (faceup-test-equal text result)
-;;                    t
-;;                  `(nil . ,(format "Faceup for %s failed instead was %s"
-;;                                 text result)))
-;;           (hy-shell--kill))))))
+;; Tests `inferior-hy-font-lock-kwds'. These keywords are relatively advanced
+;; as they do additional checks based on comint variables.
+(buttercup-define-matcher :shell-faces (text)
+  (let ((text (funcall text))
+        (prompt-length (length "=> ")))
+    ;; Build the Hy shell buffer and manually enable font locking
+    (hy-test--run-hy)
+    (hy-inferior--support-font-locking-input)
+    (insert text)
+
+    ;; Faceup and fontify
+    (faceup-clean-buffer)
+    (font-lock-fontify-region (point-min) (point-max))
+
+    ;; Delete *after* fontifying, the keywords reference `comint-last-prompt'!
+    (with-silent-modifications
+      (delete-region (point-min) (+ prompt-length (car comint-last-prompt))))
+
+    ;; Compare and return result
+    (let ((result (faceup-markup-buffer)))
+      (prog1 (if (faceup-test-equal text result)
+                 t
+               `(nil . ,(format "Faceup for %s failed instead was %s"
+                              text result)))
+        (hy-shell--kill)))))
 
 ;;; Process Tests
 
@@ -134,10 +146,9 @@ If no name is given, then process-based tests will be skipped.")
         (message "Pyvenv failed to start for tests!"))
     (message "`hy-test--pyvenv-name' is not set - no Hy process tests ran!")))
 
-(defun hy-test--run-hy (&optional enable-font-lock)
+(defun hy-test--run-hy ()
   "Do `run-hy' with some extra test friendly settings."
-  (let ((hy-shell--notify?)
-        (hy-shell--enable-font-lock? enable-font-lock))
+  (let ((hy-shell--notify?))
     (run-hy)
     (switch-to-buffer hy-shell--buffer-name)
     (set-process-query-on-exit-flag (hy-shell--current-process) nil)
