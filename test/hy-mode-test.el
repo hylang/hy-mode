@@ -509,6 +509,19 @@ c]+-])" :indented))
       (expect (hy-shell--live?) :nil)
       (expect (hy-shell--kill) :nil)))
 
+  (describe "sending redirected"
+    (before-all (hy-test--run-hy))
+    (after-all (hy-shell--kill))
+
+    (it "sends text"
+      ;; Depends on the interpreter args
+      (expect (hy-shell--redirect-send "(+ 1 2)") :to-equal
+              "1 + 2
+
+3
+")))
+
+
   ;; FIXME Disabled as I can't get fontifying with :shell-faces-after to work
   ;; But fontifying the prompt input does works
   ;; (xdescribe "font locking"

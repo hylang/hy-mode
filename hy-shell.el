@@ -232,6 +232,13 @@ Expected to be called within a Hy interpreter process buffer."
           (proc (hy-shell--current-process)))
       (comint-send-string proc text))))
 
+(defun hy-shell--send-internal (text)
+  "Send TEXT to Hy interpreter, starting up if needed."
+  (hy-shell--with-internal
+    (let ((hy-shell--output-in-progress t)
+          (proc (hy-shell--current-process)))
+      (comint-send-string proc text))))
+
 (defun hy-shell--send-inhibit-output (string &optional process internal)
   "Send TEXT to Hy interpreter inhibiting output, starting up if needed."
   (hy-shell--with
