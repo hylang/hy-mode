@@ -151,12 +151,7 @@ If no name is given, then process-based tests will be skipped.")
   (let ((hy-shell--notify?))
     (run-hy)
     (switch-to-buffer hy-shell--buffer-name)
-    (set-process-query-on-exit-flag (hy-shell--current-process) nil)
-
-    ;; Below gets shell's initial text/prompt up (up to the version/os), eg.:
-    ;; "hy 0.16.0 using CPython(default) 3.7.2 on Darwin
-    ;; => "
-    (accept-process-output (hy-shell--current-process))))
+    (set-process-query-on-exit-flag (hy-shell--current-process) nil)))
 
 ;;; Provide
 

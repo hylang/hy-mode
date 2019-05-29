@@ -139,6 +139,9 @@
       (unless (derived-mode-p 'inferior-hy-mode)
         (inferior-hy-mode))
 
+      ;; Get shell's initial output/prompt
+      (accept-process-output (hy-shell--current-process) 0.5)
+
       (hy-shell--current-process))))
 
 (defun hy-shell--make-comint-internal ()
@@ -279,29 +282,35 @@ Expected to be called within a Hy interpreter process buffer."
 
 ;;;; Code
 
-;; TODO
-;; Redirected sending of multiple lines needs to concatenate the outputs
+;; TODO Redirected sending of multiple lines needs to concatenate the outputs
 
-(defconst hy-shell--jedhy-success-text "'Started jedhy'")
-(defconst hy-shell--jedhy-fail-text "'Failed to start jedhy'")
+(defvar-local hy-shell--jedhy-running? nil
+  "Was `jedhy' successfully started up in the current buffer?")
+
+(defconst hy-shell--jedhy-success-text "'Started jedhy'"
+  "Text identifying successful startup of jedhy.")
+
+(defconst hy-shell--jedhy-fail-text "'Failed to start jedhy'"
+  "Text identifying failure to startup jedhy.")
+
 (defconst hy-shell--jedhy-setup-code "(try (do (import jedhy jedhy.api) (setv --JEDHY (jedhy.api.API)) \"Started jedhy\") (except [e Exception] \"Failed to start jedhy\"))"
-  "Text to send to internal Hy process setup `jedhy'.")
+  "Text to send to internal Hy process to setup `jedhy', via --JEDHY.")
 
 (defun hy-shell--jedhy-installed? () t)
 
-(defun hy-shell--setup-jedhy ()
+(defun hy-shell--startup-jedhy ()
   (hy-shell--with-internal
-    (accept-process-output (hy-shell--current-process) 0.5)
-
     (let ((status (hy-shell--redirect-send-internal hy-shell--jedhy-setup-code)))
       (if (s-equals? status hy-shell--jedhy-success-text)
           (prog1 t
-            (when hy-shell--notify? (message "Jedhy successfully started")))
+            (when hy-shell--notify? (message "Jedhy successfully started"))
+            (setq-local hy-shell--jedhy-running? t))
         (prog1 nil
-          (when hy-shell--notify? (message "Jedhy failed to start")))))))
+          (when hy-shell--notify? (message "Jedhy failed to start"))
+          (setq-local hy-shell--jedhy-running? nil))))))
 
-;; (hy-shell--redirect-send-internal "\"foo\"")
-;; (hy-shell--setup-jedhy)
+;; (hy-shell--startup-jedhy)
+;; (hy-shell--redirect-send-internal "(--JEDHY.complete \"it\")")
 
 ;;; Notifications
 
@@ -419,8 +428,8 @@ a blog post: http://www.modernemacs.com/post/comint-highlighting/."
   (interactive)
 
   (hy-shell--with-internal
-    (hy-shell--setup-jedhy)
-    (hy-shell--notify-process-success-internal)))
+    (when (hy-shell--startup-jedhy)
+      (hy-shell--notify-process-success-internal))))
 
 ;;;###autoload
 (defun run-hy ()
