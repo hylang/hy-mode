@@ -324,12 +324,10 @@ Expected to be called within a Hy interpreter process buffer."
 
 (defun hy-shell--reset-namespace ()
   "Make Jedhy's namespace current."
+  ;; TODO should include the default namespace stuff like itertools
+  ;; like how I do it in jedhy.
   (when hy-shell--jedhy-running?
     (hy-shell--redirect-send-internal hy-shell--jedhy-reset-namespace-code)))
-
-;; (hy-shell--startup-jedhy)
-;; (hy-shell--reset-namespace)
-;; (hy-shell--redirect-send-internal "(--JEDHY.complete \"it\")")
 
 ;;; Company
 
@@ -342,6 +340,21 @@ Expected to be called within a Hy interpreter process buffer."
                         ("(" . "")
                         (")" . "")))
        (s-split ", "))))  ; comma is a valid token so can't replace it
+
+(defun hy-shell--company-candidates (prefix-str)
+  "Get company candidates for a PREFIX-STR."
+  (unless (s-starts-with? "." prefix-str)
+    (-some->>
+     prefix-str
+     (format "(--JEDHY.complete \"%s\")")
+     hy-shell--redirect-send-internal
+     hy-shell--company-extract-candidates)))
+
+;; (hy-shell--startup-jedhy)
+;; (hy-shell--reset-namespace)
+
+;; (hy-shell--company-candidates "it.")
+;; (hy-shell--company-candidates "itertools.-")
 
 ;;; Notifications
 
