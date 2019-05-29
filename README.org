@@ -17,7 +17,7 @@ for a smoother experience.
 
 ** Contributing
 
-~hy-mode~ is *very* well-tested. It uses [[https://github.com/jorgenschaefer/emacs-buttercup][buttercup]] rather than ~ert~.
+~hy-mode~ is well-tested. It uses [[https://github.com/jorgenschaefer/emacs-buttercup][buttercup]] rather than ~ert~.
 
 Execute tests after running ~cask install~ with the command: ~cask exec buttercup -L .~
 

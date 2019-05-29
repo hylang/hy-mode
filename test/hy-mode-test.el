@@ -1,7 +1,7 @@
 ;;; hy-mode-test.el --- Hy Mode Tests -*- lexical-binding: t -*-
 
-;; `hy-mode' is very well-tested.
-;; *all* components are tested, including process-based commands.
+;; `hy-mode' is well-tested.
+;; More-or-less all components are tested, including process-based components.
 
 ;; See `hy-test.el' for extensions made to Buttercup and other utilities.
 
