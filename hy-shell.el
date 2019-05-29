@@ -253,6 +253,31 @@ Expected to be called within a Hy interpreter process buffer."
         (comint-interrupt-subjob)))))
 
 ;;; Jedhy
+;;;; Notes
+
+;; SETUP
+;; pip install -e "~/dev/jedhy/"
+;; (import jedhy jedhy.api)
+;; (setv --JEDHY (jedhy.api.API))
+
+;; EXAMPLE RETURN VALUES:
+
+;; (x.complete "it")
+;; ('iter', 'itertools', 'iterable?', 'iterate', 'iterator?')
+
+;; (x.docs "itertools")
+;; 'Functional tools for creating and using iterators.'
+
+;; (x.annotate "try")
+;; '<compiler try>'
+
+;; (x.complete "gibberish")
+;; ()
+
+;; (x.docs "gibberish")
+;; ''
+
+;;;; Code
 
 (defun hy-shell--setup-jedhy ()
   "Stub.")
