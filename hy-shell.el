@@ -354,9 +354,19 @@ Expected to be called within a Hy interpreter process buffer."
      hy-shell--format-output-tuple)))
 
 (defun hy-shell--candidate-str->annotation (candidate-str)
+  "Get company annotation for a CANDIDATE-STR."
   (-some->>
    candidate-str
    (format "(--JEDHY.annotate \"%s\")")
+   hy-shell--redirect-send-internal
+   hy-shell--format-output-str))
+
+(defun hy-shell--candidate-str->eldoc (candidate-str)
+  "Get eldoc docstring for a CANDIDATE-STR."
+  ;; TODO Eldoc gives "builtin immutable sequence" on compiler candidates
+  (-some->>
+   candidate-str
+   (format "(--JEDHY.docs \"%s\")")
    hy-shell--redirect-send-internal
    hy-shell--format-output-str))
 
@@ -366,6 +376,7 @@ Expected to be called within a Hy interpreter process buffer."
 ;; (hy-shell--prefix-str->candidates "it.")
 ;; (hy-shell--prefix-str->candidates "itertools.-")
 ;; (hy-shell--candidate-str->annotation "try")
+;; (hy-shell--candidate-str->eldoc "itertools")
 
 ;;;; Command
 
@@ -377,14 +388,13 @@ Expected to be called within a Hy interpreter process buffer."
   (interactive (list 'interactive))
 
   (cl-case command
-    (prefix
-     (company-grab-symbol))
-    (candidates
-     (hy-shell--prefix-str->candidates prefix-or-candidate-str))
-    (annotation
-     (hy-shell--candidate-str->annotation prefix-or-candidate-str))
-    ;; (meta (-> prefix-or-candidate-str hy--eldoc-get-docs hy--str-or-empty))
-    ))
+    (prefix (company-grab-symbol))
+    (candidates (hy-shell--prefix-str->candidates
+                 prefix-or-candidate-str))
+    (annotation (hy-shell--candidate-str->annotation
+                 prefix-or-candidate-str))
+    (meta (hy-shell--candidate-str->eldoc
+           prefix-or-candidate-str))))
 
 ;;; Notifications
 
