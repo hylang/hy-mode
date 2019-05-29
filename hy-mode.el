@@ -466,132 +466,6 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
 ;;; Autocompletion
 
-(defconst hy-company-setup-code
-  "(import builtins)
-(import hy)
-(try
- (import [hy.lex.parser [hy-symbol-unmangle hy-symbol-mangle]])
- (except [e ImportError]
-         (import [hy.lex [unmangle :as hy-symbol-unmangle
-                          mangle :as hy-symbol-mangle]])))
-(try
- (import [hy.compiler [-compile-table]])
- (except [e ImportError]
-         (import [hy.compiler [-special-form-compilers :as -compile-table]])))
-
-(import [hy.core.shadow [*]])
-(import [hy.core.language [*]])
-
-(defn --HYCOMPANY-get-obj [text]
-  (when (in \".\" text)
-    (.join \".\" (-> text (.split \".\") butlast))))
-
-(defn --HYCOMPANY-get-attr [text]
-  (if (in \".\" text)
-      (-> text (.split \".\") last)
-      text))
-
-(defn --HYCOMPANY-get-obj-candidates [obj]
-  (try
-    (->> obj builtins.eval dir (map hy-symbol-unmangle) list)
-    (except [e Exception]
-      [])))
-
-(defn --HYCOMPANY-get-macros []
-  \"Extract macro names from all namespaces and compile-table symbols.\"
-  (->> --macros--
-     (.keys)
-     (chain (.keys -compile-table))
-     flatten
-     (map --HYCOMPANY-get-name)
-     (map hy-symbol-unmangle)
-     distinct
-     list))
-
-(defn --HYCOMPANY-get-global-candidates []
-  (->> (globals)
-     (.keys)
-     (map hy-symbol-unmangle)
-     (chain (--HYCOMPANY-get-macros))
-     flatten
-     distinct
-     list))
-
-(defn --HYCOMPANY-get-name [x]
-  \"Return the candidate name for x.\"
-  (if (isinstance x str)
-      x
-      x.--name--))
-
-(defn --HYCOMPANY-trim-candidates [candidates attr]
-  \"Limit list of candidates to those starting with attr.\"
-  (list (filter (fn [cand] (.startswith cand attr)) candidates)))
-
-(defn --HYCOMPANY [text]
-  (setv obj (--HYCOMPANY-get-obj text))
-  (setv attr (--HYCOMPANY-get-attr text))
-
-  (if obj
-      (setv candidates (--HYCOMPANY-get-obj-candidates obj))
-      (setv candidates (--HYCOMPANY-get-global-candidates)))
-
-  (setv choices (--HYCOMPANY-trim-candidates candidates attr))
-
-  (if obj
-      (list (map (fn [x] (+ obj \".\" x))
-                 choices))
-      choices))
-
-(defn --HYANNOTATE-search-builtins [text]
-  (setv text (hy-symbol-mangle text))
-  (try
-    (do (setv obj (builtins.eval text))
-        (setv obj-name obj.--class--.--name--)
-        (cond [(in obj-name [\"function\" \"builtin_function_or_method\"])
-               \"def\"]
-              [(= obj-name \"type\")
-               \"class\"]
-              [(= obj-name \"module\")
-               \"module\"]
-              [True \"instance\"]))
-    (except [e Exception]
-      None)))
-
-(defn --HYANNOTATE-search-compiler [text]
-  (in text -compile-table))
-
-(defn --HYANNOTATE-search-shadows [text]
-  (->> hy.core.shadow
-     dir
-     (map hy-symbol-unmangle)
-     (in text)))
-
-(defn --HYANNOTATE-search-macros [text]
-  (setv text (hy-symbol-mangle text))
-  (.get --macros-- text None))
-
-(defn --HYANNOTATE [x]
-  ;; only builtins format on case basis
-  (setv annotation (--HYANNOTATE-search-builtins x))
-  (when (and (not annotation) (--HYANNOTATE-search-shadows x))
-    (setv annotation \"shadowed\"))
-  (when (and (not annotation) (--HYANNOTATE-search-compiler x))
-    (setv annotation \"compiler\"))
-  (when (and (not annotation) (--HYANNOTATE-search-macros x))
-    (setv annotation \"macro\"))
-
-  (if annotation
-      (.format \"<{} {}>\" annotation x)
-      \"\"))"
-  "Autocompletion setup code to send to the internal process.")
-
-(defconst hy--company-regexp
-  (rx "'"
-      (group (1+ (not (any ",]"))))
-      "'"
-      (any "," "]"))
-  "Regex to extra candidates from --HYCOMPANY.")
-
 (defun hy--company-format-str (string)
   "Format STRING to send to hy for completion candidates."
   (-some->> string (format "(--HYCOMPANY \"%s\")" )))
@@ -603,20 +477,11 @@ Not all defuns can be argspeced - eg. C defuns.\"
 (defun hy--company-annotate (candidate)
   "Get company annotation for CANDIDATE string."
   (-some->> candidate
-            hy--company-format-annotate-str
-            hy--shell-send-async
-            s-chomp
-            (s-chop-prefix "'")
-            (s-chop-suffix "'")))
-
-(defun hy--company-candidates (string)
-  "Get candidates for completion of STRING."
-  (unless (s-starts-with? "." string)
-    (-some->> string
-              hy--company-format-str
-              hy--shell-send-async
-              (s-match-strings-all hy--company-regexp)
-              (-select-column 1))))
+          hy--company-format-annotate-str
+          hy--shell-send-async
+          s-chomp
+          (s-chop-prefix "'")
+          (s-chop-suffix "'")))
 
 (defun company-hy (command &optional arg &rest ignored)
   (interactive (list 'interactive))

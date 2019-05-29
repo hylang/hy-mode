@@ -341,7 +341,7 @@ Expected to be called within a Hy interpreter process buffer."
                         (")" . "")))
        (s-split ", "))))  ; comma is a valid token so can't replace it
 
-(defun hy-shell--company-candidates (prefix-str)
+(defun hy-shell--prefix-str->candidates (prefix-str)
   "Get company candidates for a PREFIX-STR."
   (unless (s-starts-with? "." prefix-str)
     (-some->>
@@ -353,8 +353,8 @@ Expected to be called within a Hy interpreter process buffer."
 ;; (hy-shell--startup-jedhy)
 ;; (hy-shell--reset-namespace)
 
-;; (hy-shell--company-candidates "it.")
-;; (hy-shell--company-candidates "itertools.-")
+;; (hy-shell--prefix-str->candidates "it.")
+;; (hy-shell--prefix-str->candidates "itertools.-")
 
 ;;; Notifications
 
