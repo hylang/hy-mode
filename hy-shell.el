@@ -331,6 +331,18 @@ Expected to be called within a Hy interpreter process buffer."
 ;; (hy-shell--reset-namespace)
 ;; (hy-shell--redirect-send-internal "(--JEDHY.complete \"it\")")
 
+;;; Company
+
+(defun hy-shell--company-extract-candidates (output)
+  "Return list of completion candidates from raw inferior OUTPUT."
+  (unless (s-equals? "()" output)
+    (->> output
+       s-trim
+       (s-replace-all '(("'" . "")
+                        ("(" . "")
+                        (")" . "")))
+       (s-split ", "))))  ; comma is a valid token so can't replace it
+
 ;;; Notifications
 
 (defun hy-shell--check-installed? ()
