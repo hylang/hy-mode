@@ -197,7 +197,7 @@ Expected to be called within a Hy interpreter process buffer."
     (erase-buffer)
     (hy-shell--with
       (hy-shell--redirect-send-1 text))
-    (buffer-substring-no-properties (point-min) (point-max))))
+    (buffer-substring-no-properties (point-min) (1- (point-max)))))
 
 (defun hy-shell--redirect-send-internal (text)
   "Send TEXT to internal Hy interpreter, capturing and removing the output."
@@ -205,7 +205,7 @@ Expected to be called within a Hy interpreter process buffer."
     (erase-buffer)
     (hy-shell--with-internal
       (hy-shell--redirect-send-1 text))
-    (buffer-substring-no-properties (point-min) (point-max))))
+    (buffer-substring-no-properties (point-min) (1- (point-max)))))
 
 ;;; Sending Text - Transfer in Progress
 ;;;; Prior Implementation
@@ -279,8 +279,29 @@ Expected to be called within a Hy interpreter process buffer."
 
 ;;;; Code
 
+;; TODO
+;; Redirected sending of multiple lines needs to concatenate the outputs
+
+(defconst hy-shell--jedhy-success-text "'Started jedhy'")
+(defconst hy-shell--jedhy-fail-text "'Failed to start jedhy'")
+(defconst hy-shell--jedhy-setup-code "(try (do (import jedhy jedhy.api) (setv --JEDHY (jedhy.api.API)) \"Started jedhy\") (except [e Exception] \"Failed to start jedhy\"))"
+  "Text to send to internal Hy process setup `jedhy'.")
+
+(defun hy-shell--jedhy-installed? () t)
+
 (defun hy-shell--setup-jedhy ()
-  "Stub.")
+  (hy-shell--with-internal
+    (accept-process-output (hy-shell--current-process) 0.5)
+
+    (let ((status (hy-shell--redirect-send-internal hy-shell--jedhy-setup-code)))
+      (if (s-equals? status hy-shell--jedhy-success-text)
+          (prog1 t
+            (when hy-shell--notify? (message "Jedhy successfully started")))
+        (prog1 nil
+          (when hy-shell--notify? (message "Jedhy failed to start")))))))
+
+;; (hy-shell--redirect-send-internal "\"foo\"")
+;; (hy-shell--setup-jedhy)
 
 ;;; Notifications
 

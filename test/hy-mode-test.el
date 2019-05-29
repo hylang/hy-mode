@@ -524,5 +524,4 @@ c]+-])" :indented))
       (expect (hy-shell--redirect-send "(+ 1 2)") :to-equal
               "1 + 2
 
-3
-"))))
+3"))))
