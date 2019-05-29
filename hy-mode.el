@@ -205,130 +205,14 @@ commands."
         (t (hy-indent--normal calculate-lisp-indent-last-sexp))))
 
 ;;; Eldoc
-;;;; Setup Code
-
-(defconst hy-eldoc-setup-code
-  "(import builtins)
-(import inspect)
-
-(defn --HYDOC-format-argspec [argspec]
-  \"Lispy version of format argspec covering all defun kwords.\"
-  (setv docs \"\")
-
-  (defmacro add-docs [&rest forms]
-    `(do (when docs (setv docs (+ docs \" \")))
-         (setv docs (+ docs ~@forms))))
-
-  (defn format-args [&rest args]
-    (->> args
-       (map (fn [x] (-> x str (.replace \"_\" \"-\"))))
-       (.join \" \")))
-
-  (setv args argspec.args)
-  (setv defaults argspec.defaults)
-  (setv varargs argspec.varargs)
-  (setv varkw argspec.varkw)
-  (setv kwonlyargs argspec.kwonlyargs)
-  (setv kwonlydefaults argspec.kwonlydefaults)
-
-  (when (and args defaults)
-    (setv args (-> argspec.defaults
-                  len
-                  (drop-last argspec.args)
-                  list))
-    (setv defaults (-> args
-                      len
-                      (drop argspec.args)
-                      list)))
-
-  (when (and kwonlyargs kwonlydefaults)
-    (setv kwonlyargs (->> kwonlyargs
-                        (remove (fn [x] (in x (.keys kwonlydefaults))))
-                        list))
-    (setv kwonlydefaults (->> kwonlydefaults
-                            (.items)
-                            (*map (fn [k v] (.format \"[{} {}]\" k v)))
-                            list)))
-
-  (when args
-    (add-docs (format-args #* args)))
-  (when defaults
-    (add-docs \"&optional \"
-              (format-args #* defaults)))
-  (when varargs
-    (add-docs \"&rest \"
-              (format-args varargs)))
-  (when varkw
-    (add-docs \"&kwargs \"
-              (format-args varkw)))
-  (when kwonlyargs
-    (add-docs \"&kwonly \"
-              (format-args #* kwonlyargs)))
-  (when kwonlydefaults
-    (add-docs (if-not kwonlyargs \"&kwonly \" \"\")
-              (format-args #* kwonlydefaults)))
-
-  docs)
-
-(defn --HYDOC-format-eldoc-string [obj-name f &optional full]
-  \"Format an obj name for callable f.\"
-  (if f.--doc--
-      (.format \"{obj}: ({args}){docs}\"
-               :obj (.replace obj-name \"_\" \"-\")
-               :args (--HYDOC-format-argspec (inspect.getfullargspec f))
-               :docs (if full
-                         (->> f.--doc-- (.splitlines) (.join \"\n\") (+ \"\n\"))
-                         (+ \" - \" (->> f.--doc-- (.splitlines) first))))
-      (.format \"{obj}: ({args})\"
-               :obj (.replace obj-name \"_\" \"-\")
-               :args (--HYDOC-format-argspec (inspect.getfullargspec f)))))
-
-(defn --HYDOC-python-eldoc [obj &optional full]
-  \"Build eldoc string for python obj or string.
-
-Not all defuns can be argspeced - eg. C defuns.\"
-  (try
-    (do (when (isinstance obj str)
-          (setv obj (.eval builtins obj (globals))))
-        (setv full-doc (.getdoc inspect obj))
-        (setv doc full-doc)
-        (try
-          (setv doc (--HYDOC-format-eldoc-string obj.--name-- obj
-                                                :full full))
-          (except [e TypeError]
-            (setv doc (->> doc (.splitlines) first (+ \"builtin: \")))
-            (when full
-              (setv doc (+ doc \"\n\"
-                           (->> full-doc (.splitlines) rest (.join \"\"))))))))
-    (except [e Exception]
-      (setv doc \"\")))
-  doc)
-
-(defn --HYDOC-macro-eldoc [obj &optional full]
-  \"Get eldoc string for a macro.\"
-  (try
-    (do (setv obj (.replace obj \"-\" \"_\"))
-        (setv macros (get --macros-- None))
-
-        (when (in obj macros)
-          (--HYDOC-format-eldoc-string obj (get macros obj) :full full)))
-    (except [e Exception] \"\")))
-
-(defn --HYDOC [obj &optional full]
-  \"Get eldoc string for any obj.\"
-  (setv doc (--HYDOC-python-eldoc obj :full full))
-  (unless doc (setv doc (--HYDOC-macro-eldoc obj :full full)))
-  doc)"
-  "Symbol introspection code to send to the internal process for eldoc.")
-
 ;;;; Utilities
 
 (defun hy--eldoc-chomp-output (text)
   "Chomp prefixes and suffixes from eldoc process output."
   (->> text
-       (s-chop-suffixes '("\n=> " "=> " "\n"))
-       (s-chop-prefixes '("\"" "'" "\"'" "'\""))
-       (s-chop-suffixes '("\"" "'" "\"'" "'\""))))
+     (s-chop-suffixes '("\n=> " "=> " "\n"))
+     (s-chop-prefixes '("\"" "'" "\"'" "'\""))
+     (s-chop-suffixes '("\"" "'" "\"'" "'\""))))
 
 (defun hy--eldoc-remove-syntax-errors (text)
   "Quick fix to address parsing an incomplete dot-dsl."

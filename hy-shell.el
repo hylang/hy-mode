@@ -346,7 +346,7 @@ Expected to be called within a Hy interpreter process buffer."
 
 (defun hy-shell--prefix-str->candidates (prefix-str)
   "Get company candidates for a PREFIX-STR."
-  (unless (s-starts-with? "." prefix-str)
+  (unless (s-starts-with? "." prefix-str)  ; TODO overwrite `company-grab-symbol'
     (-some->>
      prefix-str
      (format "(--JEDHY.complete \"%s\")")
