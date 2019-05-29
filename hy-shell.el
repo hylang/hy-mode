@@ -337,6 +337,7 @@ Expected to be called within a Hy interpreter process buffer."
     (->> output
        s-trim
        (s-replace-all '(("'" . "")
+                        (",)" . "")  ; one element list case
                         ("(" . "")
                         (")" . "")))
        (s-split ", "))))  ; comma is a valid token so can't replace it

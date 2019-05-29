@@ -483,15 +483,20 @@ Not all defuns can be argspeced - eg. C defuns.\"
           (s-chop-prefix "'")
           (s-chop-suffix "'")))
 
-(defun company-hy (command &optional arg &rest ignored)
+;; (spacemacs|add-company-backends
+;;   :backends company-hy
+;;   :modes hy-mode inferior-hy-mode)
+
+(defun company-hy (command &optional prefix-str &rest ignored)
   (interactive (list 'interactive))
   ;; FIXME Disabled atm
-  nil
-  ;; (cl-case command
-  ;;   (prefix (company-grab-symbol))
-  ;;   (candidates (hy--company-candidates arg))
-  ;;   (annotation (hy--company-annotate arg))
-  ;;   (meta (-> arg hy--eldoc-get-docs hy--str-or-empty)))
+  ;; nil
+  (cl-case command
+    (prefix (company-grab-symbol))
+    (candidates (hy-shell--prefix-str->candidates prefix-str))
+    ;; (annotation (hy--company-annotate prefix-str))
+    ;; (meta (-> prefix-str hy--eldoc-get-docs hy--str-or-empty))
+    )
   )
 
 ;;; Keybindings
