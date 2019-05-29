@@ -464,41 +464,6 @@ Not all defuns can be argspeced - eg. C defuns.\"
       (when (fboundp 'evil-local-set-key)
         (evil-local-set-key 'normal "q" 'quit-window)))))
 
-;;; Autocompletion
-
-(defun hy--company-format-str (string)
-  "Format STRING to send to hy for completion candidates."
-  (-some->> string (format "(--HYCOMPANY \"%s\")" )))
-
-(defun hy--company-format-annotate-str (string)
-  "Format STRING to send to hy for its annotation."
-  (-some->> string (format "(--HYANNOTATE \"%s\")")))
-
-(defun hy--company-annotate (candidate)
-  "Get company annotation for CANDIDATE string."
-  (-some->> candidate
-          hy--company-format-annotate-str
-          hy--shell-send-async
-          s-chomp
-          (s-chop-prefix "'")
-          (s-chop-suffix "'")))
-
-;; (spacemacs|add-company-backends
-;;   :backends company-hy
-;;   :modes hy-mode inferior-hy-mode)
-
-(defun company-hy (command &optional prefix-str &rest ignored)
-  (interactive (list 'interactive))
-  ;; FIXME Disabled atm
-  ;; nil
-  (cl-case command
-    (prefix (company-grab-symbol))
-    (candidates (hy-shell--prefix-str->candidates prefix-str))
-    ;; (annotation (hy--company-annotate prefix-str))
-    ;; (meta (-> prefix-str hy--eldoc-get-docs hy--str-or-empty))
-    )
-  )
-
 ;;; Keybindings
 
 ;;;###autoload

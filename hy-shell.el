@@ -200,10 +200,7 @@ Expected to be called within a Hy interpreter process buffer."
     (erase-buffer)
     (hy-shell--with
       (hy-shell--redirect-send-1 text))
-    (buffer-substring-no-properties (point-min)
-                                    (if (> (point-max) (point-min))
-                                        (1- (point-max))
-                                      (point-max)))))
+    (s-chomp (buffer-substring-no-properties (point-min) (point-max)))))
 
 (defun hy-shell--redirect-send-internal (text)
   "Send TEXT to internal Hy interpreter, capturing and removing the output."
@@ -211,10 +208,7 @@ Expected to be called within a Hy interpreter process buffer."
     (erase-buffer)
     (hy-shell--with-internal
       (hy-shell--redirect-send-1 text))
-    (buffer-substring-no-properties (point-min)
-                                    (if (> (point-max) (point-min))
-                                        (1- (point-max))
-                                      (point-max)))))
+    (s-chomp (buffer-substring-no-properties (point-min) (point-max)))))
 
 ;;; Sending Text - Transfer in Progress
 ;;;; Prior Implementation
@@ -330,17 +324,25 @@ Expected to be called within a Hy interpreter process buffer."
     (hy-shell--redirect-send-internal hy-shell--jedhy-reset-namespace-code)))
 
 ;;; Company
+;;;; Output Formats
 
-(defun hy-shell--company-extract-candidates (output)
-  "Return list of completion candidates from raw inferior OUTPUT."
+(defun hy-shell--format-output-str (output)
+  "Format OUTPUT given as a string."
+  (->> output
+     (s-chop-prefix "'")
+     (s-chop-suffix "'")))
+
+(defun hy-shell--format-output-tuple (output)
+  "Format OUTPUT given as a tuple."
   (unless (s-equals? "()" output)
     (->> output
-       s-trim
        (s-replace-all '(("'" . "")
                         (",)" . "")  ; one element list case
                         ("(" . "")
                         (")" . "")))
        (s-split ", "))))  ; comma is a valid token so can't replace it
+
+;;;; Jedhy Interface
 
 (defun hy-shell--prefix-str->candidates (prefix-str)
   "Get company candidates for a PREFIX-STR."
@@ -349,13 +351,40 @@ Expected to be called within a Hy interpreter process buffer."
      prefix-str
      (format "(--JEDHY.complete \"%s\")")
      hy-shell--redirect-send-internal
-     hy-shell--company-extract-candidates)))
+     hy-shell--format-output-tuple)))
+
+(defun hy-shell--candidate-str->annotation (candidate-str)
+  (-some->>
+   candidate-str
+   (format "(--JEDHY.annotate \"%s\")")
+   hy-shell--redirect-send-internal
+   hy-shell--format-output-str))
 
 ;; (hy-shell--startup-jedhy)
 ;; (hy-shell--reset-namespace)
 
 ;; (hy-shell--prefix-str->candidates "it.")
 ;; (hy-shell--prefix-str->candidates "itertools.-")
+;; (hy-shell--candidate-str->annotation "try")
+
+;;;; Command
+
+;; (spacemacs|add-company-backends
+;;   :backends company-hy
+;;   :modes hy-mode inferior-hy-mode)
+
+(defun company-hy (command &optional prefix-or-candidate-str &rest ignored)
+  (interactive (list 'interactive))
+
+  (cl-case command
+    (prefix
+     (company-grab-symbol))
+    (candidates
+     (hy-shell--prefix-str->candidates prefix-or-candidate-str))
+    (annotation
+     (hy-shell--candidate-str->annotation prefix-or-candidate-str))
+    ;; (meta (-> prefix-or-candidate-str hy--eldoc-get-docs hy--str-or-empty))
+    ))
 
 ;;; Notifications
 
