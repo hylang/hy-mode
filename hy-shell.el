@@ -329,8 +329,8 @@ Expected to be called within a Hy interpreter process buffer."
 (defun hy-shell--format-output-str (output)
   "Format OUTPUT given as a string."
   (->> output
-     (s-chop-prefix "'")
-     (s-chop-suffix "'")))
+     (s-chop-prefixes '("'" "\""))
+     (s-chop-suffixes '("'" "\""))))
 
 (defun hy-shell--format-output-tuple (output)
   "Format OUTPUT given as a tuple."
@@ -341,6 +341,30 @@ Expected to be called within a Hy interpreter process buffer."
                         ("(" . "")
                         (")" . "")))
        (s-split ", "))))  ; comma is a valid token so can't replace it
+
+;;;; Fontifying
+
+(defun hy-shell--fontify-text (text regexp &rest faces)
+  "Fontify portions of TEXT matching REGEXP with FACES."
+  (when text
+    (-each (s-matched-positions-all regexp text)
+      (-lambda ((start . end))
+        (-each faces
+          (lambda (face)
+            (add-face-text-property start end face nil text)))))))
+
+(defun hy-shell--fontify-eldoc (text)
+  "Fontify eldoc TEXT."
+  (let ((kwd-rx
+         (rx string-start (1+ (not (any space ":"))) ":"))
+        (kwargs-rx
+         (rx symbol-start "&" (1+ word)))
+        (quoted-args-rx
+         (rx "`" (1+ (not space)) "`")))
+    (hy--fontify-text text kwd-rx 'font-lock-keyword-face)
+    (hy--fontify-text text kwargs-rx 'font-lock-type-face)
+    (hy--fontify-text text quoted-args-rx 'font-lock-constant-face 'bold-italic))
+  text)
 
 ;;;; Jedhy Interface
 
@@ -368,7 +392,8 @@ Expected to be called within a Hy interpreter process buffer."
    candidate-str
    (format "(--JEDHY.docs \"%s\")")
    hy-shell--redirect-send-internal
-   hy-shell--format-output-str))
+   hy-shell--format-output-str
+   hy-shell--fontify-eldoc))
 
 ;; (hy-shell--startup-jedhy)
 ;; (hy-shell--reset-namespace)

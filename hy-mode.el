@@ -207,39 +207,17 @@ commands."
 ;;; Eldoc
 ;;;; Utilities
 
-(defun hy--eldoc-chomp-output (text)
-  "Chomp prefixes and suffixes from eldoc process output."
-  (->> text
-     (s-chop-suffixes '("\n=> " "=> " "\n"))
-     (s-chop-prefixes '("\"" "'" "\"'" "'\""))
-     (s-chop-suffixes '("\"" "'" "\"'" "'\""))))
-
 (defun hy--eldoc-remove-syntax-errors (text)
   "Quick fix to address parsing an incomplete dot-dsl."
   (if (< 1 (-> text s-lines length))
       ""
     text))
 
-(defun hy--eldoc-send (string)
-  "Send STRING for eldoc to internal process returning output."
-  (-> string
-      hy--shell-send-async
-      hy--eldoc-chomp-output
-      hy--eldoc-remove-syntax-errors
-      hy--str-or-nil))
-
-(defun hy--eldoc-format-command (symbol &optional full raw)
-  "Inspect SYMBOL with hydoc, optionally include FULL docs for a buffer."
-  (format "(try (--HYDOC %s :full %s) (except [e Exception] (str)))"
-          (if raw symbol (s-concat "\"" symbol "\""))
-          (if full "True" "False")))
-
 (defun hy--not-function-form? ()
   "Non-nil if form at point doesn't represent a function call."
   (or (-contains? '(?\[ ?\{) (char-after))
       (not (looking-at (rx anything  ; Skips form opener
                            (or (syntax symbol) (syntax word)))))))
-
 
 (defun hy--eldoc-get-inner-symbol ()
   "Traverse and inspect innermost sexp and return formatted string for eldoc."
@@ -267,31 +245,6 @@ commands."
                  (forward-char)
                  (concat (thing-at-point 'symbol) function))))
         function))))
-
-(defun hy--fontify-text (text regexp &rest faces)
-  "Fontify portions of TEXT matching REGEXP with FACES."
-  (when text
-    (-each
-        (s-matched-positions-all regexp text)
-      (-lambda ((beg . end))
-        (--each faces
-          (add-face-text-property beg end it nil text))))))
-
-(defun hy--eldoc-fontify-text (text)
-  "Fontify eldoc TEXT."
-  (let ((kwd-rx
-         (rx string-start (1+ (not (any space ":"))) ":"))
-        (kwargs-rx
-         (rx symbol-start "&" (1+ word)))
-        (quoted-args-rx
-         (rx "`" (1+ (not space)) "`")))
-    (hy--fontify-text
-     text kwd-rx 'font-lock-keyword-face)
-    (hy--fontify-text
-     text kwargs-rx 'font-lock-type-face)
-    (hy--fontify-text
-     text quoted-args-rx 'font-lock-constant-face 'bold-italic))
-  text)
 
 ;;;; Documentation Functions
 
