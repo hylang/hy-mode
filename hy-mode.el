@@ -246,27 +246,13 @@ commands."
                  (concat (thing-at-point 'symbol) function))))
         function))))
 
-;;;; Documentation Functions
-
-(defun hy--eldoc-get-docs (obj &optional full)
-  "Get eldoc or optionally buffer-formatted docs for `obj'."
-  (when obj
-    (hy--eldoc-fontify-text
-     (or (-> obj (hy--eldoc-format-command full) hy--eldoc-send)
-         (-> obj (hy--eldoc-format-command full t) hy--eldoc-send)))))
-
-(defun hy-eldoc-documentation-function ()
-  "Drives `eldoc-mode', retrieves eldoc msg string for inner-most symbol."
-  (-> (hy--eldoc-get-inner-symbol)
-      hy--eldoc-get-docs))
-
 ;;; Describe thing at point
 
 (defun hy--docs-for-thing-at-point ()
   "Mirrors `hy-eldoc-documentation-function' formatted for a buffer, not a msg."
   (-> (thing-at-point 'symbol)
-      (hy--eldoc-get-docs t)
-      hy--format-docs-for-buffer))
+     (hy--eldoc-get-docs t)
+     hy--format-docs-for-buffer))
 
 (defun hy--format-docs-for-buffer (text)
   "Format raw hydoc TEXT for inserting into hyconda buffer."
@@ -438,7 +424,7 @@ commands."
   "Major mode for editing Hy files."
   (hy--mode-setup-font-lock)
   ;; FIXME IDE Features being re-integrated
-  ;; (hy--mode-setup-eldoc)
+  (hy--mode-setup-eldoc)
   (hy--mode-setup-smartparens)
   (hy--mode-setup-syntax))
 

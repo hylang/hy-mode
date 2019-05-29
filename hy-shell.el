@@ -403,11 +403,15 @@ Expected to be called within a Hy interpreter process buffer."
 ;; (hy-shell--candidate-str->annotation "try")
 ;; (hy-shell--candidate-str->eldoc "itertools")
 
-;;;; Command
+;;;; Commands
 
 ;; (spacemacs|add-company-backends
 ;;   :backends company-hy
 ;;   :modes hy-mode inferior-hy-mode)
+
+(defun hy-eldoc-documentation-function ()
+  "Drives `eldoc-mode', retrieves eldoc msg string for inner-most symbol."
+  (hy-shell--candidate-str->eldoc (thing-at-point 'symbol)))
 
 (defun company-hy (command &optional prefix-or-candidate-str &rest ignored)
   (interactive (list 'interactive))
