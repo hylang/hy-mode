@@ -200,7 +200,10 @@ Expected to be called within a Hy interpreter process buffer."
     (erase-buffer)
     (hy-shell--with
       (hy-shell--redirect-send-1 text))
-    (buffer-substring-no-properties (point-min) (1- (point-max)))))
+    (buffer-substring-no-properties (point-min)
+                                    (if (> (point-max) (point-min))
+                                        (1- (point-max))
+                                      (point-max)))))
 
 (defun hy-shell--redirect-send-internal (text)
   "Send TEXT to internal Hy interpreter, capturing and removing the output."
@@ -208,7 +211,10 @@ Expected to be called within a Hy interpreter process buffer."
     (erase-buffer)
     (hy-shell--with-internal
       (hy-shell--redirect-send-1 text))
-    (buffer-substring-no-properties (point-min) (1- (point-max)))))
+    (buffer-substring-no-properties (point-min)
+                                    (if (> (point-max) (point-min))
+                                        (1- (point-max))
+                                      (point-max)))))
 
 ;;; Sending Text - Transfer in Progress
 ;;;; Prior Implementation
@@ -293,23 +299,36 @@ Expected to be called within a Hy interpreter process buffer."
 (defconst hy-shell--jedhy-fail-text "'Failed to start jedhy'"
   "Text identifying failure to startup jedhy.")
 
-(defconst hy-shell--jedhy-setup-code "(try (do (import jedhy jedhy.api) (setv --JEDHY (jedhy.api.API)) \"Started jedhy\") (except [e Exception] \"Failed to start jedhy\"))"
+(defconst hy-shell--jedhy-setup-code
+  "(try (do (import jedhy jedhy.api) (setv --JEDHY (jedhy.api.API)) \"Started jedhy\") (except [e Exception] \"Failed to start jedhy\"))"
   "Text to send to internal Hy process to setup `jedhy', via --JEDHY.")
 
-(defun hy-shell--jedhy-installed? () t)
+(defconst hy-shell--jedhy-reset-namespace-code
+  "(--JEDHY.set-namespace :locals- (locals) :globals- (globals) :macros- --macros--)"
+  "Text to send to make Jedhy's namespace current.")
+
+(defun hy-shell--jedhy-installed? () "Stub." t)
 
 (defun hy-shell--startup-jedhy ()
+  "Startup jedhy and notify its status, returning non-nil if successful."
   (hy-shell--with-internal
-    (let ((status (hy-shell--redirect-send-internal hy-shell--jedhy-setup-code)))
-      (if (s-equals? status hy-shell--jedhy-success-text)
-          (prog1 t
-            (when hy-shell--notify? (message "Jedhy successfully started"))
-            (setq-local hy-shell--jedhy-running? t))
-        (prog1 nil
-          (when hy-shell--notify? (message "Jedhy failed to start"))
-          (setq-local hy-shell--jedhy-running? nil))))))
+    (unless hy-shell--jedhy-running?
+      (let ((status (hy-shell--redirect-send-internal hy-shell--jedhy-setup-code)))
+        (if (s-equals? status hy-shell--jedhy-success-text)
+            (prog1 t
+              (when hy-shell--notify? (message "Jedhy successfully started"))
+              (setq-local hy-shell--jedhy-running? t))
+          (prog1 nil
+            (when hy-shell--notify? (message "Jedhy failed to start"))
+            (setq-local hy-shell--jedhy-running? nil)))))))
+
+(defun hy-shell--reset-namespace ()
+  "Make Jedhy's namespace current."
+  (when hy-shell--jedhy-running?
+    (hy-shell--redirect-send-internal hy-shell--jedhy-reset-namespace-code)))
 
 ;; (hy-shell--startup-jedhy)
+;; (hy-shell--reset-namespace)
 ;; (hy-shell--redirect-send-internal "(--JEDHY.complete \"it\")")
 
 ;;; Notifications
