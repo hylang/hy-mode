@@ -256,12 +256,6 @@ commands."
   (insert "(do (import pdb) (pdb.set-trace))"))
 
 ;;;###autoload
-(defun hy-insert-pdb-threaded ()
-  "Import and set pdb trace at point for a threading macro."
-  (interactive)
-  (insert "((fn [x] (import pdb) (pdb.set-trace) x))"))
-
-;;;###autoload
 (defun hy-shell-start-or-switch-to-shell ()
   (interactive)
   (if (and (hy--shell-buffer?) (get-buffer-process hy-shell-buffer))
@@ -379,17 +373,24 @@ commands."
   (hy--mode-setup-font-lock)
   (hy--mode-setup-eldoc)
   (hy--mode-setup-smartparens)
-  (hy--mode-setup-syntax))
+  (hy--mode-setup-syntax)
+
+  ;; (run-hy-internal)
+  ;; (add-hook 'pyvenv-post-activate-hooks 'run-hy-internal nil t)
+  )
 
 ;; Spacemacs users please see spacemacs-hy, all bindings defined there
+
 (set-keymap-parent hy-mode-map lisp-mode-shared-map)
-(define-key hy-mode-map (kbd "C-c C-z") 'hy-shell-start-or-switch-to-shell)
+(define-key hy-mode-map (kbd "C-c C-z") #'run-hy)
+
 (define-key hy-mode-map (kbd "C-c C-b") 'hy-shell-eval-buffer)
-(define-key hy-mode-map (kbd "C-c C-t") 'hy-insert-pdb)
-(define-key hy-mode-map (kbd "C-c C-S-t") 'hy-insert-pdb-threaded)
 (define-key hy-mode-map (kbd "C-c C-r") 'hy-shell-eval-region)
 (define-key hy-mode-map (kbd "C-M-x") 'hy-shell-eval-current-form)
 (define-key hy-mode-map (kbd "C-c C-e") 'hy-shell-eval-last-sexp)
+
+(define-key hy-mode-map (kbd "C-c C-t") #'hy-insert-pdb)
+
 (define-key inferior-hy-mode-map (kbd "C-c C-z") (lambda ()
                                                    (interactive)
                                                    (other-window -1)))

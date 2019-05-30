@@ -210,76 +210,51 @@ Expected to be called within a Hy interpreter process buffer."
       (hy-shell--redirect-send-1 text))
     (s-chomp (buffer-substring-no-properties (point-min) (point-max)))))
 
-;;; Sending Text - Transfer in Progress
-;;;; Prior Implementation
+;;; TODO Sending Text non-redirected
 
-(defun hy-shell--end-of-output? (text)
-  "Does TEXT contain a prompt, and so, signal end of the output?"
-  (s-matches? comint-prompt-regexp text))
+;; (defun hy-shell--end-of-output? (text)
+;;   "Does TEXT contain a prompt, and so, signal end of the output?"
+;;   (s-matches? comint-prompt-regexp text))
 
-(defun hy-shell--text->comint-text (text)
-  "Format TEXT before sending to comint."
-  ;; TODO Potentially add this to `comint-input-filter-functions'
-  ;; if this section is really even needed
-  ;; TODO According to `comint-input-sender' I don't thik this should
-  ;; be necessary?
-  (if (or (not (string-match "\n\\'" text))
-          (string-match "\n[ \t].*\n?\\'" text))
-      (s-concat text "\n")
-    text))
+;; (defun hy-shell--text->comint-text (text)
+;;   "Format TEXT before sending to comint."
+;;   ;; TODO Potentially add this to `comint-input-filter-functions'
+;;   ;; if this section is really even needed
+;;   ;; TODO According to `comint-input-sender' I don't thik this should
+;;   ;; be necessary?
+;;   (if (or (not (string-match "\n\\'" text))
+;;           (string-match "\n[ \t].*\n?\\'" text))
+;;       (s-concat text "\n")
+;;     text))
 
-(defun hy-shell--send (text)
-  "Send TEXT to Hy interpreter, starting up if needed."
-  (hy-shell--with
-    (let ((hy-shell--output-in-progress t)
-          (proc (hy-shell--current-process)))
-      (comint-send-string proc text))))
+;; (defun hy-shell--send (text)
+;;   "Send TEXT to Hy interpreter, starting up if needed."
+;;   (hy-shell--with
+;;     (let ((hy-shell--output-in-progress t)
+;;           (proc (hy-shell--current-process)))
+;;       (comint-send-string proc text))))
 
-(defun hy-shell--send-internal (text)
-  "Send TEXT to Hy interpreter, starting up if needed."
-  (hy-shell--with-internal
-    (let ((hy-shell--output-in-progress t)
-          (proc (hy-shell--current-process)))
-      (comint-send-string proc text))))
+;; (defun hy-shell--send-internal (text)
+;;   "Send TEXT to Hy interpreter, starting up if needed."
+;;   (hy-shell--with-internal
+;;     (let ((hy-shell--output-in-progress t)
+;;           (proc (hy-shell--current-process)))
+;;       (comint-send-string proc text))))
 
-(defun hy-shell--send-inhibit-output (string &optional process internal)
-  "Send TEXT to Hy interpreter inhibiting output, starting up if needed."
-  (hy-shell--with
-    (let ((inhibit-quit t)
-          (hy-shell--output-in-progress t)
-          (proc (hy-shell--current-process)))
-      (unless (with-local-quit
-                (comint-send-string proc text)
-                (while hy-shell--output-in-progress
-                  (accept-process-output process))
-                t)
-        (comint-interrupt-subjob)))))
+;; (defun hy-shell--send-inhibit-output (string &optional process internal)
+;;   "Send TEXT to Hy interpreter inhibiting output, starting up if needed."
+;;   (hy-shell--with
+;;     (let ((inhibit-quit t)
+;;           (hy-shell--output-in-progress t)
+;;           (proc (hy-shell--current-process)))
+;;       (unless (with-local-quit
+;;                 (comint-send-string proc text)
+;;                 (while hy-shell--output-in-progress
+;;                   (accept-process-output process))
+;;                 t)
+;;         (comint-interrupt-subjob)))))
 
 ;;; Jedhy
-;;;; Notes
-
-;; SETUP
-;; pip install -e "~/dev/jedhy/"
-;; (import jedhy jedhy.api)
-;; (setv --JEDHY (jedhy.api.API))
-
-;; EXAMPLE RETURN VALUES:
-
-;; (x.complete "it")
-;; ('iter', 'itertools', 'iterable?', 'iterate', 'iterator?')
-
-;; (x.docs "itertools")
-;; 'Functional tools for creating and using iterators.'
-
-;; (x.annotate "try")
-;; '<compiler try>'
-
-;; (x.complete "gibberish")
-;; ()
-
-;; (x.docs "gibberish")
-;; ''
-
 ;;;; Code
 
 ;; TODO Redirected sending of multiple lines needs to concatenate the outputs
@@ -432,25 +407,11 @@ Expected to be called within a Hy interpreter process buffer."
    hy-shell--quickfix-eldoc-dot-dsl-syntax-errors
    hy-shell--fontify-eldoc))
 
-;; (hy-shell--startup-jedhy)
-;; (hy-shell--reset-namespace)
-
-;; (hy-shell--prefix-str->candidates "it.")
-;; (hy-shell--prefix-str->candidates "itertools.-")
-;; (hy-shell--candidate-str->annotation "try")
-;; (hy-shell--candidate-str->eldoc "itertools")
-
 ;;;; Commands
-
-;; (spacemacs|add-company-backends
-;;   :backends company-hy
-;;   :modes hy-mode inferior-hy-mode)
 
 (defun hy-eldoc-documentation-function ()
   "Drives `eldoc-mode', retrieves eldoc msg string for inner-most symbol."
-  ;; (hy-shell--candidate-str->eldoc (thing-at-point 'symbol))
-  (hy-shell--candidate-str->eldoc (hy-shell--get-inner-symbol))
-  )
+  (hy-shell--candidate-str->eldoc (hy-shell--get-inner-symbol)))
 
 (defun company-hy (command &optional prefix-or-candidate-str &rest ignored)
   (interactive (list 'interactive))
@@ -486,7 +447,6 @@ Expected to be called within a Hy interpreter process buffer."
 
 The solution implemented is my own and was interesting enough to warrant
 a blog post: http://www.modernemacs.com/post/comint-highlighting/."
-  ;; We never start up font locking for internal processes, for obv reasons
   (unless (hy-shell--internal?)
     (setq font-lock-defaults
           '(inferior-hy-font-lock-kwds
@@ -502,12 +462,12 @@ a blog post: http://www.modernemacs.com/post/comint-highlighting/."
 (defun hy-inferior--support-colorama-output ()
   "Support colorama'd shell output (like errors/traces) with `ansi-color'."
   (ansi-color-for-comint-mode-on)
-  (add-to-list 'comint-output-filter-functions #'ansi-color-process-output))
+  (add-hook 'comint-output-filter-functions #'ansi-color-process-output))
 
 (defun hy-inferior--support-xterm-color ()
   "Support `xterm-color' in shell output."
-  (when (fboundp #'xterm-color-filter)
-    (add-to-list 'comint-preoutput-filter-functions #'xterm-color-filter)))
+  (when (fboundp #'xterm-color-filter)  ; not installed by default
+    (add-hook 'comint-preoutput-filter-functions #'xterm-color-filter)))
 
 ;;;; Comint Configurations
 
@@ -516,37 +476,43 @@ a blog post: http://www.modernemacs.com/post/comint-highlighting/."
   (advice-add #'comint-previous-input :before
               (lambda (&rest args) (setq-local comint-stored-incomplete-input ""))))
 
-;;;; IDE Components
-
-;; TODO Internal process startup handling and the pyvenv hook
-;; (defun hy--mode-setup-inferior ()
-;;   ;; (add-to-list 'company-backends 'company-hy)
-;;   (setenv "PYTHONIOENCODING" "UTF-8")
-
-;;   (run-hy-internal)
-;;   (add-hook 'pyvenv-post-activate-hooks 'run-hy-internal nil t))
-
 ;;;; Mode Declaration
+
+;; SETUP
+;; pip install -e "~/dev/jedhy/"
+;; (import jedhy jedhy.api)
+;; (setv --JEDHY (jedhy.api.API))
+
+;; (hy-shell--startup-jedhy)
+;; (hy-shell--reset-namespace)
+
+;; (hy-shell--prefix-str->candidates "it.")
+;; (hy-shell--prefix-str->candidates "itertools.-")
+;; (hy-shell--candidate-str->annotation "try")
+;; (hy-shell--candidate-str->eldoc "itertools")
+
+;; (spacemacs|add-company-backends
+;;   :backends company-hy
+;;   :modes hy-mode inferior-hy-mode)
 
 ;;;###autoload
 (define-derived-mode inferior-hy-mode comint-mode "Inferior Hy"
   "Major mode for Hy inferior process."
-  ;; Comint config
+  (setenv "PYTHONIOENCODING" "UTF-8")
+
   (setq-local indent-tabs-mode nil)
   (setq-local comint-prompt-read-only t)
   (setq-local comint-prompt-regexp (rx bol "=>" space))
   (hy-inferior--fix-comint-input-history-breaking)
 
-  ;; Font Lock support
-  (when hy-shell--enable-font-lock?
-    (hy-inferior--support-font-locking-input))
-
-  ;; Instantiate and build filters
-  ;; TODO Just use `add-hook' here
   (setq-local comint-preoutput-filter-functions nil)
   (setq-local comint-output-filter-functions nil)
+
   (hy-inferior--support-colorama-output)
-  (hy-inferior--support-xterm-color))
+  (hy-inferior--support-xterm-color)
+
+  (when hy-shell--enable-font-lock?
+    (hy-inferior--support-font-locking-input)))
 
 ;;; Commands
 ;;;; Killing
