@@ -390,11 +390,14 @@ Expected to be called within a Hy interpreter process buffer."
   "Fontify eldoc TEXT."
   (let ((kwd-rx
          (rx string-start (1+ (not (any space ":"))) ":"))
+        (unpack-rx
+         (rx (or "#*" "#**")))
         (kwargs-rx
          (rx symbol-start "&" (1+ word)))
         (quoted-args-rx
          (rx "`" (1+ (not space)) "`")))
     (hy--fontify-text text kwd-rx 'font-lock-keyword-face)
+    (hy--fontify-text text unpack-rx 'font-lock-keyword-face)
     (hy--fontify-text text kwargs-rx 'font-lock-type-face)
     (hy--fontify-text text quoted-args-rx 'font-lock-constant-face 'bold-italic))
   text)
