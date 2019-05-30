@@ -36,6 +36,8 @@
 
 (require 'hy-base)
 
+;; TODO Add a hy-syntax and hy-jedhy pkgs
+;; TODO Add a hy-config file?
 (require 'hy-font-lock)
 (require 'hy-shell)
 
@@ -206,44 +208,44 @@ commands."
 
 ;;; Describe thing at point
 
-(defun hy--docs-for-thing-at-point ()
-  "Mirrors `hy-eldoc-documentation-function' formatted for a buffer, not a msg."
-  (-> (thing-at-point 'symbol)
-     (hy--eldoc-get-docs t)
-     hy--format-docs-for-buffer))
+;; (defun hy--docs-for-thing-at-point ()
+;;   "Mirrors `hy-eldoc-documentation-function' formatted for a buffer, not a msg."
+;;   (-> (thing-at-point 'symbol)
+;;      (hy--eldoc-get-docs t)
+;;      hy--format-docs-for-buffer))
 
-(defun hy--format-docs-for-buffer (text)
-  "Format raw hydoc TEXT for inserting into hyconda buffer."
-  (-let [kwarg-newline-regexp
-         (rx ","
-             (1+ (not (any "," ")")))
-             (group-n 1 "\\\n")
-             (1+ (not (any "," ")"))))]
-    (-some--> text
-            (s-replace "\\n" "\n" it)
-            (replace-regexp-in-string kwarg-newline-regexp
-                                      "newline" it nil t 1))))
+;; (defun hy--format-docs-for-buffer (text)
+;;   "Format raw hydoc TEXT for inserting into hyconda buffer."
+;;   (-let [kwarg-newline-regexp
+;;          (rx ","
+;;              (1+ (not (any "," ")")))
+;;              (group-n 1 "\\\n")
+;;              (1+ (not (any "," ")"))))]
+;;     (-some--> text
+;;             (s-replace "\\n" "\n" it)
+;;             (replace-regexp-in-string kwarg-newline-regexp
+;;                                       "newline" it nil t 1))))
 
-(defun hy-describe-thing-at-point ()
-  "Implement shift-k docs lookup for `spacemacs/evil-smart-doc-lookup'."
-  (interactive)
-  (-when-let* ((text (hy--docs-for-thing-at-point))
-               (doc-buffer "*Hyconda*"))
-    (with-current-buffer (get-buffer-create doc-buffer)
-      (erase-buffer)
-      (switch-to-buffer-other-window doc-buffer)
+;; (defun hy-describe-thing-at-point ()
+;;   "Implement shift-k docs lookup for `spacemacs/evil-smart-doc-lookup'."
+;;   (interactive)
+;;   (-when-let* ((text (hy--docs-for-thing-at-point))
+;;                (doc-buffer "*Hyconda*"))
+;;     (with-current-buffer (get-buffer-create doc-buffer)
+;;       (erase-buffer)
+;;       (switch-to-buffer-other-window doc-buffer)
 
-      (insert text)
-      (goto-char (point-min))
-      (forward-line)
+;;       (insert text)
+;;       (goto-char (point-min))
+;;       (forward-line)
 
-      (insert "------\n")
-      (fill-region (point) (point-max))
+;;       (insert "------\n")
+;;       (fill-region (point) (point-max))
 
-      ;; Eventually make hyconda-view-minor-mode, atm this is sufficient
-      (local-set-key "q" 'quit-window)
-      (when (fboundp 'evil-local-set-key)
-        (evil-local-set-key 'normal "q" 'quit-window)))))
+;;       ;; Eventually make hyconda-view-minor-mode, atm this is sufficient
+;;       (local-set-key "q" 'quit-window)
+;;       (when (fboundp 'evil-local-set-key)
+;;         (evil-local-set-key 'normal "q" 'quit-window)))))
 
 ;;; Keybindings
 
@@ -371,17 +373,10 @@ commands."
 (add-to-list 'auto-mode-alist '("\\.hy\\'" . hy-mode))
 (add-to-list 'interpreter-mode-alist '("hy" . hy-mode))
 
-;; Now done in `hy-shell'
-;;;###autoload
-;; (define-derived-mode inferior-hy-mode comint-mode "Inferior Hy"
-;;   "Major mode for Hy inferior process."
-;;   (hy--inferior-mode-setup))
-
 ;;;###autoload
 (define-derived-mode hy-mode prog-mode "Hy"
   "Major mode for editing Hy files."
   (hy--mode-setup-font-lock)
-  ;; FIXME IDE Features being re-integrated
   (hy--mode-setup-eldoc)
   (hy--mode-setup-smartparens)
   (hy--mode-setup-syntax))

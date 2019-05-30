@@ -342,22 +342,20 @@ Expected to be called within a Hy interpreter process buffer."
     (-when-let (inner-symbol (and (hy--goto-inner-sexp (syntax-ppss))
                                   (not (-contains? '(?\[ ?\{) (char-before)))
                                   (thing-at-point 'symbol)))
-      (if (not (and (hy-shell--method-call? inner-symbol)
-                    (ignore-errors (forward-sexp) (forward-char) t)))
-          inner-symbol
+      (if (hy-shell--method-call? inner-symbol)
+          (when (ignore-errors (forward-sexp) (forward-whitespace 1) t)
+            (pcase (char-after)
+              ;; Can't send just .method to eldoc
+              ((or ?\) ?\s ?\C-j) nil)
 
-        (pcase (char-after)
-          ;; Can't send just .method to eldoc
-          ((or ?\) ?\s ?\C-j) nil)
+              ;; Dot dsl doesn't work on literals
+              (?\[ (s-concat "list" inner-symbol))
+              (?\{ (s-concat "dict" inner-symbol))
+              (?\" (s-concat "str" inner-symbol))
 
-          ;; Dot dsl doesn't work on literals
-          (?\[ (s-concat "list" inner-symbol))
-          (?\{ (s-concat "dict" inner-symbol))
-          (?\" (s-concat "str" inner-symbol))
-
-          ;; Otherwise complete the dot dsl
-          (_ (progn (forward-char)
-                    (s-concat (thing-at-point 'symbol) inner-symbol))))))))
+              ;; Otherwise complete the dot dsl
+              (_ (s-concat (thing-at-point 'symbol) inner-symbol))))
+        inner-symbol))))
 
 ;;;; Output Formats
 
@@ -447,7 +445,9 @@ Expected to be called within a Hy interpreter process buffer."
 
 (defun hy-eldoc-documentation-function ()
   "Drives `eldoc-mode', retrieves eldoc msg string for inner-most symbol."
-  (hy-shell--candidate-str->eldoc (thing-at-point 'symbol)))
+  ;; (hy-shell--candidate-str->eldoc (thing-at-point 'symbol))
+  (hy-shell--candidate-str->eldoc (hy-shell--get-inner-symbol))
+  )
 
 (defun company-hy (command &optional prefix-or-candidate-str &rest ignored)
   (interactive (list 'interactive))
