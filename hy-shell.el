@@ -210,22 +210,28 @@ Expected to be called within a Hy interpreter process buffer."
       (hy-shell--redirect-send-1 text))
     (s-chomp (buffer-substring-no-properties (point-min) (point-max)))))
 
-;;; TODO Sending Text non-redirected
+;;; Sending Text
+;;;; Old
+
+;; TODO Tailor `hy-shell--redirect-send' to handle the extra requirements here
+;; (defun hy-shell--send-inhibit-output (string &optional process internal)
+;;   "Send TEXT to Hy interpreter inhibiting output, starting up if needed."
+;;   (hy-shell--with
+;;     (let ((inhibit-quit t)
+;;           (hy-shell--output-in-progress t)
+;;           (proc (hy-shell--current-process)))
+;;       (unless (with-local-quit
+;;                 (comint-send-string proc text)
+;;                 (while hy-shell--output-in-progress
+;;                   (accept-process-output process))
+;;                 t)
+;;         (comint-interrupt-subjob)))))
 
 ;; (defun hy-shell--end-of-output? (text)
 ;;   "Does TEXT contain a prompt, and so, signal end of the output?"
 ;;   (s-matches? comint-prompt-regexp text))
 
-;; (defun hy-shell--text->comint-text (text)
-;;   "Format TEXT before sending to comint."
-;;   ;; TODO Potentially add this to `comint-input-filter-functions'
-;;   ;; if this section is really even needed
-;;   ;; TODO According to `comint-input-sender' I don't thik this should
-;;   ;; be necessary?
-;;   (if (or (not (string-match "\n\\'" text))
-;;           (string-match "\n[ \t].*\n?\\'" text))
-;;       (s-concat text "\n")
-;;     text))
+;;;; Interface
 
 (defun hy-shell--send (text)
   "Send TEXT to Hy interpreter, starting up if needed."
@@ -241,26 +247,34 @@ Expected to be called within a Hy interpreter process buffer."
           (proc (hy-shell--current-process)))
       (comint-send-string proc text))))
 
+;;;; Commands
+
+(defmacro hy-shell--eval-1 (text)
+  (let ((text-sym (gensym)))
+    `(-when-let (,text-sym ,text)
+       (run-hy)
+       (hy-shell--with-live (hy-shell--send ,text-sym)))))
+
 (defun hy-shell-eval-current-form ()
   "Send form containing point to the Hy interpreter, starting up if needed."
   (interactive)
-  (-when-let (text (hy--current-form-string))
-    (run-hy)
-    (hy-shell--with-live (hy-shell--send text))))
+  (hy-shell--eval-1 (hy--current-form-string)))
 
-;; TODO Tailor `hy-shell--redirect-send' to handle the extra requirements here
-;; (defun hy-shell--send-inhibit-output (string &optional process internal)
-;;   "Send TEXT to Hy interpreter inhibiting output, starting up if needed."
-;;   (hy-shell--with
-;;     (let ((inhibit-quit t)
-;;           (hy-shell--output-in-progress t)
-;;           (proc (hy-shell--current-process)))
-;;       (unless (with-local-quit
-;;                 (comint-send-string proc text)
-;;                 (while hy-shell--output-in-progress
-;;                   (accept-process-output process))
-;;                 t)
-;;         (comint-interrupt-subjob)))))
+(defun hy-shell-eval-last-sexp ()
+  (interactive)
+  (hy-shell--eval-1 (hy--last-sexp-string)))
+
+;; FIXME
+(defun hy-shell-eval-region ()
+  (interactive)
+  (when (and (region-active-p) (not (region-noncontiguous-p)))
+    (hy-shell--eval-1 (buffer-substring (region-beginning) (region-end)))))
+
+;; FIXME
+(defun hy-shell-eval-buffer ()
+  (interactive)
+  (when (and (region-active-p) (not (region-noncontiguous-p)))
+    (hy-shell--eval-1 (buffer-string))))
 
 ;;; Jedhy
 ;;;; Code
