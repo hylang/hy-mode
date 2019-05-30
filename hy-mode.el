@@ -204,48 +204,6 @@ commands."
 
         (t (hy-indent--normal calculate-lisp-indent-last-sexp))))
 
-;;; Eldoc
-;;;; Utilities
-
-(defun hy--eldoc-remove-syntax-errors (text)
-  "Quick fix to address parsing an incomplete dot-dsl."
-  (if (< 1 (-> text s-lines length))
-      ""
-    text))
-
-(defun hy--not-function-form? ()
-  "Non-nil if form at point doesn't represent a function call."
-  (or (-contains? '(?\[ ?\{) (char-after))
-      (not (looking-at (rx anything  ; Skips form opener
-                           (or (syntax symbol) (syntax word)))))))
-
-(defun hy--eldoc-get-inner-symbol ()
-  "Traverse and inspect innermost sexp and return formatted string for eldoc."
-  (save-excursion
-    (-when-let (function
-                (and (hy-shell-get-process 'internal)
-                     (-some-> (syntax-ppss) hy--sexp-inermost-char goto-char)
-                     (not (hy--not-function-form?))
-                     (progn (forward-char) (thing-at-point 'symbol))))
-
-      ;; Attribute method call (eg. ".format str") needs following sexp
-      (if (and (s-starts-with? "." function)
-               (ignore-errors (forward-sexp) (forward-char) t))
-          (pcase (char-after)
-            ;; Can't send just .method to eldoc
-            ((or ?\) ?\s ?\C-j) nil)
-
-            ;; Dot dsl doesn't work on literals
-            (?\[ (concat "list" function))
-            (?\{ (concat "dict" function))
-            (?\" (concat "str" function))
-
-            ;; Otherwise complete the dot dsl
-            (_ (progn
-                 (forward-char)
-                 (concat (thing-at-point 'symbol) function))))
-        function))))
-
 ;;; Describe thing at point
 
 (defun hy--docs-for-thing-at-point ()
@@ -262,9 +220,9 @@ commands."
              (group-n 1 "\\\n")
              (1+ (not (any "," ")"))))]
     (-some--> text
-              (s-replace "\\n" "\n" it)
-              (replace-regexp-in-string kwarg-newline-regexp
-                                        "newline" it nil t 1))))
+            (s-replace "\\n" "\n" it)
+            (replace-regexp-in-string kwarg-newline-regexp
+                                      "newline" it nil t 1))))
 
 (defun hy-describe-thing-at-point ()
   "Implement shift-k docs lookup for `spacemacs/evil-smart-doc-lookup'."

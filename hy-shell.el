@@ -324,6 +324,41 @@ Expected to be called within a Hy interpreter process buffer."
     (hy-shell--redirect-send-internal hy-shell--jedhy-reset-namespace-code)))
 
 ;;; Company
+;;;; Symbol Extraction
+
+(defun hy-shell--method-call? (symbol)
+  "Is SYMBOL a method call in Hy?"
+  (s-starts-with? "." symbol))
+
+(defun hy-shell--quickfix-eldoc-dot-dsl-syntax-errors (text)
+  "Quick fix to address parsing an incomplete dot-dsl."
+  (if (< 1 (-> text s-lines length))
+      ""
+    text))
+
+(defun hy-shell--get-inner-symbol ()
+  "Get inner symbol for point, completing Hy's method-dot DSL if applicable."
+  (save-excursion
+    (-when-let (inner-symbol (and (hy--goto-inner-sexp (syntax-ppss))
+                                  (not (-contains? '(?\[ ?\{) (char-before)))
+                                  (thing-at-point 'symbol)))
+      (if (not (and (hy-shell--method-call? inner-symbol)
+                    (ignore-errors (forward-sexp) (forward-char) t)))
+          inner-symbol
+
+        (pcase (char-after)
+          ;; Can't send just .method to eldoc
+          ((or ?\) ?\s ?\C-j) nil)
+
+          ;; Dot dsl doesn't work on literals
+          (?\[ (s-concat "list" inner-symbol))
+          (?\{ (s-concat "dict" inner-symbol))
+          (?\" (s-concat "str" inner-symbol))
+
+          ;; Otherwise complete the dot dsl
+          (_ (progn (forward-char)
+                    (s-concat (thing-at-point 'symbol) inner-symbol))))))))
+
 ;;;; Output Formats
 
 (defun hy-shell--format-output-str (output)
@@ -370,7 +405,7 @@ Expected to be called within a Hy interpreter process buffer."
 
 (defun hy-shell--prefix-str->candidates (prefix-str)
   "Get company candidates for a PREFIX-STR."
-  (unless (s-starts-with? "." prefix-str)  ; TODO overwrite `company-grab-symbol'
+  (unless (hy-shell--method-call? prefix-str)
     (-some->>
      prefix-str
      (format "(--JEDHY.complete \"%s\")")
@@ -393,6 +428,7 @@ Expected to be called within a Hy interpreter process buffer."
    (format "(--JEDHY.docs \"%s\")")
    hy-shell--redirect-send-internal
    hy-shell--format-output-str
+   hy-shell--quickfix-eldoc-dot-dsl-syntax-errors
    hy-shell--fontify-eldoc))
 
 ;; (hy-shell--startup-jedhy)
