@@ -255,58 +255,6 @@ commands."
   (interactive)
   (insert "(do (import pdb) (pdb.set-trace))"))
 
-;;;###autoload
-(defun hy-shell-start-or-switch-to-shell ()
-  (interactive)
-  (if (and (hy--shell-buffer?) (get-buffer-process hy-shell-buffer))
-      (switch-to-buffer-other-window
-       (hy--shell-get-or-create-buffer))
-    (run-hy)))
-
-;;;###autoload
-(defun hy-shell-eval-buffer ()
-  "Send the buffer to the shell, inhibiting output."
-  (interactive)
-  (-let [text
-         (buffer-string)]
-    (unless (hy--shell-buffer?)
-      (hy-shell-start-or-switch-to-shell))
-    (hy--shell-with-shell-buffer
-     (hy-shell-send-string-no-output text))))
-
-;;;###autoload
-(defun hy-shell-eval-region ()
-  "Send highlighted region to shell, inhibiting output."
-  (interactive)
-  (when (and (region-active-p)
-             (not (region-noncontiguous-p)))
-    (-let [text
-           (buffer-substring (region-beginning) (region-end))]
-      (unless (hy--shell-buffer?)
-        (hy-shell-start-or-switch-to-shell))
-      (hy--shell-with-shell-buffer
-       (hy-shell-send-string-no-output text)))))
-
-;;;###autoload
-(defun hy-shell-eval-current-form ()
-  "Send form containing current point to shell."
-  (interactive)
-  (-when-let (text (hy--current-form-string))
-    (unless (hy--shell-buffer?)
-      (hy-shell-start-or-switch-to-shell))
-    (hy--shell-with-shell-buffer
-     (hy-shell-send-string text))))
-
-;;;###autoload
-(defun hy-shell-eval-last-sexp ()
-  "Send form containing the last s-expression to shell."
-  (interactive)
-  (-when-let (text (hy--last-sexp-string))
-    (unless (hy--shell-buffer?)
-      (hy-shell-start-or-switch-to-shell))
-    (hy--shell-with-shell-buffer
-     (hy-shell-send-string text))))
-
 ;;; hy-mode and inferior-hy-mode
 ;;;; Hy-mode setup
 
