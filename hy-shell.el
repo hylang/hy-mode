@@ -227,20 +227,28 @@ Expected to be called within a Hy interpreter process buffer."
 ;;       (s-concat text "\n")
 ;;     text))
 
-;; (defun hy-shell--send (text)
-;;   "Send TEXT to Hy interpreter, starting up if needed."
-;;   (hy-shell--with
-;;     (let ((hy-shell--output-in-progress t)
-;;           (proc (hy-shell--current-process)))
-;;       (comint-send-string proc text))))
+(defun hy-shell--send (text)
+  "Send TEXT to Hy interpreter, starting up if needed."
+  (hy-shell--with
+    (let ((hy-shell--output-in-progress t)
+          (proc (hy-shell--current-process)))
+      (comint-send-string proc text))))
 
-;; (defun hy-shell--send-internal (text)
-;;   "Send TEXT to Hy interpreter, starting up if needed."
-;;   (hy-shell--with-internal
-;;     (let ((hy-shell--output-in-progress t)
-;;           (proc (hy-shell--current-process)))
-;;       (comint-send-string proc text))))
+(defun hy-shell--send-internal (text)
+  "Send TEXT to Hy interpreter, starting up if needed."
+  (hy-shell--with-internal
+    (let ((hy-shell--output-in-progress t)
+          (proc (hy-shell--current-process)))
+      (comint-send-string proc text))))
 
+(defun hy-shell-eval-current-form ()
+  "Send form containing point to the Hy interpreter, starting up if needed."
+  (interactive)
+  (-when-let (text (hy--current-form-string))
+    (run-hy)
+    (hy-shell--with-live (hy-shell--send text))))
+
+;; TODO Tailor `hy-shell--redirect-send' to handle the extra requirements here
 ;; (defun hy-shell--send-inhibit-output (string &optional process internal)
 ;;   "Send TEXT to Hy interpreter inhibiting output, starting up if needed."
 ;;   (hy-shell--with
