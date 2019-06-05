@@ -41,7 +41,7 @@
   "Should an internal process startup for use by ide components?")
 
 (defvar hy-shell--enable-font-lock? t
-  "Whether the shell should font-lock the current line.")
+  "Whether the shell should font-lock repl prompt input.")
 
 (defvar hy-shell--notify? t
   "Allow Hy to message on failure to find Hy, instantiation, shutdown, etc?")
@@ -211,26 +211,6 @@ Expected to be called within a Hy interpreter process buffer."
     (s-chomp (buffer-substring-no-properties (point-min) (point-max)))))
 
 ;;; Sending Text
-;;;; Old
-
-;; TODO Tailor `hy-shell--redirect-send' to handle the extra requirements here
-;; (defun hy-shell--send-inhibit-output (string &optional process internal)
-;;   "Send TEXT to Hy interpreter inhibiting output, starting up if needed."
-;;   (hy-shell--with
-;;     (let ((inhibit-quit t)
-;;           (hy-shell--output-in-progress t)
-;;           (proc (hy-shell--current-process)))
-;;       (unless (with-local-quit
-;;                 (comint-send-string proc text)
-;;                 (while hy-shell--output-in-progress
-;;                   (accept-process-output process))
-;;                 t)
-;;         (comint-interrupt-subjob)))))
-
-;; (defun hy-shell--end-of-output? (text)
-;;   "Does TEXT contain a prompt, and so, signal end of the output?"
-;;   (s-matches? comint-prompt-regexp text))
-
 ;;;; Interface
 
 (defun hy-shell--send (text)
