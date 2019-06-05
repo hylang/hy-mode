@@ -22,6 +22,13 @@
 
 ;; Shell and process functionality for Hy.
 
+;; This file implements `inferior-hy-mode', commands to send and get text
+;; from Hy interpreters, `company-mode' support, `eldoc-mode' support, and
+;; documentation introspection of symbol at point.
+
+;; Interfaces with jedhy, a Hy library I've written to support completion,
+;; documentation lookup, and other introspection code.
+
 ;;; Code:
 
 (require 'hy-base)
