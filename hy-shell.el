@@ -66,6 +66,9 @@
 (defvar hy-shell--redirect-output-buffer " *Hy Comint Redirect Buffer"
   "The buffer name to use for comint redirection of text sending commands.")
 
+(defvar hy-shell--doc-lookup-buffer " *Hy Doc Lookup Buffer"
+  "The buffer name to use for documentation lookups.")
+
 ;;; Macros
 
 (defmacro hy-shell--with (&rest body)
@@ -414,8 +417,6 @@ Expected to be called within a Hy interpreter process buffer."
 
 (defun hy-shell--candidate-str->eldoc (candidate-str)
   "Get eldoc docstring for a CANDIDATE-STR."
-  ;; TODO Eldoc gives "builtin immutable sequence" on compiler candidates
-  ;; this is a jedhy task not an emacs one
   (-some->>
    candidate-str
    (format "(--JEDHY.docs \"%s\")")
@@ -423,6 +424,17 @@ Expected to be called within a Hy interpreter process buffer."
    hy-shell--format-output-str
    hy-shell--quickfix-eldoc-dot-dsl-syntax-errors
    hy-shell--fontify-eldoc))
+
+(defun hy-shell--candidate-str->full-docs (candidate-str)
+  "Get full, multi-line docs for a CANDIDATE-STR."
+  (-some->>
+   candidate-str
+   (format "(--JEDHY.full-docs \"%s\")")
+   hy-shell--redirect-send-internal
+   hy-shell--format-output-str
+   s-chomp
+   hy-shell--fontify-first-docs-line
+   hy-shell--format-describe-output))
 
 ;;;; Commands
 
@@ -444,44 +456,60 @@ Expected to be called within a Hy interpreter process buffer."
 
 ;;; Describe thing at point
 
-;; (defun hy--docs-for-thing-at-point ()
-;;   "Mirrors `hy-eldoc-documentation-function' formatted for a buffer, not a msg."
-;;   (-> (thing-at-point 'symbol)
-;;      (hy--eldoc-get-docs t)
-;;      hy--format-docs-for-buffer))
+(defun hy-shell--docs-for-thing-at-point ()
+  (hy-shell--candidate-str->full-docs (thing-at-point 'symbol)))
 
-;; (defun hy--format-docs-for-buffer (text)
-;;   "Format raw hydoc TEXT for inserting into hyconda buffer."
-;;   (-let [kwarg-newline-regexp
-;;          (rx ","
-;;              (1+ (not (any "," ")")))
-;;              (group-n 1 "\\\n")
-;;              (1+ (not (any "," ")"))))]
-;;     (-some--> text
-;;             (s-replace "\\n" "\n" it)
-;;             (replace-regexp-in-string kwarg-newline-regexp
-;;                                       "newline" it nil t 1))))
+(defun hy-shell--fontify-first-docs-line (output)
+  "Fontify only the first line of jedhy OUTPUT accordding to eldoc."
+  (when output
+    (-let (((leader . rest) (s-lines output)))
+      (s-join "\n"
+              (cons (hy-shell--fontify-eldoc leader)
+                    rest)))))
 
-;; (defun hy-describe-thing-at-point ()
-;;   "Implement shift-k docs lookup for `spacemacs/evil-smart-doc-lookup'."
-;;   (interactive)
-;;   (-when-let* ((text (hy--docs-for-thing-at-point))
-;;                (doc-buffer "*Hyconda*"))
-;;     (with-current-buffer (get-buffer-create doc-buffer)
-;;       (erase-buffer)
-;;       (switch-to-buffer-other-window doc-buffer)
+(defun hy-shell--format-describe-output (output)
+  "Converts escaped newlines to true newlines."
+  (let ((kwarg-newline-regexp (rx ","
+                                  (1+ (not (any "," ")")))
+                                  (group-n 1 "\\\n")
+                                  (1+ (not (any "," ")"))))))
+    (-some-->
+     output
+     (s-replace "\\n" "\n" it)
+     (replace-regexp-in-string kwarg-newline-regexp "newline" it nil t 1))))
 
-;;       (insert text)
-;;       (goto-char (point-min))
-;;       (forward-line)
+(defun hy-describe-thing-at-point ()
+  "Describe symbol at point with help popup buffer.
 
-;;       (insert "------\n")
-;;       (fill-region (point) (point-max))
+Retrieves full documentation, with firstline formatted same as eldoc, in a
+popup buffer.
 
-;;       ;; Eventually make hyconda-view-minor-mode, atm this is sufficient
-;;       (local-set-key "q" 'quit-window)
-;;       (when (fboundp 'evil-local-set-key)
-;;         (evil-local-set-key 'normal "q" 'quit-window)))))
+Does not (yet) complete the dot-dsl like Eldoc does currently.
+
+Spacemacs users maybe be familiar with this functionality via
+shift-K keybinding that executes `spacemacs/evil-smart-doc-lookup'."
+  (interactive)
+  (-when-let (text (hy-shell--docs-for-thing-at-point))
+    (unless (s-blank-str? text)
+      (with-current-buffer (get-buffer-create hy-shell--doc-lookup-buffer)
+        (erase-buffer)
+        (switch-to-buffer-other-window hy-shell--doc-lookup-buffer)
+
+        (insert text)
+
+        (when (< 1 (length (s-lines text)))
+          (goto-char (point-min))
+          (forward-line)
+          (newline)
+          (insert "------")
+          (fill-region (point) (point-max)))
+
+        (goto-char (point-min))
+
+        ;; TODO This can be in a better way I'm assuming
+        (local-set-key "q" #'quit-window)
+        (when (fboundp #'evil-local-set-key)
+          (evil-local-set-key 'normal "q" #'quit-window))))))
 
 ;;; Notifications
 
