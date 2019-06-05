@@ -47,7 +47,7 @@
   "Allow Hy to message on failure to find Hy, instantiation, shutdown, etc?")
 
 (defvar hy-shell--redirect-timeout 0.5
-  "Seconds to allow for redirection commands to complete before quitting.")
+  "Seconds (float) to allow redirection commands to complete before quitting.")
 
 ;;;; Managed
 
@@ -152,6 +152,7 @@
       proc)))
 
 ;;; Redirected Sending
+;;;; Commentary
 
 ;; Maybe in the future I build an nrepl or lsp implementation. Until that day,
 ;; interacting with Hy's running processes programatically is done through the
@@ -167,6 +168,8 @@
 ;; The commands are rewritten because 1. we don't need all the options 2. we
 ;; require a timeout during the accept process output 3. we have some macros
 ;; that simplify things 4. easy to test this way.
+
+;;;; Implementation
 
 (defun hy-shell--redirect-check-prompt-regexp ()
   "Avoid infinite loop in redirect if `comint-prompt-regexp' badly defined."
@@ -227,34 +230,46 @@ Expected to be called within a Hy interpreter process buffer."
           (proc (hy-shell--current-process)))
       (comint-send-string proc text))))
 
-;;;; Commands
+;;;; Macros
 
 (defmacro hy-shell--eval-1 (text)
+  "Internal implementation of interactive eval commands."
+  (declare (indent 0))
   (let ((text-sym (gensym)))
     `(-when-let (,text-sym ,text)
        (run-hy)
-       (hy-shell--with-live (hy-shell--send ,text-sym)))))
+       (hy-shell--with-live
+         ;; TODO Force the initial/end cases in a nicer way if possible
+         (hy-shell--send "\n")
+         (hy-shell--send ,text-sym)
+         (hy-shell--send "\n")))))
+
+;;;; Commands
 
 (defun hy-shell-eval-current-form ()
   "Send form containing point to the Hy interpreter, starting up if needed."
   (interactive)
-  (hy-shell--eval-1 (hy--current-form-string)))
+  (hy-shell--eval-1
+    (hy--current-form-string)))
 
 (defun hy-shell-eval-last-sexp ()
+  "Send the last sexp to the Hy interpreter, starting up if needed."
   (interactive)
-  (hy-shell--eval-1 (hy--last-sexp-string)))
+  (hy-shell--eval-1
+    (hy--last-sexp-string)))
 
-;; FIXME
 (defun hy-shell-eval-region ()
+  "Send region to the Hy interpreter, starting up if needed."
   (interactive)
   (when (and (region-active-p) (not (region-noncontiguous-p)))
-    (hy-shell--eval-1 (buffer-substring (region-beginning) (region-end)))))
+    (hy-shell--eval-1
+      (buffer-substring (region-beginning) (region-end)))))
 
-;; FIXME
 (defun hy-shell-eval-buffer ()
+  "Send the current buffer to the Hy interpreter, starting up if needed."
   (interactive)
-  (when (and (region-active-p) (not (region-noncontiguous-p)))
-    (hy-shell--eval-1 (buffer-string))))
+  (hy-shell--eval-1
+    (buffer-string)))
 
 ;;; Jedhy
 ;;;; Code
@@ -295,8 +310,7 @@ Expected to be called within a Hy interpreter process buffer."
 
 (defun hy-shell--reset-namespace ()
   "Make Jedhy's namespace current."
-  ;; TODO should include the default namespace stuff like itertools
-  ;; like how I do it in jedhy.
+  ;; TODO should include the default namespace stuff like itertools like jedhy
   (when hy-shell--jedhy-running?
     (hy-shell--redirect-send-internal hy-shell--jedhy-reset-namespace-code)))
 
@@ -401,6 +415,7 @@ Expected to be called within a Hy interpreter process buffer."
 (defun hy-shell--candidate-str->eldoc (candidate-str)
   "Get eldoc docstring for a CANDIDATE-STR."
   ;; TODO Eldoc gives "builtin immutable sequence" on compiler candidates
+  ;; this is a jedhy task not an emacs one
   (-some->>
    candidate-str
    (format "(--JEDHY.docs \"%s\")")
@@ -544,7 +559,7 @@ a blog post: http://www.modernemacs.com/post/comint-highlighting/."
 
 ;;;###autoload
 (defun run-hy-internal ()
-  "Startup the internal Hy interpreter process."
+  "Startup internal Hy interpreter process, enabling jedhy for `company-mode'."
   (interactive)
 
   (hy-shell--with-internal
