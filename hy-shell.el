@@ -314,7 +314,7 @@ Expected to be called within a Hy interpreter process buffer."
   (when hy-shell--jedhy-running?
     (hy-shell--redirect-send-internal hy-shell--jedhy-reset-namespace-code)))
 
-;;; Company
+;;; Company and Eldoc
 ;;;; Symbol Extraction
 
 (defun hy-shell--method-call? (symbol)
@@ -442,6 +442,47 @@ Expected to be called within a Hy interpreter process buffer."
     (meta (hy-shell--candidate-str->eldoc
            prefix-or-candidate-str))))
 
+;;; Describe thing at point
+
+;; (defun hy--docs-for-thing-at-point ()
+;;   "Mirrors `hy-eldoc-documentation-function' formatted for a buffer, not a msg."
+;;   (-> (thing-at-point 'symbol)
+;;      (hy--eldoc-get-docs t)
+;;      hy--format-docs-for-buffer))
+
+;; (defun hy--format-docs-for-buffer (text)
+;;   "Format raw hydoc TEXT for inserting into hyconda buffer."
+;;   (-let [kwarg-newline-regexp
+;;          (rx ","
+;;              (1+ (not (any "," ")")))
+;;              (group-n 1 "\\\n")
+;;              (1+ (not (any "," ")"))))]
+;;     (-some--> text
+;;             (s-replace "\\n" "\n" it)
+;;             (replace-regexp-in-string kwarg-newline-regexp
+;;                                       "newline" it nil t 1))))
+
+;; (defun hy-describe-thing-at-point ()
+;;   "Implement shift-k docs lookup for `spacemacs/evil-smart-doc-lookup'."
+;;   (interactive)
+;;   (-when-let* ((text (hy--docs-for-thing-at-point))
+;;                (doc-buffer "*Hyconda*"))
+;;     (with-current-buffer (get-buffer-create doc-buffer)
+;;       (erase-buffer)
+;;       (switch-to-buffer-other-window doc-buffer)
+
+;;       (insert text)
+;;       (goto-char (point-min))
+;;       (forward-line)
+
+;;       (insert "------\n")
+;;       (fill-region (point) (point-max))
+
+;;       ;; Eventually make hyconda-view-minor-mode, atm this is sufficient
+;;       (local-set-key "q" 'quit-window)
+;;       (when (fboundp 'evil-local-set-key)
+;;         (evil-local-set-key 'normal "q" 'quit-window)))))
+
 ;;; Notifications
 
 (defun hy-shell--check-installed? ()
@@ -508,10 +549,6 @@ a blog post: http://www.modernemacs.com/post/comint-highlighting/."
 ;; (hy-shell--candidate-str->annotation "try")
 ;; (hy-shell--candidate-str->eldoc "itertools")
 
-;; (spacemacs|add-company-backends
-;;   :backends company-hy
-;;   :modes hy-mode inferior-hy-mode)
-
 ;;;###autoload
 (define-derived-mode inferior-hy-mode comint-mode "Inferior Hy"
   "Major mode for Hy inferior process."
@@ -530,6 +567,9 @@ a blog post: http://www.modernemacs.com/post/comint-highlighting/."
 
   (when hy-shell--enable-font-lock?
     (hy-inferior--support-font-locking-input)))
+
+(define-key inferior-hy-mode-map (kbd "C-c C-z")
+  (lambda () (interactive) (other-window -1)))
 
 ;;; Commands
 ;;;; Killing

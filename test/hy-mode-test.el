@@ -32,7 +32,7 @@
 ;;; Indentation
 
 (describe "Indentation"
-  (before-all (hy--mode-setup-syntax))
+  (before-all (hy-mode--setup-syntax))
 
   ;; ~~
   ;; NORMAL INDENT
@@ -439,7 +439,7 @@ c]+-])" :indented))
 ;;; Form Captures
 
 (describe "Form Capturing"
-  (before-all (hy--mode-setup-syntax))
+  (before-all (hy-mode--setup-syntax))
   (after-each (delete-region (point-min) (point-max)))
 
   (describe "current form"

@@ -206,48 +206,7 @@ commands."
 
         (t (hy-indent--normal calculate-lisp-indent-last-sexp))))
 
-;;; Describe thing at point
-
-;; (defun hy--docs-for-thing-at-point ()
-;;   "Mirrors `hy-eldoc-documentation-function' formatted for a buffer, not a msg."
-;;   (-> (thing-at-point 'symbol)
-;;      (hy--eldoc-get-docs t)
-;;      hy--format-docs-for-buffer))
-
-;; (defun hy--format-docs-for-buffer (text)
-;;   "Format raw hydoc TEXT for inserting into hyconda buffer."
-;;   (-let [kwarg-newline-regexp
-;;          (rx ","
-;;              (1+ (not (any "," ")")))
-;;              (group-n 1 "\\\n")
-;;              (1+ (not (any "," ")"))))]
-;;     (-some--> text
-;;             (s-replace "\\n" "\n" it)
-;;             (replace-regexp-in-string kwarg-newline-regexp
-;;                                       "newline" it nil t 1))))
-
-;; (defun hy-describe-thing-at-point ()
-;;   "Implement shift-k docs lookup for `spacemacs/evil-smart-doc-lookup'."
-;;   (interactive)
-;;   (-when-let* ((text (hy--docs-for-thing-at-point))
-;;                (doc-buffer "*Hyconda*"))
-;;     (with-current-buffer (get-buffer-create doc-buffer)
-;;       (erase-buffer)
-;;       (switch-to-buffer-other-window doc-buffer)
-
-;;       (insert text)
-;;       (goto-char (point-min))
-;;       (forward-line)
-
-;;       (insert "------\n")
-;;       (fill-region (point) (point-max))
-
-;;       ;; Eventually make hyconda-view-minor-mode, atm this is sufficient
-;;       (local-set-key "q" 'quit-window)
-;;       (when (fboundp 'evil-local-set-key)
-;;         (evil-local-set-key 'normal "q" 'quit-window)))))
-
-;;; Keybindings
+;;; Misc Commands
 
 ;;;###autoload
 (defun hy-insert-pdb ()
@@ -255,15 +214,10 @@ commands."
   (interactive)
   (insert "(do (import pdb) (pdb.set-trace))"))
 
-;;; hy-mode and inferior-hy-mode
-;;;; Hy-mode setup
+;;; hy-mode
+;;;; Setup - Core
 
-(defun hy--mode-setup-eldoc ()
-  (make-local-variable 'eldoc-documentation-function)
-  (setq-local eldoc-documentation-function 'hy-eldoc-documentation-function)
-  (eldoc-mode +1))
-
-(defun hy--mode-setup-font-lock ()
+(defun hy-mode--setup-font-lock ()
   (setq-local font-lock-multiline t)
   (setq font-lock-defaults
         '(hy-font-lock-kwds
@@ -274,14 +228,7 @@ commands."
           (font-lock-syntactic-face-function  ; Differentiates (doc)strings
            . hy-font-lock-syntactic-face-function))))
 
-(defun hy--mode-setup-inferior ()
-  ;; (add-to-list 'company-backends 'company-hy)
-  (setenv "PYTHONIOENCODING" "UTF-8")
-
-  (run-hy-internal)
-  (add-hook 'pyvenv-post-activate-hooks 'run-hy-internal nil t))
-
-(defun hy--mode-setup-syntax ()
+(defun hy-mode--setup-syntax ()
   ;; We explictly set it for tests that only call this setup-fn
   (set-syntax-table hy-mode-syntax-table)
 
@@ -302,15 +249,31 @@ commands."
   (setq-local indent-line-function 'lisp-indent-line)
   (setq-local lisp-indent-function 'hy-indent-function))
 
-(defun hy--mode-setup-smartparens ()
-  "Setup smartparens, if active, pairs for Hy."
-  (when (fboundp 'sp-local-pair)
-    (sp-local-pair '(hy-mode) "`" "`" :actions nil)
-    (sp-local-pair '(hy-mode) "'" "'" :actions nil)
-    (sp-local-pair '(inferior-hy-mode) "`" "" :actions nil)
-    (sp-local-pair '(inferior-hy-mode) "'" "" :actions nil)))
+(defun hy-mode--setup-jedhy ()
+  ;; (run-hy-internal)
+  ;; (add-hook 'pyvenv-post-activate-hooks 'run-hy-internal nil t)
+  )
 
-;;; Core
+;;;; Setup - Support
+
+(defun hy-mode--support-eldoc ()
+  ;; (make-local-variable #'eldoc-documentation-function)
+  (setq-local eldoc-documentation-function #'hy-eldoc-documentation-function)
+  (eldoc-mode +1))
+
+(defun hy-mode--support-company ()
+  ;; (add-to-list 'company-backends 'company-hy)
+  ;; (spacemacs|add-company-backends
+  ;;   :backends company-hy
+  ;;   :modes hy-mode inferior-hy-mode)
+  )
+
+(defun hy-mode--support-smartparens ()
+  "Setup `smartparens' pairs for Hy."
+  (when (fboundp #'sp-local-pair)
+    (sp-local-pair '(hy-mode inferior-hy-mode) "`" "`" :actions nil)))
+
+;;;; Mode Declaration
 
 (add-to-list 'auto-mode-alist '("\\.hy\\'" . hy-mode))
 (add-to-list 'interpreter-mode-alist '("hy" . hy-mode))
@@ -318,30 +281,34 @@ commands."
 ;;;###autoload
 (define-derived-mode hy-mode prog-mode "Hy"
   "Major mode for editing Hy files."
-  (hy--mode-setup-font-lock)
-  (hy--mode-setup-eldoc)
-  (hy--mode-setup-smartparens)
-  (hy--mode-setup-syntax)
+  (hy-mode--setup-font-lock)
+  (hy-mode--setup-syntax)
 
-  ;; (run-hy-internal)
-  ;; (add-hook 'pyvenv-post-activate-hooks 'run-hy-internal nil t)
-  )
+  (hy-mode--support-smartparens)
 
-;; Spacemacs users please see spacemacs-hy, all bindings defined there
+  (when hy-shell--startup-internal-process?
+    (hy-mode--setup-jedhy)
+
+    (hy-mode--support-eldoc)
+    (hy-mode--support-company)))
+
+;;; Bindings
 
 (set-keymap-parent hy-mode-map lisp-mode-shared-map)
-(define-key hy-mode-map (kbd "C-c C-z") #'run-hy)
 
-(define-key hy-mode-map (kbd "C-c C-b") 'hy-shell-eval-buffer)
-(define-key hy-mode-map (kbd "C-c C-r") 'hy-shell-eval-region)
-(define-key hy-mode-map (kbd "C-M-x") 'hy-shell-eval-current-form)
-(define-key hy-mode-map (kbd "C-c C-e") 'hy-shell-eval-last-sexp)
+;;;; Shell
+
+(define-key hy-mode-map (kbd "C-c C-z") #'run-hy)
+(define-key hy-mode-map (kbd "C-c C-b") #'hy-shell-eval-buffer)
+(define-key hy-mode-map (kbd "C-c C-r") #'hy-shell-eval-region)
+(define-key hy-mode-map (kbd "C-c C-e") #'hy-shell-eval-last-sexp)
+(define-key hy-mode-map (kbd "C-M-x") #'hy-shell-eval-current-form)
+
+;;;; Misc
 
 (define-key hy-mode-map (kbd "C-c C-t") #'hy-insert-pdb)
 
-(define-key inferior-hy-mode-map (kbd "C-c C-z") (lambda ()
-                                                   (interactive)
-                                                   (other-window -1)))
+;;; Provide:
 
 (provide 'hy-mode)
 
