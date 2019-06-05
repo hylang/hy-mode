@@ -29,6 +29,8 @@ To get IDE Features while I make the process automatic:
 1. Activate a virtual environment if desired (in emacs with ~pyvenv-workon~)
 2. clone jedhy then install it via eg. ~pip install -e "~/dev/jedhy"~.
 3. ~M-x run-hy-internal~
+4. (optional) send imports/requires/sys.path.extend in the current file to
+   update jedhy's namespace with ~M-x hy-shell-update-imports~
 
 Emacs users can add ~company-hy~ to ~company-backends~. Spacemacs users can
 enable company with:

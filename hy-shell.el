@@ -299,10 +299,6 @@ Expected to be called within a Hy interpreter process buffer."
   "(import hy [hy.core.language [*]] [hy.core.macros [*]]) (require [hy.extra.anaphoric [*]]) (try (do (import jedhy jedhy.api) (setv --JEDHY (jedhy.api.API)) \"Started jedhy\") (except [e Exception] \"Failed to start jedhy\"))"
   "Text to send to internal Hy process to setup `jedhy', via --JEDHY.")
 
-(defconst hy-shell--jedhy-reset-namespace-code
-  "(--JEDHY.set-namespace :locals- (locals) :globals- (globals) :macros- --macros--)"
-  "Text to send to make Jedhy's namespace current.")
-
 (defun hy-shell--jedhy-installed? () "Stub." t)
 
 (defun hy-shell--startup-jedhy ()
@@ -318,11 +314,38 @@ Expected to be called within a Hy interpreter process buffer."
             (when hy-shell--notify? (message "Jedhy failed to start"))
             (setq-local hy-shell--jedhy-running? nil)))))))
 
-(defun hy-shell--reset-namespace ()
-  "Make Jedhy's namespace current."
-  ;; TODO Send imports manually then automatically
+;;;; Namespace Updating
+
+;; TODO Will do this automatically when I figure out a good way to do it
+
+;; TODO Why is set-namespace version not working?
+(defconst hy-shell--jedhy-reset-namespace-code
+  ;; "(--JEDHY.set-namespace :locals- (locals) :globals- (globals) :macros- --macros--)"
+  "(setv --JEDHY (jedhy.api.API :locals- (locals) :globals- (globals) :macros- --macros--))"
+  "Text to send to make Jedhy's namespace current.")
+
+(defconst hy-shell--import-rgx
+  (rx "(" (0+ space)
+      (or "import" "require" "sys.path.extend"))
+  "A *temporary* regex used to extract import forms for updating IDE features.")
+
+(defun hy-shell-update-imports ()
+  "Send imports/requires to the current internal process and updating namespace.
+
+This is currently done manually as I'm not sure of the consequences of doing
+so automatically through eg. regular intervals. Sending the imports allows
+Eldoc/Company to function on packages like numpy/pandas, even if done via an
+alias like (import [numpy :as np]).
+
+Not bound atm as this is temporary, run via M-x or bind yourself."
   (interactive)
-  (when hy-shell--jedhy-running?
+  (save-excursion
+    (goto-char (point-min))
+
+    (while (re-search-forward hy-shell--import-rgx nil t)
+      (let ((text (s-join " " (s-lines (hy--current-form-string)))))
+        (hy-shell--redirect-send-internal text)))
+
     (hy-shell--redirect-send-internal hy-shell--jedhy-reset-namespace-code)))
 
 ;;; Company and Eldoc
