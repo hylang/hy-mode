@@ -296,7 +296,7 @@ Expected to be called within a Hy interpreter process buffer."
   "Text identifying failure to startup jedhy.")
 
 (defconst hy-shell--jedhy-setup-code
-  "(try (do (import jedhy jedhy.api) (setv --JEDHY (jedhy.api.API)) \"Started jedhy\") (except [e Exception] \"Failed to start jedhy\"))"
+  "(import hy [hy.core.language [*]] [hy.core.macros [*]]) (require [hy.extra.anaphoric [*]]) (try (do (import jedhy jedhy.api) (setv --JEDHY (jedhy.api.API)) \"Started jedhy\") (except [e Exception] \"Failed to start jedhy\"))"
   "Text to send to internal Hy process to setup `jedhy', via --JEDHY.")
 
 (defconst hy-shell--jedhy-reset-namespace-code
@@ -320,7 +320,8 @@ Expected to be called within a Hy interpreter process buffer."
 
 (defun hy-shell--reset-namespace ()
   "Make Jedhy's namespace current."
-  ;; TODO should include the default namespace stuff like itertools like jedhy
+  ;; TODO Send imports manually then automatically
+  (interactive)
   (when hy-shell--jedhy-running?
     (hy-shell--redirect-send-internal hy-shell--jedhy-reset-namespace-code)))
 
