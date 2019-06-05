@@ -564,19 +564,6 @@ a blog post: http://www.modernemacs.com/post/comint-highlighting/."
 
 ;;;; Mode Declaration
 
-;; SETUP
-;; pip install -e "~/dev/jedhy/"
-;; (import jedhy jedhy.api)
-;; (setv --JEDHY (jedhy.api.API))
-
-;; (hy-shell--startup-jedhy)
-;; (hy-shell--reset-namespace)
-
-;; (hy-shell--prefix-str->candidates "it.")
-;; (hy-shell--prefix-str->candidates "itertools.-")
-;; (hy-shell--candidate-str->annotation "try")
-;; (hy-shell--candidate-str->eldoc "itertools")
-
 ;;;###autoload
 (define-derived-mode inferior-hy-mode comint-mode "Inferior Hy"
   "Major mode for Hy inferior process."
