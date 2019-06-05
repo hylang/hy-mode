@@ -29,8 +29,9 @@
 (require 'dash-functional)
 (require 's)
 
-;;; Syntax State Methods
-;;;; Alias `syntax-ppss' and `parse-partial-sexp'
+;;; Syntax Methods
+;;;; `syntax-ppss' and `parse-partial-sexp' aliases
+;;;;; Positions
 
 (defun hy--syntax->inner-char (syntax)
   "Get innermost char of SYNTAX."
@@ -43,6 +44,26 @@
 (defun hy--syntax->string-start (syntax)
   "Return start of STATE that is in a string."
   (nth 8 syntax))
+
+(defun hy--syntax->inner-symbol (syntax)
+  "Get innermost sexp of SYNTAX."
+  (save-excursion
+    (when (hy--goto-inner-sexp syntax)
+      (thing-at-point 'symbol))))
+
+;;;;; Predicates
+
+(defun hy--in-string? (state)
+  "Is syntax STATE in a string?"
+  (nth 3 state))
+
+(defun hy--in-string-or-comment? (state)
+  "Is syntax STATE in a string or comment?"
+  (or (nth 3 state) (nth 4 state)))
+
+(defun hy--prior-sexp? (state)
+  "Is there a prior sexp from syntax STATE?"
+  (number-or-marker-p (hy--syntax->last-sexp-start state)))
 
 ;;;; Gotos
 
@@ -57,14 +78,6 @@
 (defun hy--goto-last-sexp-start (syntax)
   "Goto start of last sexp of SYNTAX."
   (-some-> syntax hy--syntax->last-sexp-start goto-char))
-
-;;;; Utilities
-
-(defun hy--syntax->inner-symbol (syntax)
-  "Get innermost sexp of SYNTAX."
-  (save-excursion
-    (when (hy--goto-inner-sexp syntax)
-      (thing-at-point 'symbol))))
 
 ;;; Form Captures
 
@@ -85,44 +98,6 @@
 
       (s-concat (buffer-substring-no-properties start (point))
                 "\n"))))
-
-;;; Legacy
-
-(defun hy--sexp-inermost-char (state)
-  "Return innermost char of syntax STATE."
-  (nth 1 state))
-
-(defun hy--start-of-last-sexp (state)
-  "Return start of last sexp of syntax STATE."
-  (nth 2 state))
-
-(defun hy--in-string? (state)
-  "Is syntax STATE in a string?"
-  (nth 3 state))
-
-(defun hy--in-string-or-comment? (state)
-  "Is syntax STATE in a string or comment?"
-  (or (nth 3 state) (nth 4 state)))
-
-(defun hy--start-of-string (state)
-  "Return start of syntax STATE that is in a string."
-  (nth 8 state))
-
-;;;; Methods
-
-(defun hy--prior-sexp? (state)
-  "Is there a prior sexp from syntax STATE?"
-  (number-or-marker-p (hy--start-of-last-sexp state)))
-
-;;;; General Purpose
-
-(defun hy--str-or-nil (text)
-  "If TEXT is non-blank, return TEXT else nil."
-  (and (not (s-blank? text)) text))
-
-(defun hy--str-or-empty (text)
-  "Return TEXT or the empty string it TEXT is nil."
-  (if text text ""))
 
 ;;; Provide:
 
