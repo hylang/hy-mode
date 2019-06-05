@@ -41,6 +41,8 @@ enable company with:
   :modes hy-mode inferior-hy-mode)
 #+END_SRC
 
+The precise features enabled are: ~company-mode~, ~eldoc-mode~, and ~M-x hy-describe-thing-at-point~ for looking up docs of symbol at point.
+
 ** Contributing
 
 ~hy-mode~ is well-tested. It uses [[https://github.com/jorgenschaefer/emacs-buttercup][buttercup]] rather than ~ert~.
