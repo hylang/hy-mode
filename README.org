@@ -15,6 +15,30 @@ for a smoother experience.
 
 ~hy-mode~ requires Emacs 24+ and is available in MELPA.
 
+** IDE Features
+
+/Auto-installation and management is being developed, in the meantime:/
+
+Autocompletion, doc introspection, and more is implemented as a separate Hy
+library [[https://github.com/ekaschalk/jedhy]].
+
+Support for jedhy is now fully established but currently manually enabled.
+
+To get IDE Features while I make the process automatic:
+
+1. Activate a virtual environment if desired (in emacs with ~pyvenv-workon~)
+2. clone jedhy then install it via eg. ~pip install -e "~/dev/jedhy"~.
+3. ~M-x run-hy-internal~
+
+Emacs users can add ~company-hy~ to ~company-backends~. Spacemacs users can
+enable company with:
+
+#+BEGIN_SRC lisp
+(spacemacs|add-company-backends
+  :backends company-hy
+  :modes hy-mode inferior-hy-mode)
+#+END_SRC
+
 ** Contributing
 
 ~hy-mode~ is well-tested. It uses [[https://github.com/jorgenschaefer/emacs-buttercup][buttercup]] rather than ~ert~.
