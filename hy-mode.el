@@ -32,7 +32,8 @@
 ;; (http://hylang.org), the lisp embedded in Python.
 
 ;; Syntax highlighting and related can be found in `hy-font-lock.el'
-;; REPL support and IDE components can be found in `hy-shell.el'
+;; REPL support can be found in `hy-shell.el'
+;; IDE components support can be found in `hy-jedhy.el'
 ;; Common utilities and requires can be found in `hy-base.el'
 ;; Testing utilities for the test/ folder can be found in `hy-test.el'
 
@@ -86,26 +87,23 @@ Examples:
 
 (defconst hy-mode-syntax-table
   (let ((table (copy-syntax-table lisp-mode-syntax-table)))
+    ;; List-likes
     (modify-syntax-entry ?\{ "(}" table)
     (modify-syntax-entry ?\} "){" table)
     (modify-syntax-entry ?\[ "(]" table)
     (modify-syntax-entry ?\] ")[" table)
 
-    ;; Quote characters are prefixes
+    ;; Quote Characters
     (modify-syntax-entry ?\~ "'" table)
     (modify-syntax-entry ?\@ "'" table)
 
-    ;; "," is a symbol in Hy, namely the tuple constructor
+    ;; Symbol Constituents
     (modify-syntax-entry ?\, "_" table)
-
-    ;; "|" is a symbol in hy, naming the or operator
     (modify-syntax-entry ?\| "_" table)
-
-    ;; "#" is a tag macro, we include # in the symbol
     (modify-syntax-entry ?\# "_" table)
 
     table)
-  "Hy mode's syntax table.")
+  "The `hy-mode' syntax table.")
 
 (defconst inferior-hy-mode-syntax-table (copy-syntax-table hy-mode-syntax-table)
   "`inferior-hy-mode' inherits `hy-mode-syntax-table'.")
@@ -186,7 +184,7 @@ commands."
 
 ;;;; Spec Finding
 
-(defun hy-indent--syntax->spec (syntax)
+(defun hy-indent--syntax->indent-spec (syntax)
   "Get int for special indentation for SYNTAX state or nil for normal indent."
   (-when-let (sym (and (hy--prior-sexp? syntax)
                        (thing-at-point 'symbol)))
@@ -202,21 +200,13 @@ commands."
   (cond ((-contains? '(?\[ ?\{) (char-before))
          (current-column))
 
-        ((hy-indent--syntax->spec syntax)
+        ((hy-indent--syntax->indent-spec syntax)
          (1+ (current-column)))
 
         (t (hy-indent--normal calculate-lisp-indent-last-sexp))))
 
-;;; Misc Commands
-
-;;;###autoload
-(defun hy-insert-pdb ()
-  "Import and set pdb trace at point."
-  (interactive)
-  (insert "(do (import pdb) (pdb.set-trace))"))
-
-;;; hy-mode
-;;;; Setup - Core
+;;; Setup
+;;;; Core
 
 (defun hy-mode--setup-font-lock ()
   (setq-local font-lock-multiline t)
@@ -252,10 +242,10 @@ commands."
 
 (defun hy-mode--setup-jedhy ()
   ;; (run-jedhy)
-  ;; (add-hook 'pyvenv-post-activate-hooks 'run-jedhy nil t)
+  ;; (add-hook 'pyvenv-post-activate-hooks #'run-jedhy nil 'local)
   )
 
-;;;; Setup - Support
+;;;; Support
 
 (defun hy-mode--support-eldoc ()
   ;; (make-local-variable #'eldoc-documentation-function)
@@ -274,7 +264,7 @@ commands."
   (when (fboundp #'sp-local-pair)
     (sp-local-pair '(hy-mode inferior-hy-mode) "`" "`" :actions nil)))
 
-;;;; Mode Declaration
+;;; hy-mode
 
 (add-to-list 'auto-mode-alist '("\\.hy\\'" . hy-mode))
 (add-to-list 'interpreter-mode-alist '("hy" . hy-mode))
@@ -287,7 +277,7 @@ commands."
 
   (hy-mode--support-smartparens)
 
-  (when hy-shell--startup-internal-process?
+  (when hy-jedhy--enable?
     (hy-mode--setup-jedhy)
 
     (hy-mode--support-eldoc)
@@ -306,6 +296,12 @@ commands."
 (define-key hy-mode-map (kbd "C-M-x") #'hy-shell-eval-current-form)
 
 ;;;; Misc
+
+;;;###autoload
+(defun hy-insert-pdb ()
+  "Import and set pdb trace at point."
+  (interactive)
+  (insert "(do (import pdb) (pdb.set-trace))"))
 
 (define-key hy-mode-map (kbd "C-c C-t") #'hy-insert-pdb)
 

@@ -42,9 +42,6 @@
 (defvar hy-shell--interpreter-args '("--spy")
   "Default argument list to pass to the Hy interpreter.")
 
-(defvar hy-shell--startup-internal-process? t
-  "Should an internal process startup for use by ide components?")
-
 (defvar hy-shell--enable-font-lock? t
   "Whether the shell should font-lock repl prompt input.")
 
@@ -285,10 +282,6 @@ Expected to be called within a Hy interpreter process buffer."
    (hy-shell--notify?
     (prog1 nil
       (message "Hy executable not found. Install or activate a env with Hy.")))))
-
-(defun hy-shell--notify-process-success-internal ()
-  (when hy-shell--notify?
-    (message "Internal Hy shell process successfully started.")))
 
 ;;; inferior-hy-mode
 ;;;; Colorings

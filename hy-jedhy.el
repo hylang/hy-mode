@@ -35,6 +35,11 @@
 (require 'hy-shell)
 
 ;;; Configuration
+;;;; Configured
+
+(defvar hy-jedhy--enable? t
+  "Should an internal process startup for use by ide components?")
+
 ;;;; Managed
 
 (defvar-local hy-jedhy--running? nil
@@ -304,9 +309,7 @@ shift-K keybinding that executes `spacemacs/evil-smart-doc-lookup'."
   (interactive)
 
   (hy-shell--with-internal
-    ;; TODO This needs need to be moved to `hy-jedhy.el'
-    (when (hy-jedhy--startup)
-      (hy-shell--notify-process-success-internal))))
+    (hy-jedhy--startup)))
 
 ;;; Provide:
 

@@ -1,3 +1,5 @@
+This file is deprecated ATM and might be restarted upon the jedhy release.
+
 * Version 1.0.3 - in progress
 ** Eldoc supported
 ** Autocompletion (Company) supported
