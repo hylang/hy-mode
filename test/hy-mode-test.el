@@ -164,6 +164,16 @@
    c)
 " :indented))
 
+    ;; FIXME Not bothering fixing atm because when will anyone ever do this?
+    ;; It would make `hy-indent--normal' slightly more obfuscated, a bad thing.
+    (xit "matmul operator @"
+      (expect "
+(@
+  a)
+(@ a
+   b)
+" :indented))
+
     (it "or operator"
       (expect "
 (|
