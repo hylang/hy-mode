@@ -31,17 +31,20 @@
 ;; lookup, REPL support, and more features for working productively in Hy
 ;; (http://hylang.org), the lisp embedded in Python.
 
+;; Syntax highlighting and related can be found in `hy-font-lock.el'
+;; REPL support and IDE components can be found in `hy-shell.el'
+;; Common utilities and requires can be found in `hy-base.el'
+;; Testing utilities for the test/ folder can be found in `hy-test.el'
+
+;; This file implements the syntax table, indentation, keybindings, and
+;; `hy-mode' setup code.
+
 ;;; Code:
 
 (require 'hy-base)
 
 (require 'hy-font-lock)
 (require 'hy-shell)
-
-(defgroup hy-mode nil
-  "A mode for Hy"
-  :prefix "hy-mode-"
-  :group 'applications)
 
 ;;; Configuration
 ;;;; Indentation

@@ -22,6 +22,8 @@
 
 ;; Common requires and utilities for `hy-mode'.
 
+;; Mostly just methods for syntax states and sexp traversals.
+
 ;;; Code:
 
 (require 'cl)
