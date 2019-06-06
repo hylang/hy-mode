@@ -45,6 +45,7 @@
 
 (require 'hy-font-lock)
 (require 'hy-shell)
+(require 'hy-jedhy)
 
 ;;; Configuration
 ;;;; Indentation
@@ -250,8 +251,8 @@ commands."
   (setq-local lisp-indent-function 'hy-indent-function))
 
 (defun hy-mode--setup-jedhy ()
-  ;; (run-hy-internal)
-  ;; (add-hook 'pyvenv-post-activate-hooks 'run-hy-internal nil t)
+  ;; (run-jedhy)
+  ;; (add-hook 'pyvenv-post-activate-hooks 'run-jedhy nil t)
   )
 
 ;;;; Setup - Support

@@ -23,11 +23,9 @@
 ;; Shell and process functionality for Hy.
 
 ;; This file implements `inferior-hy-mode', commands to send and get text
-;; from Hy interpreters, `company-mode' support, `eldoc-mode' support, and
-;; documentation introspection of symbol at point.
+;; from Hy interpreters, and other repl components.
 
-;; Interfaces with jedhy, a Hy library I've written to support completion,
-;; documentation lookup, and other introspection code.
+;; See `hy-jedhy.el' which builds on these commands to support IDE components.
 
 ;;; Code:
 
@@ -72,9 +70,6 @@
 
 (defvar hy-shell--redirect-output-buffer " *Hy Comint Redirect Buffer"
   "The buffer name to use for comint redirection of text sending commands.")
-
-(defvar hy-shell--doc-lookup-buffer " *Hy Doc Lookup Buffer"
-  "The buffer name to use for documentation lookups.")
 
 ;;; Macros
 
@@ -281,267 +276,6 @@ Expected to be called within a Hy interpreter process buffer."
   (hy-shell--eval-1
     (buffer-string)))
 
-;;; Jedhy
-;;;; Code
-
-;; TODO Redirected sending of multiple lines needs to concatenate the outputs
-
-(defvar-local hy-shell--jedhy-running? nil
-  "Was `jedhy' successfully started up in the current buffer?")
-
-(defconst hy-shell--jedhy-success-text "'Started jedhy'"
-  "Text identifying successful startup of jedhy.")
-
-(defconst hy-shell--jedhy-fail-text "'Failed to start jedhy'"
-  "Text identifying failure to startup jedhy.")
-
-(defconst hy-shell--jedhy-setup-code
-  "(import hy [hy.core.language [*]] [hy.core.macros [*]]) (require [hy.extra.anaphoric [*]]) (try (do (import jedhy jedhy.api) (setv --JEDHY (jedhy.api.API)) \"Started jedhy\") (except [e Exception] \"Failed to start jedhy\"))"
-  "Text to send to internal Hy process to setup `jedhy', via --JEDHY.")
-
-(defun hy-shell--jedhy-installed? () "Stub." t)
-
-(defun hy-shell--startup-jedhy ()
-  "Startup jedhy and notify its status, returning non-nil if successful."
-  (hy-shell--with-internal
-    (unless hy-shell--jedhy-running?
-      (let ((status (hy-shell--redirect-send-internal hy-shell--jedhy-setup-code)))
-        (if (s-equals? status hy-shell--jedhy-success-text)
-            (prog1 t
-              (when hy-shell--notify? (message "Jedhy successfully started"))
-              (setq-local hy-shell--jedhy-running? t))
-          (prog1 nil
-            (when hy-shell--notify? (message "Jedhy failed to start"))
-            (setq-local hy-shell--jedhy-running? nil)))))))
-
-;;;; Namespace Updating
-
-;; TODO Will do this automatically when I figure out a good way to do it
-
-;; TODO Why is set-namespace version not working?
-(defconst hy-shell--jedhy-reset-namespace-code
-  ;; "(--JEDHY.set-namespace :locals- (locals) :globals- (globals) :macros- --macros--)"
-  "(setv --JEDHY (jedhy.api.API :locals- (locals) :globals- (globals) :macros- --macros--))"
-  "Text to send to make Jedhy's namespace current.")
-
-(defconst hy-shell--import-rgx
-  (rx "(" (0+ space)
-      (or "import" "require" "sys.path.extend"))
-  "A *temporary* regex used to extract import forms for updating IDE features.")
-
-(defun hy-shell-update-imports ()
-  "Send imports/requires to the current internal process and updating namespace.
-
-This is currently done manually as I'm not sure of the consequences of doing
-so automatically through eg. regular intervals. Sending the imports allows
-Eldoc/Company to function on packages like numpy/pandas, even if done via an
-alias like (import [numpy :as np]).
-
-Not bound atm as this is temporary, run via M-x or bind yourself."
-  (interactive)
-  (save-excursion
-    (goto-char (point-min))
-
-    (while (re-search-forward hy-shell--import-rgx nil t)
-      (let ((text (s-join " " (s-lines (hy--current-form-string)))))
-        (hy-shell--redirect-send-internal text)))
-
-    (hy-shell--redirect-send-internal hy-shell--jedhy-reset-namespace-code)))
-
-;;; Company and Eldoc
-;;;; Symbol Extraction
-
-(defun hy-shell--method-call? (symbol)
-  "Is SYMBOL a method call in Hy?"
-  (s-starts-with? "." symbol))
-
-(defun hy-shell--quickfix-eldoc-dot-dsl-syntax-errors (text)
-  "Quick fix to address parsing an incomplete dot-dsl."
-  (if (< 1 (-> text s-lines length))
-      ""
-    text))
-
-(defun hy-shell--get-inner-symbol ()
-  "Get inner symbol for point, completing Hy's method-dot DSL if applicable."
-  (save-excursion
-    (-when-let (inner-symbol (and (hy--goto-inner-sexp (syntax-ppss))
-                                  (not (-contains? '(?\[ ?\{) (char-before)))
-                                  (thing-at-point 'symbol)))
-      (if (hy-shell--method-call? inner-symbol)
-          (when (ignore-errors (forward-sexp) (forward-whitespace 1) t)
-            (pcase (char-after)
-              ;; Can't send just .method to eldoc
-              ((or ?\) ?\s ?\C-j) nil)
-
-              ;; Dot dsl doesn't work on literals
-              (?\[ (s-concat "list" inner-symbol))
-              (?\{ (s-concat "dict" inner-symbol))
-              (?\" (s-concat "str" inner-symbol))
-
-              ;; Otherwise complete the dot dsl
-              (_ (s-concat (thing-at-point 'symbol) inner-symbol))))
-        inner-symbol))))
-
-;;;; Output Formats
-
-(defun hy-shell--format-output-str (output)
-  "Format OUTPUT given as a string."
-  (->> output
-     (s-chop-prefixes '("'" "\""))
-     (s-chop-suffixes '("'" "\""))))
-
-(defun hy-shell--format-output-tuple (output)
-  "Format OUTPUT given as a tuple."
-  (unless (s-equals? "()" output)
-    (->> output
-       (s-replace-all '(("'" . "")
-                        (",)" . "")  ; one element list case
-                        ("(" . "")
-                        (")" . "")))
-       (s-split ", "))))  ; comma is a valid token so can't replace it
-
-;;;; Fontifying
-
-(defun hy-shell--fontify-text (text regexp &rest faces)
-  "Fontify portions of TEXT matching REGEXP with FACES."
-  (when text
-    (-each (s-matched-positions-all regexp text)
-      (-lambda ((start . end))
-        (-each faces
-          (lambda (face)
-            (add-face-text-property start end face nil text)))))))
-
-(defun hy-shell--fontify-eldoc (text)
-  "Fontify eldoc TEXT."
-  (let ((kwd-rx
-         (rx string-start (1+ (not (any space ":"))) ":"))
-        (unpack-rx
-         (rx (or "#*" "#**")))
-        (kwargs-rx
-         (rx symbol-start "&" (1+ word)))
-        (quoted-args-rx
-         (rx "`" (1+ (not space)) "`")))
-    (hy--fontify-text text kwd-rx 'font-lock-keyword-face)
-    (hy--fontify-text text unpack-rx 'font-lock-keyword-face)
-    (hy--fontify-text text kwargs-rx 'font-lock-type-face)
-    (hy--fontify-text text quoted-args-rx 'font-lock-constant-face 'bold-italic))
-  text)
-
-;;;; Jedhy Interface
-
-(defun hy-shell--prefix-str->candidates (prefix-str)
-  "Get company candidates for a PREFIX-STR."
-  (unless (hy-shell--method-call? prefix-str)
-    (-some->>
-     prefix-str
-     (format "(--JEDHY.complete \"%s\")")
-     hy-shell--redirect-send-internal
-     hy-shell--format-output-tuple)))
-
-(defun hy-shell--candidate-str->annotation (candidate-str)
-  "Get company annotation for a CANDIDATE-STR."
-  (-some->>
-   candidate-str
-   (format "(--JEDHY.annotate \"%s\")")
-   hy-shell--redirect-send-internal
-   hy-shell--format-output-str))
-
-(defun hy-shell--candidate-str->eldoc (candidate-str)
-  "Get eldoc docstring for a CANDIDATE-STR."
-  (-some->>
-   candidate-str
-   (format "(--JEDHY.docs \"%s\")")
-   hy-shell--redirect-send-internal
-   hy-shell--format-output-str
-   hy-shell--quickfix-eldoc-dot-dsl-syntax-errors
-   hy-shell--fontify-eldoc))
-
-(defun hy-shell--candidate-str->full-docs (candidate-str)
-  "Get full, multi-line docs for a CANDIDATE-STR."
-  (-some->>
-   candidate-str
-   (format "(--JEDHY.full-docs \"%s\")")
-   hy-shell--redirect-send-internal
-   hy-shell--format-output-str
-   s-chomp
-   hy-shell--fontify-first-docs-line
-   hy-shell--format-describe-output))
-
-;;;; Commands
-
-(defun hy-eldoc-documentation-function ()
-  "Drives `eldoc-mode', retrieves eldoc msg string for inner-most symbol."
-  (hy-shell--candidate-str->eldoc (hy-shell--get-inner-symbol)))
-
-(defun company-hy (command &optional prefix-or-candidate-str &rest ignored)
-  (interactive (list 'interactive))
-
-  (cl-case command
-    (prefix (company-grab-symbol))
-    (candidates (hy-shell--prefix-str->candidates
-                 prefix-or-candidate-str))
-    (annotation (hy-shell--candidate-str->annotation
-                 prefix-or-candidate-str))
-    (meta (hy-shell--candidate-str->eldoc
-           prefix-or-candidate-str))))
-
-;;; Describe thing at point
-
-(defun hy-shell--docs-for-thing-at-point ()
-  (hy-shell--candidate-str->full-docs (thing-at-point 'symbol)))
-
-(defun hy-shell--fontify-first-docs-line (output)
-  "Fontify only the first line of jedhy OUTPUT accordding to eldoc."
-  (when output
-    (-let (((leader . rest) (s-lines output)))
-      (s-join "\n"
-              (cons (hy-shell--fontify-eldoc leader)
-                    rest)))))
-
-(defun hy-shell--format-describe-output (output)
-  "Converts escaped newlines to true newlines."
-  (let ((kwarg-newline-regexp (rx ","
-                                  (1+ (not (any "," ")")))
-                                  (group-n 1 "\\\n")
-                                  (1+ (not (any "," ")"))))))
-    (-some-->
-     output
-     (s-replace "\\n" "\n" it)
-     (replace-regexp-in-string kwarg-newline-regexp "newline" it nil t 1))))
-
-(defun hy-describe-thing-at-point ()
-  "Describe symbol at point with help popup buffer.
-
-Retrieves full documentation, with firstline formatted same as eldoc, in a
-popup buffer.
-
-Does not (yet) complete the dot-dsl like Eldoc does currently.
-
-Spacemacs users maybe be familiar with this functionality via
-shift-K keybinding that executes `spacemacs/evil-smart-doc-lookup'."
-  (interactive)
-  (-when-let (text (hy-shell--docs-for-thing-at-point))
-    (unless (s-blank-str? text)
-      (with-current-buffer (get-buffer-create hy-shell--doc-lookup-buffer)
-        (erase-buffer)
-        (switch-to-buffer-other-window hy-shell--doc-lookup-buffer)
-
-        (insert text)
-
-        (when (< 1 (length (s-lines text)))
-          (goto-char (point-min))
-          (forward-line)
-          (newline)
-          (insert "------")
-          (fill-region (point) (point-max)))
-
-        (goto-char (point-min))
-
-        ;; TODO This can be in a better way I'm assuming
-        (local-set-key "q" #'quit-window)
-        (when (fboundp #'evil-local-set-key)
-          (evil-local-set-key 'normal "q" #'quit-window))))))
-
 ;;; Notifications
 
 (defun hy-shell--check-installed? ()
@@ -644,15 +378,6 @@ a blog post: http://www.modernemacs.com/post/comint-highlighting/."
 ;;;; Running
 
 ;;;###autoload
-(defun run-hy-internal ()
-  "Startup internal Hy interpreter process, enabling jedhy for `company-mode'."
-  (interactive)
-
-  (hy-shell--with-internal
-    (when (hy-shell--startup-jedhy)
-      (hy-shell--notify-process-success-internal))))
-
-;;;###autoload
 (defun run-hy ()
   "Startup and/or switch to a Hy interpreter process."
   (interactive)
@@ -663,3 +388,5 @@ a blog post: http://www.modernemacs.com/post/comint-highlighting/."
 ;;; Provide:
 
 (provide 'hy-shell)
+
+;;; hy-shell.el ends here

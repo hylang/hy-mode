@@ -156,3 +156,5 @@ If no name is given, then process-based tests will be skipped.")
 ;;; Provide
 
 (provide 'hy-test)
+
+;;; hy-test.el ends here

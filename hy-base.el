@@ -104,3 +104,5 @@
 ;;; Provide:
 
 (provide 'hy-base)
+
+;;; hy-base.el ends here

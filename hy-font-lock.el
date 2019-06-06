@@ -621,3 +621,5 @@ See `hy-font-lock--kwd->comint-kwd' for details.")
 ;;; Provide:
 
 (provide 'hy-font-lock)
+
+;;; hy-font-lock.el ends here
