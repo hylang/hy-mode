@@ -1,6 +1,6 @@
 ;;; hy-base.el --- Common Utils -*- lexical-binding: t -*-
 
-;; Copyright © 2013-2016 Julien Danjou <julien@danjou.info>
+;; Copyright © 2013 Julien Danjou <julien@danjou.info>
 ;;           © 2017-2019 Eric Kaschalk <ekaschalk@gmail.com>
 ;;
 ;; hy-mode is free software; you can redistribute it and/or modify it
