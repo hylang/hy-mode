@@ -51,6 +51,8 @@
 ;;; Configuration
 ;;;; Indentation
 
+;; See other files for configuring specific aspects of Hy, like the shell.
+
 (defvar hy-indent--exactly
   '("when" "unless"
     "for" "for*" "for/a" "for/a*"
@@ -212,6 +214,7 @@ commands."
 ;;;; Core
 
 (defun hy-mode--setup-font-lock ()
+  "Setup `font-lock-defaults' and others for `hy-mode.'"
   (setq-local font-lock-multiline t)
   (setq font-lock-defaults
         '(hy-font-lock-kwds
@@ -223,6 +226,7 @@ commands."
            . hy-font-lock-syntactic-face-function))))
 
 (defun hy-mode--setup-syntax ()
+  "Setup syntax, indentation, and other core components of major modes."
   ;; We explictly set it for tests that only call this setup-fn
   (set-syntax-table hy-mode-syntax-table)
 
@@ -243,17 +247,22 @@ commands."
   (setq-local indent-line-function 'lisp-indent-line)
   (setq-local lisp-indent-function 'hy-indent-function))
 
-(defun hy-mode--setup-jedhy ()
-  ;; (run-jedhy)
-  ;; (add-hook 'pyvenv-post-activate-hooks #'run-jedhy nil 'local)
-  )
-
 ;;;; Support
 
-(defun hy-mode--support-eldoc ()
-  ;; (make-local-variable #'eldoc-documentation-function)
-  (setq-local eldoc-documentation-function #'hy-eldoc-documentation-function)
-  (eldoc-mode +1))
+(defun hy-mode--support-smartparens ()
+  "Setup `smartparens-mode' pairs for Hy, if applicable."
+  (when (fboundp #'sp-local-pair)
+    (sp-local-pair '(hy-mode inferior-hy-mode) "`" "`" :actions nil)))
+
+;;;; Jedhy
+
+(defun hy-mode--setup-jedhy ()
+  "Auto-start jedhy for company, eldoc, and other `hy-mode' IDE features."
+  (let ((hy-shell--notify?))
+    (run-jedhy))  ; Unlikely that jedhy installed globally
+
+  (when (fboundp 'pyvenv-mode)
+    (add-hook 'pyvenv-post-activate-hooks #'run-jedhy--pyvenv-post-active-hook)))
 
 (defun hy-mode--support-company ()
   ;; (add-to-list 'company-backends 'company-hy)
@@ -262,10 +271,9 @@ commands."
   ;;   :modes hy-mode inferior-hy-mode)
   )
 
-(defun hy-mode--support-smartparens ()
-  "Setup `smartparens' pairs for Hy."
-  (when (fboundp #'sp-local-pair)
-    (sp-local-pair '(hy-mode inferior-hy-mode) "`" "`" :actions nil)))
+(defun hy-mode--support-eldoc ()
+  (setq-local eldoc-documentation-function #'hy-eldoc-documentation-function)
+  (eldoc-mode +1))
 
 ;;; hy-mode
 

@@ -69,22 +69,16 @@
 
 ;;; Startup
 
-(defun hy-jedhy--installed? ()
-  "Stub."
-  t)
-
 (defun hy-jedhy--startup ()
   "Startup jedhy and notify its status, returning non-nil if successful."
   (hy-shell--with-internal
     (unless hy-jedhy--running?
-      (let ((status (hy-shell--redirect-send-internal hy-jedhy--setup-code)))
-        (if (s-equals? status hy-jedhy--startup-success-text)
-            (prog1 t
-              (when hy-shell--notify? (message "Jedhy successfully started"))
-              (setq-local hy-jedhy--running? t))
-          (prog1 nil
-            (when hy-shell--notify? (message "Jedhy failed to start"))
-            (setq-local hy-jedhy--running? nil)))))))
+      (if (s-equals? hy-jedhy--startup-success-text
+                     (hy-shell--redirect-send-internal hy-jedhy--setup-code))
+          (prog1 t
+            (setq-local hy-jedhy--running? t)
+            (hy-shell--notify "Jedhy successfully started"))
+        (hy-shell--notify "Jedhy failed to start")))))
 
 ;;; Namespace Management
 
@@ -302,6 +296,11 @@ shift-K keybinding that executes `spacemacs/evil-smart-doc-lookup'."
     (meta (hy-jedhy--candidate-str->eldoc prefix-or-candidate-str))))
 
 ;;; Run Jedhy
+
+(defun run-jedhy--pyvenv-post-active-hook ()
+  "Perform `run-jedhy', killing previous instance if running."
+  (hy-shell--kill-internal)
+  (run-jedhy))
 
 ;;;###autoload
 (defun run-jedhy ()

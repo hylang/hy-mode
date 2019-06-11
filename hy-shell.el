@@ -275,13 +275,17 @@ Expected to be called within a Hy interpreter process buffer."
 
 ;;; Notifications
 
+(defun hy-shell--notify (msg)
+  "`message' MSG if `hy-shell--notify?' is non-nil."
+  (when hy-shell--notify?
+    (message msg)))
+
 (defun hy-shell--check-installed? ()
   "Warn if `hy-shell--interpreter' is not found, returning non-nil otherwise."
   (cond
    ((executable-find hy-shell--interpreter))
-   (hy-shell--notify?
-    (prog1 nil
-      (message "Hy executable not found. Install or activate a env with Hy.")))))
+   ((prog1 nil
+      (hy-shell--notify "Hy cmd not found. Install or activate a env with Hy.")))))
 
 ;;; inferior-hy-mode
 ;;;; Colorings
