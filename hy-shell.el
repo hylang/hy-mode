@@ -103,11 +103,11 @@
 
 (defun hy-shell--live? ()
   "Is the Hy intereprter process alive?"
-  (get-buffer hy-shell--buffer-name))
+  (get-buffer-process hy-shell--buffer-name))
 
 (defun hy-shell--live-internal? ()
   "Is the internal Hy intereprter process alive?"
-  (get-buffer hy-shell--buffer-name-internal))
+  (get-buffer-process hy-shell--buffer-name-internal))
 
 (defun hy-shell--current-process ()
   "Run `get-buffer-process' on the `current-buffer'."
@@ -355,15 +355,15 @@ a blog post: http://www.modernemacs.com/post/comint-highlighting/."
   "Kill the Hy interpreter process."
   (interactive)
 
-  (hy-shell--with-live
-    (kill-buffer (current-buffer))))
+  (-when-let (buff (get-buffer hy-shell--buffer-name))
+    (kill-buffer buff)))
 
 (defun hy-shell--kill-internal ()
   "Kill the internal Hy interpreter process."
   (interactive)
 
-  (hy-shell--with-internal-live
-    (kill-buffer (current-buffer))))
+  (-when-let (buff (get-buffer hy-shell--buffer-name-internal))
+    (kill-buffer buff)))
 
 (defun hy-shell--kill-all ()
   "Kill all Hy interpreter processes."
