@@ -48,21 +48,19 @@
 (defvar hy-jedhy--doc-lookup-buffer " *Hy Doc Lookup Buffer"
   "The buffer name to use for documentation lookups.")
 
-(defconst hy-jedhy--startup-success-text "'Started jedhy'"
-  "Text identifying successful startup of jedhy.")
-
 ;;;; Hy Code
 
-;; TODO Redirected sending of multiple lines should concatenate the outputs
-;; (or trim lines from the input) so these code blocks can have newlines
+;; TODO Code is one-line until I figure out how to concatenate redirected output
+;; TODO Would like to auto-update namespace, but not sure how
+;; TODO Would prefer to use the .set-namespace instead of remaking jedhy instance
 
 (defconst hy-jedhy--setup-code
   "(import hy [hy.core.language [*]] [hy.core.macros [*]]) (require [hy.extra.anaphoric [*]]) (try (do (import jedhy jedhy.api) (setv --JEDHY (jedhy.api.API)) \"Started jedhy\") (except [e Exception] \"Failed to start jedhy\"))"
   "Text to send to internal Hy process to setup `jedhy'.")
 
-;; TODO Will do this automatically when I figure out a good way to do it
-;; TODO Why is set-namespace version not working?
-;; "(--JEDHY.set-namespace :locals- (locals) :globals- (globals) :macros- --macros--)"
+(defconst hy-jedhy--startup-success-text "'Started jedhy'"
+  "Text identifying successful startup of jedhy.")
+
 (defconst hy-jedhy--reset-namespace-code
   "(setv --JEDHY (jedhy.api.API :locals- (locals) :globals- (globals) :macros- --macros--))"
   "Text to send to make Jedhy's namespace current.")
@@ -72,7 +70,8 @@
 (defun hy-jedhy--startup ()
   "Startup jedhy and notify its status, returning non-nil if successful."
   (hy-shell--with-internal
-    (unless hy-jedhy--running?
+    (if hy-jedhy--running?
+        (hy-shell--notify "Jedhy should already be running")
       (if (s-equals? hy-jedhy--startup-success-text
                      (hy-shell--redirect-send-internal hy-jedhy--setup-code))
           (prog1 t

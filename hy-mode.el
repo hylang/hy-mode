@@ -265,6 +265,7 @@ commands."
     (add-hook 'pyvenv-post-activate-hooks #'run-jedhy--pyvenv-post-active-hook)))
 
 (defun hy-mode--support-company ()
+  "Support `company-mode' autocompletion."
   ;; (add-to-list 'company-backends 'company-hy)
   ;; (spacemacs|add-company-backends
   ;;   :backends company-hy
@@ -272,6 +273,7 @@ commands."
   )
 
 (defun hy-mode--support-eldoc ()
+  "Support `eldoc-mode' with lispy docstring leaders."
   (setq-local eldoc-documentation-function #'hy-eldoc-documentation-function)
   (eldoc-mode +1))
 
