@@ -1,12 +1,9 @@
-An Emacs major mode for [[http://docs.hylang.org/en/stable/][Hy]], lispy python, providing support for:
+An Emacs major mode for [[http://docs.hylang.org/en/stable/][Hy]], a lisp embedded in python.
 
-1. Syntax Highlighting
-2. Auto-completion
-3. Eldoc and documentation lookup
-4. Shell integration
-5. Hy constructs like bracket strings
+Provides autocompletion, documentation lookup, and all features required to make
+developing in Hy enjoyable and productive.
 
-Spacemacs users - Hy has its own layer in its dev branch.
+[[file:./img/jedhy.png]]
 
 ** Installation
 
@@ -24,6 +21,16 @@ hy-jedhy-update-imports~.
 
 The precise features enabled are: ~company-mode~, ~eldoc-mode~, and
 ~hy-describe-thing-at-point~ for looking up docs of the symbol at point.
+
+Spacemacs users - Hy has its own layer in its dev branch.
+
+** Raising Issues
+
+Please provide the version of Hy you are using. The last confirmed version of Hy
+jedhy is compatible with is: ~0.16.0~.
+
+The IDE features and management is feature-full but nascent. If you encounter
+issues please provide as much details as you can.
 
 ** Contributing
 
