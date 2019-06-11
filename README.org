@@ -24,6 +24,14 @@ The precise features enabled are: ~company-mode~, ~eldoc-mode~, and
 
 Spacemacs users - Hy has its own layer in its dev branch.
 
+** Configuring
+
+Company/Eldoc support is enabled by default with ~hy-jedhy--enable?~.
+
+Indentation can be customized with ~hy-indent--exactly~ and ~hy-indent--fuzzily~.
+
+See ~hy-shell.el~ for configuring the shell.
+
 ** Raising Issues
 
 Please provide the version of Hy you are using. The last confirmed version of Hy
