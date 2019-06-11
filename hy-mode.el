@@ -244,8 +244,8 @@ commands."
 
   ;; Lispy indent with hy-specialized indentation
   (setq-local indent-tabs-mode nil)
-  (setq-local indent-line-function 'lisp-indent-line)
-  (setq-local lisp-indent-function 'hy-indent-function))
+  (setq-local indent-line-function #'lisp-indent-line)
+  (setq-local lisp-indent-function #'hy-indent-function))
 
 ;;;; Support
 
@@ -259,18 +259,16 @@ commands."
 (defun hy-mode--setup-jedhy ()
   "Auto-start jedhy for company, eldoc, and other `hy-mode' IDE features."
   (let ((hy-shell--notify?))
-    (run-jedhy))  ; Unlikely that jedhy installed globally
+    (run-jedhy))  ; Unlikely that jedhy installed globally so dont warn
 
   (when (fboundp 'pyvenv-mode)
-    (add-hook 'pyvenv-post-activate-hooks #'run-jedhy--pyvenv-post-active-hook)))
+    (add-hook 'pyvenv-post-activate-hooks #'run-jedhy)
+    (add-hook 'pyvenv-post-deactivate-hooks
+              #'run-jedhy--pyvenv-post-deactive-hook)))
 
 (defun hy-mode--support-company ()
   "Support `company-mode' autocompletion."
-  ;; (add-to-list 'company-backends 'company-hy)
-  ;; (spacemacs|add-company-backends
-  ;;   :backends company-hy
-  ;;   :modes hy-mode inferior-hy-mode)
-  )
+  (add-to-list 'company-backends #'company-hy))
 
 (defun hy-mode--support-eldoc ()
   "Support `eldoc-mode' with lispy docstring leaders."
@@ -294,7 +292,9 @@ commands."
     (hy-mode--setup-jedhy)
 
     (hy-mode--support-eldoc)
-    (hy-mode--support-company)))
+    (hy-mode--support-company)
+
+    (add-hook 'inferior-hy-mode-hook #'hy-mode--support-company)))
 
 ;;; Bindings
 
@@ -303,10 +303,14 @@ commands."
 ;;;; Shell
 
 (define-key hy-mode-map (kbd "C-c C-z") #'run-hy)
+
 (define-key hy-mode-map (kbd "C-c C-b") #'hy-shell-eval-buffer)
 (define-key hy-mode-map (kbd "C-c C-r") #'hy-shell-eval-region)
 (define-key hy-mode-map (kbd "C-c C-e") #'hy-shell-eval-last-sexp)
 (define-key hy-mode-map (kbd "C-M-x") #'hy-shell-eval-current-form)
+
+(define-key hy-mode-map (kbd "C-c C-d d") #'hy-describe-thing-at-point)
+(define-key hy-mode-map (kbd "C-c C-d C-d") #'hy-describe-thing-at-point)
 
 ;;;; Misc
 

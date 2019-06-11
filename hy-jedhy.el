@@ -286,20 +286,26 @@ shift-K keybinding that executes `spacemacs/evil-smart-doc-lookup'."
 ;;; Company
 
 (defun company-hy (command &optional prefix-or-candidate-str &rest ignored)
+  "Implements autocompletion for `hy-mode'."
   (interactive (list 'interactive))
 
-  (cl-case command
-    (prefix (company-grab-symbol))
-    (candidates (hy-jedhy--prefix-str->candidates prefix-or-candidate-str))
-    (annotation (hy-jedhy--candidate-str->annotation prefix-or-candidate-str))
-    (meta (hy-jedhy--candidate-str->eldoc prefix-or-candidate-str))))
+  (when (hy-shell--live-internal?)
+    (cl-case command
+      (prefix (company-grab-symbol))
+      (candidates (hy-jedhy--prefix-str->candidates prefix-or-candidate-str))
+      (annotation (hy-jedhy--candidate-str->annotation prefix-or-candidate-str))
+      (meta (hy-jedhy--candidate-str->eldoc prefix-or-candidate-str)))))
 
 ;;; Run Jedhy
 
-(defun run-jedhy--pyvenv-post-active-hook ()
-  "Perform `run-jedhy', killing previous instance if running."
-  (hy-shell--kill-internal)
-  (run-jedhy))
+(defun run-jedhy--pyvenv-post-deactive-hook ()
+  "Kill jedhy without notifying and possibly rerun for global context."
+  (let ((hy-shell--notify?))
+    (hy-shell--kill-internal)
+
+    ;; The activation hook handles switching the environment rerunning jedhy
+    (unless pyvenv-virtual-env-name
+      (run-jedhy))))
 
 ;;;###autoload
 (defun run-jedhy ()
