@@ -1,7 +1,7 @@
 ;;; hy-mode.el --- Major mode for Hylang -*- lexical-binding: t -*-
 
 ;; Copyright © 2013 Julien Danjou <julien@danjou.info>
-;;           © 2017 Eric Kaschalk <ekaschalk@gmail.com>
+;;           © 2017-2019 Eric Kaschalk <ekaschalk@gmail.com>
 ;;
 ;; Authors: Julien Danjou <julien@danjou.info>
 ;;          Eric Kaschalk <ekaschalk@gmail.com>
@@ -27,623 +27,103 @@
 
 ;;; Commentary:
 
-;; Provides font-lock, indentation, and navigation for the Hy
-;; language. (http://hylang.org)
+;; Provides syntax highlighting, indentation, autocompletion, documentation
+;; lookup, REPL support, and more features for working productively in Hy
+;; (http://hylang.org), the lisp embedded in Python.
+
+;; Syntax highlighting and related can be found in `hy-font-lock.el'
+;; REPL support can be found in `hy-shell.el'
+;; IDE components support can be found in `hy-jedhy.el'
+;; Common utilities and requires can be found in `hy-base.el'
+;; Testing utilities for the test/ folder can be found in `hy-test.el'
+
+;; This file implements the syntax table, indentation, keybindings, and
+;; `hy-mode' setup code.
 
 ;;; Code:
 
-(require 'cl)
-(require 'dash)
-(require 'dash-functional)
-(require 's)
+(require 'hy-base)
 
-(defgroup hy-mode nil
-  "A mode for Hy"
-  :prefix "hy-mode-"
-  :group 'applications)
+(require 'hy-font-lock)
+(require 'hy-shell)
+(require 'hy-jedhy)
 
 ;;; Configuration
-;;;; Inferior shell
-
-(defconst hy-shell-interpreter "hy"
-  "Default Hy interpreter name.")
-
-(defvar hy-shell-interpreter-args "--spy"
-  "Default arguments for Hy interpreter.")
-
-(defvar hy-shell-use-control-codes? nil
-  "Append `--control-codes' flag to `hy-shell-interpreter-args'?
-
-Requires recent version of Hy and `hy-shell-interpreter-args' to contain `--spy'.
-Keep nil unless using specific Hy branch.")
-
-(defvar hy-shell-spy-delim ""
-  "If using `--spy' interpreter arg then delimit spy ouput by this string.")
-
-;;;; Highlighting
-
-(defvar hy-font-lock-highlight-percent-args? t
-  "Whether to highlight '%i' symbols in Hy's clojure-like syntax for lambdas.")
-
 ;;;; Indentation
 
-(defvar hy-indent-special-forms
-  '(:exact
-    ("when" "unless"
-     "for" "for*" "for/a" "for/a*"
-     "while"
-     "except" "catch")
+;; See other files for configuring specific aspects of Hy, like the shell.
 
-    :fuzzy
-    ("def"
-     "with"
-     "with/a"
-     "fn"
-     "fn/a"
-     "lambda"))
-  "Special forms to always indent following line by +1.
+(defvar hy-indent--exactly
+  '("when" "unless"
+    "for" "for*" "for/a" "for/a*"
+    "while"
+    "except" "catch")
+  "Symbols that will have following lines indented +1 when matched.
 
-Fuzzy forms require match at start of symbol (eg. with-something)
-will indent special. Exact forms require the symbol and def exactly match.")
+Examples:
 
-;;; Syntax Table
+(when foo
+  body)
+(when-xx foo
+         body)
+")
+
+
+(defvar hy-indent--fuzzily
+  '("def"
+    "let"
+    "with" "with/a"
+    "fn" "fn/a")
+  "Symbols that will have following lines indented +1 when matched at start.
+
+Examples:
+
+(with foo
+  body)
+(with-xx foo
+  body)
+")
+
+;;; Syntax
+;;;; Syntax Table
 
 (defconst hy-mode-syntax-table
-  (-let [table
-         (copy-syntax-table lisp-mode-syntax-table)]
+  (let ((table (copy-syntax-table lisp-mode-syntax-table)))
+    ;; List-likes
     (modify-syntax-entry ?\{ "(}" table)
     (modify-syntax-entry ?\} "){" table)
     (modify-syntax-entry ?\[ "(]" table)
     (modify-syntax-entry ?\] ")[" table)
 
-    ;; Quote characters are prefixes
+    ;; Quote Characters
     (modify-syntax-entry ?\~ "'" table)
+
+    ;; Symbol Constituents
+    (modify-syntax-entry ?\, "_" table)
+    (modify-syntax-entry ?\| "_" table)
+    (modify-syntax-entry ?\# "_" table)
+
+    ;; Note that @ is a valid symbol token but in almost all usages we would
+    ;; rather the symbol for ~@foo to be recognized as foo and not @foo.
     (modify-syntax-entry ?\@ "'" table)
 
-    ;; "," is a symbol in Hy, namely the tuple constructor
-    (modify-syntax-entry ?\, "_ p" table)
-
-    ;; "|" is a symbol in hy, naming the or operator
-    (modify-syntax-entry ?\| "_ p" table)
-
-    ;; "#" is a tag macro, we include # in the symbol
-    (modify-syntax-entry ?\# "_ p" table)
-
     table)
-  "Hy mode's syntax table.")
-
-(defconst inferior-hy-mode-syntax-table
-  (copy-syntax-table hy-mode-syntax-table)
-  "Inferior Hy mode's syntax tables inherits Hy mode's table.")
-
-;;; Keywords
-
-(defconst hy--kwds-anaphorics
-  '("ap-if" "ap-each" "ap-each-while" "ap-map" "ap-map-when" "ap-filter"
-    "ap-reject" "ap-dotimes" "ap-first" "ap-last" "ap-reduce" "ap-pipe"
-    "ap-compose" "xi")
-
-  "Hy anaphoric contrib keywords.")
-
-(defconst hy--kwds-builtins
-  '("*map" "accumulate" "and" "assoc" "butlast" "calling-module-name" "car"
-    "cdr" "chain" "coll?" "combinations" "comp" "complement" "compress" "cons"
-    "cons?" "constantly" "count" "cut" "cycle" "dec" "defmain" "del"
-    "dict-comp" "disassemble" "distinct" "doto" "drop" "drop-last" "drop-while"
-    "empty?" "even?" "every?" "filter" "first" "flatten" "float?" "fraction"
-    "genexpr" "gensym" "get" "group-by" "identity" "inc" "input"
-    "instance?" "integer" "integer-char?" "integer?" "interleave" "interpose"
-    "is" "is-not" "is_not" "islice" "iterable?" "iterate" "iterator?" "juxt"
-    "keyword" "keyword?" "last" "list*" "list-comp" "macroexpand"
-    "macroexpand-1" "map" "merge-with" "multicombinations" "name" "neg?" "none?"
-    "nth" "numeric?" "odd?" "or" "partition" "permutations"
-    "pos?" "product" "quasiquote" "quote" "range" "read" "read-str"
-    "reduce" "remove" "repeat" "repeatedly" "rest" "second" "setv" "set-comp"
-    "slice" "some" "string" "string?" "symbol?" "take" "take-nth" "take-while"
-    "tee" "unquote" "unquote-splice" "xor" "zero?" "zip" "zip-longest"
-
-    ;; Pure python builtins
-    "abs" "all" "any" "bin" "bool" "callable" "chr"
-    "compile" "complex" "delattr" "dict" "dir" "divmod" "enumerate"
-    "eval" "float" "format" "frozenset" "getattr" "globals" "hasattr"
-    "hash" "help" "hex" "id" "isinstance" "issubclass" "iter" "len"
-    "list" "locals" "max" "memoryview" "min" "next" "object" "oct" "open"
-    "ord" "pow" "repr" "reversed" "round" "set" "setattr"
-    "sorted" "str" "sum" "super" "tuple" "type" "vars"
-    "ascii" "bytearray" "bytes" "exec"
-    "--package--" "__package__" "--import--" "__import__"
-    "--all--" "__all__" "--doc--" "__doc__" "--name--" "__name__")
-
-  "Hy builtin keywords.")
-
-(defconst hy--kwds-constants
-  '("True" "False" "None"
-    "Ellipsis"
-    "NotImplemented"
-    "nil"  ; For those that alias None as nil
-    )
-
-  "Hy constant keywords.")
-
-(defconst hy--kwds-exceptions
-  '("ArithmeticError" "AssertionError" "AttributeError" "BaseException"
-    "DeprecationWarning" "EOFError" "EnvironmentError" "Exception"
-    "FloatingPointError" "FutureWarning" "GeneratorExit" "IOError"
-    "ImportError" "ImportWarning" "IndexError" "KeyError"
-    "KeyboardInterrupt" "LookupError" "MemoryError" "NameError"
-    "NotImplementedError" "OSError" "OverflowError"
-    "PendingDeprecationWarning" "ReferenceError" "RuntimeError"
-    "RuntimeWarning" "StopIteration" "SyntaxError" "SyntaxWarning"
-    "SystemError" "SystemExit" "TypeError" "UnboundLocalError"
-    "UnicodeDecodeError" "UnicodeEncodeError" "UnicodeError"
-    "UnicodeTranslateError" "UnicodeWarning" "UserWarning" "VMSError"
-    "ValueError" "Warning" "WindowsError" "ZeroDivisionError"
-    "BufferError" "BytesWarning" "IndentationError" "ResourceWarning" "TabError")
-
-  "Hy exception keywords.")
-
-(defconst hy--kwds-defs
-  '("defn" "defn/a" "defun"
-    "defmacro" "defmacro/g!" "defmacro!"
-    "defreader" "defsharp" "deftag"
-    "defmain" "defmulti"
-    "defmethod")
-
-  "Hy definition keywords.")
-
-(defconst hy--kwds-operators
-  '("!=" "%" "%=" "&" "&=" "*" "**" "**=" "*=" "+" "+=" "," "-"
-    "-=" "/" "//" "//=" "/=" "<" "<<" "<<=" "<=" "=" ">" ">=" ">>" ">>="
-    "^" "^=" "|" "|=" "~")
-
-  "Hy operator keywords.")
-
-(defconst hy--kwds-special-forms
-  '(;; Looping
-    "loop" "recur"
-    "for" "for*" "for/a" "for/a*"
-
-    ;; Threading
-    "->" "->>" "as->"
-
-    ;; Flow control
-    "return"
-    "if" "if*" "if-not" "lif" "lif-not"
-    "else" "unless" "when"
-    "break" "continue"
-    "while" "cond"
-    "do" "progn"
-
-    ;; Functional
-    "fn" "fn/a"
-    "yield" "yield-from"
-    "with" "with*" "with/a" "with/a*"
-    "with-gensyms"
-
-    ;; Error Handling
-    "except" "try" "throw" "raise" "catch" "finally" "assert"
-
-    ;; Special
-    "print"
-    "not"
-    "in" "not-in"
-
-    ;; Misc
-    "global" "nonlocal"
-    "eval" "eval-and-compile" "eval-when-compile"
-
-    ;; Discontinued in Master
-    "apply" "kwapply")
-
-  "Hy special forms keywords.")
-
-;;; Font Locks
-;;;; Definitions
-
-(defconst hy--font-lock-kwds-builtins
-  (list
-   (rx-to-string
-    `(: symbol-start
-        (or ,@hy--kwds-operators
-            ,@hy--kwds-builtins
-            ,@hy--kwds-anaphorics)
-        symbol-end))
-
-   '(0 font-lock-builtin-face))
-
-  "Hy builtin keywords.")
-
-(defconst hy--font-lock-kwds-constants
-  (list
-   (rx-to-string
-    `(: symbol-start
-        (or ,@hy--kwds-constants)
-        symbol-end))
-
-   '(0 font-lock-constant-face))
-
-  "Hy constant keywords.")
-
-(defconst hy--font-lock-kwds-defs
-  (list
-   (rx-to-string
-    `(: "("
-        symbol-start
-        (group-n 1 (or ,@hy--kwds-defs))
-        (1+ space)
-        (group-n 2 (1+ word))))
-
-   '(1 font-lock-keyword-face)
-   '(2 font-lock-function-name-face nil t))
-
-  "Hy definition keywords.")
-
-(defconst hy--font-lock-kwds-exceptions
-  (list
-   (rx-to-string
-    `(: symbol-start
-        (or ,@hy--kwds-exceptions)
-        symbol-end))
-
-   '(0 font-lock-type-face))
-
-  "Hy exception keywords.")
-
-(defconst hy--font-lock-kwds-special-forms
-  (list
-   (rx-to-string
-    `(: symbol-start
-        (or ,@hy--kwds-special-forms)
-        symbol-end))
-
-   '(0 font-lock-keyword-face))
-
-  "Hy special forms keywords.")
-
-;;;; Static
-
-(defconst hy--font-lock-kwds-aliases
-  (list
-   (rx (group-n 1 (or "defmacro-alias" "defn-alias" "defun-alias"))
-       (1+ space)
-       "["
-       (group-n 2 (1+ anything))
-       "]")
-
-   '(1 font-lock-keyword-face)
-   '(2 font-lock-function-name-face nil t))
-
-  "Hy aliasing keywords.")
-
-(defconst hy--font-lock-kwds-class
-  (list
-   (rx (group-n 1 "defclass")
-       (1+ space)
-       (group-n 2 (1+ word)))
-
-   '(1 font-lock-keyword-face)
-   '(2 font-lock-type-face))
-
-  "Hy class keywords.")
-
-(defconst hy--font-lock-kwds-decorators
-  (list
-   (rx
-    (or (: "#@"
-           (syntax open-parenthesis))
-        (: symbol-start
-           "with-decorator"
-           symbol-end
-           (1+ space)))
-    (1+ word))
-
-   '(0 font-lock-type-face))
-
-  "Hylight the symbol after `#@' or `with-decorator' macros.")
-
-(defconst hy--font-lock-kwds-imports
-  (list
-   (rx symbol-start
-       (or "import" "require" ":as")
-       symbol-end)
-
-   '(0 font-lock-keyword-face))
-
-  "Hy import keywords.")
-
-(defconst hy--font-lock-kwds-self
-  (list
-   (rx symbol-start
-       (group "self")
-       (or "." symbol-end))
-
-   '(1 font-lock-keyword-face))
-
-  "Hy self keyword.")
-
-(defconst hy--font-lock-kwds-tag-macros
-  (list
-   (rx "#"
-       (not (any "*" "@" "["))  ; #* is unpacking, #@ decorator, #[ bracket str
-       (0+ word))
-
-   '(0 font-lock-function-name-face))
-
-  "Hylight tag macros, ie. `#tag-macro', so they stand out.")
-
-;;;; Misc
-
-(defconst hy--font-lock-kwds-anonymous-funcs
-  (list
-   (rx symbol-start
-       (group "%" (1+ digit))
-       (or "." symbol-end))
-
-   '(1 font-lock-variable-name-face))
-
-  "Hy '#%(print %1 %2)' styling anonymous variables.")
-
-(defconst hy--font-lock-kwds-func-modifiers
-  (list
-   (rx symbol-start "&" (1+ word))
-
-   '(0 font-lock-type-face))
-
-  "Hy '&rest/&kwonly/...' styling.")
-
-(defconst hy--font-lock-kwds-kwargs
-  (list
-   (rx symbol-start ":" (1+ word))
-
-   '(0 font-lock-constant-face))
-
-  "Hy ':kwarg' styling.")
-
-(defconst hy--font-lock-kwds-shebang
-  (list
-   (rx buffer-start "#!" (0+ not-newline) eol)
-
-   '(0 font-lock-comment-face))
-
-  "Hy shebang line.")
-
-(defconst hy--font-lock-kwds-unpacking
-  (list
-   (rx (or "#*" "#**")
-       symbol-end)
-
-   '(0 font-lock-keyword-face))
-
-  "Hy #* arg and #** kwarg unpacking keywords.")
-
-(defconst hy--font-lock-kwds-variables
-  (list
-   (rx symbol-start
-       "setv"
-       symbol-end
-       (1+ space)
-       (group (1+ word)))
-
-   '(1 font-lock-variable-name-face))
-
-  "Hylight variable names in setv/def, only first name.")
-
-;;;; Anchored Keywords
-
-(defun hy--end-of-current-form ()
-  "Find the end point of current form."
-  (save-excursion
-    (-when-let* ((state (syntax-ppss))
-                 (start-pos (nth 1 state)))
-      (goto-char start-pos)
-      (while (ignore-errors (forward-sexp)))
-      (point))))
-
-(defconst hy--font-lock-kwds-tag-comment-prefix
-  (list
-   (rx "#_(" (group (1+ any)))
-
-   '(1 font-lock-comment-face)
-
-   (list (rx (group (1+ any)))
-         '(hy--end-of-current-form)
-         nil
-         '(1 font-lock-comment-face)))
-
-  "Support for higlighting #_(form) the form as a comment.")
-
-;;;; Grouped
-
-(defconst hy-font-lock-kwds
-  (list hy--font-lock-kwds-tag-comment-prefix  ; overrwriting font-locks first
-
-        hy--font-lock-kwds-aliases
-        hy--font-lock-kwds-builtins
-        hy--font-lock-kwds-class
-        hy--font-lock-kwds-constants
-        hy--font-lock-kwds-defs
-        hy--font-lock-kwds-decorators
-        hy--font-lock-kwds-exceptions
-        hy--font-lock-kwds-func-modifiers
-        hy--font-lock-kwds-imports
-        hy--font-lock-kwds-kwargs
-        hy--font-lock-kwds-self
-        hy--font-lock-kwds-shebang
-        hy--font-lock-kwds-special-forms
-        hy--font-lock-kwds-tag-macros
-        hy--font-lock-kwds-unpacking
-        hy--font-lock-kwds-variables
-
-        ;; Optional kwds
-        (when hy-font-lock-highlight-percent-args?
-          hy--font-lock-kwds-anonymous-funcs))
-
-  "All Hy font lock keywords.")
-
-;;; Utilities
-;;;; Sexp Navigation
-
-;; Aliases for `parse-partial-sexp' value
-(defun hy--sexp-inermost-char (state)
-  (nth 1 state))
-(defun hy--start-of-last-sexp (state)
-  (nth 2 state))
-(defun hy--in-string? (state)
-  (nth 3 state))
-(defun hy--start-of-string (state)
-  (nth 8 state))
-(defun hy--prior-sexp? (state)
-  (number-or-marker-p (hy--start-of-last-sexp state)))
-
-;;;; General purpose
-
-(defun hy--str-or-nil (text)
-  "If TEXT is non-blank, return TEXT else nil."
-  (and (not (s-blank? text)) text))
-
-(defun hy--str-or-empty (text)
-  "Return TEXT or the empty string it TEXT is nil."
-  (if text text ""))
-
-(defun hy--current-form-string ()
-  "Get form containing current point as string plus a trailing newline."
-  (save-excursion
-    (-when-let* ((state (syntax-ppss (1- (point))))
-                 (start-pos (hy--sexp-inermost-char state)))
-      (goto-char start-pos)
-      (while (ignore-errors (forward-sexp)))
-
-      (concat (buffer-substring-no-properties start-pos (point)) "\n"))))
-
-(defun hy--last-sexp-string ()
-  "Get form containing last s-exp point as string plus a trailing newline."
-  (save-excursion
-    (-when-let* ((state (syntax-ppss))
-                 (start-pos (hy--start-of-last-sexp state)))
-      (goto-char start-pos)
-      (while (ignore-errors (forward-sexp)))
-
-      (concat (buffer-substring-no-properties start-pos (point)) "\n"))))
-
-;;; Indentation
-;;;; Utilities
-
-(defun hy--anything-before? (pos)
-  "Determine if chars before POS in current line."
-  (s-matches? (rx (not blank))
-              (buffer-substring (line-beginning-position) pos)))
-
-(defun hy--anything-after? (pos)
-  "Determine if POS is before line-end-position."
-  (when pos
-    (< pos (line-end-position))))
-
-(defun hy--check-non-symbol-sexp (pos)
-  "Check for a non-symbol yet symbol-like (tuple constructor comma) at POS."
-  (member (char-after pos) '(?\, ?\|)))
-
-;;;; Normal Indent
-
-(defun hy--normal-indent (last-sexp)
-  "Determine normal indentation column of LAST-SEXP.
-
-Example:
- (a (b c d
-       e
-       f))
-
-1. Indent e => start at d -> c -> b.
-Then backwards-sexp will throw error trying to jump to a.
-Observe 'a' need not be on the same line as the ( will cause a match.
-Then we determine indentation based on whether there is an arg or not.
-
-2. Indenting f will go to e.
-Now since there is a prior sexp d but we have no sexps-before on same line,
-the loop will terminate without error and the prior lines indentation is it."
-  (goto-char last-sexp)
-  (-let [last-sexp-start nil]
-    (if (ignore-errors
-          (while (hy--anything-before? (point))
-            (setq last-sexp-start (prog1
-                                      ;; Indentation should ignore quote chars
-                                      (cond
-                                       ((-contains? '(?\' ?\` ?\~ ?\#)
-                                                    (char-before))
-                                        (1- (point)))
-
-                                       ((and (eq ?\@ (char-before))
-                                             (save-excursion
-                                               (forward-char -1)
-                                               (eq ?\~ (char-before))))
-                                        (- (point) 2))
-
-                                       (t (point)))
-
-                                    (backward-sexp))))
-          t)
-        (current-column)
-      (if (not (hy--anything-after? last-sexp-start))
-          (1+ (current-column))
-        (goto-char last-sexp-start)  ; Align with function argument
-        (current-column)))))
-
-;;;; Function or form
-
-(defun hy--not-function-form-p ()
-  "Non-nil if form at point doesn't represent a function call."
-  (or (-contains? '(?\[ ?\{) (char-after))
-      (not (looking-at (rx anything  ; Skips form opener
-                           (or "(" (syntax symbol) (syntax word)))))))
-
-;;;; Hy find indent spec
-
-(defun hy--find-indent-spec (state)
-  "Return integer for special indentation of form or nil to use normal indent.
-
-Note that `hy--not-function-form-p' filters out forms that are lists and dicts.
-Point is always at the start of a function."
-  (-when-let
-      (function (and (hy--prior-sexp? state)
-                     (thing-at-point 'symbol)))
-
-    (or (-contains? (plist-get hy-indent-special-forms :exact)
-                    function)
-        (-some (-cut s-matches? <> function)
-               (plist-get hy-indent-special-forms :fuzzy)))))
-
-;;;; Hy indent function
-
-(defun hy-indent-function (indent-point state)
-  "Indent at INDENT-POINT where STATE is `parse-partial-sexp' for INDENT-POINT."
-  (goto-char (hy--sexp-inermost-char state))
-
-  (if (hy--not-function-form-p)
-      (1+ (current-column))  ; Indent after [, {, ... is always 1
-    (forward-char 1)  ; Move to start of sexp
-
-    (cond ((hy--check-non-symbol-sexp (point))  ; Comma tuple constructor
-           (+ 2 (current-column)))
-
-          ((hy--find-indent-spec state)  ; Special form uses fixed indendation
-           (1+ (current-column)))
-
-          (t
-           (hy--normal-indent calculate-lisp-indent-last-sexp)))))
-
-;;; Bracket String Literals
-
-(defun hy--match-bracket-string (limit)
-  "Search forward for a bracket string literal."
-  (re-search-forward
-   (rx "#["
-       (0+ not-newline)
-       "["
-       (group (1+ (not (any "]"))))
-       "]"
-       (0+ not-newline)
-       "]")
-   limit
-   t))
+  "The `hy-mode' syntax table.")
+
+(defconst inferior-hy-mode-syntax-table (copy-syntax-table hy-mode-syntax-table)
+  "`inferior-hy-mode' inherits `hy-mode-syntax-table'.")
+
+;;;; Context Sensitive
+
+(defconst hy--bracket-string-rx
+  (rx "#["
+      (0+ not-newline)
+      "["
+      (group (1+ (not (any "]"))))
+      "]"
+      (0+ not-newline)
+      "]")
+  "Regex identifying Hy's bracket string literals.")
 
 (defun hy-syntax-propertize-function (start end)
   "Implements context sensitive syntax highlighting beyond `font-lock-keywords'.
@@ -654,6 +134,44 @@ and determined by `font-lock-mode' internals when making an edit to a buffer."
   (save-excursion
     (goto-char start)
 
+    ;; Go to the start of the #[[ block
+    (when (hy--goto-inner-char (syntax-ppss))
+      (ignore-errors (backward-char 2)))
+
+    (while (re-search-forward hy--bracket-string-rx end 'noerror)
+      (let ((a (match-beginning 1))
+            (b (match-end 1))
+            (string-fence (string-to-syntax "|")))
+        (put-text-property (1- a) a 'syntax-table string-fence)
+        (put-text-property b (1+ b) 'syntax-table string-fence)))))
+
+;;; Indentation
+;;;; Normal Indent
+
+(defun hy-indent--normal (calculated-last-sexp-indent)
+  "Get indent of the priorly let-bound value `calculate-lisp-indent-last-sexp'
+
+Example:
+ (a (b c d
+       e
+       f))
+
+1. Indent e => start at d (the last sexp) -> c -> b -> err.
+=> backwards-sexp will throw error trying to jump to a
+=> `hy-indent-function' returns nil
+=> black magic then yields the correct indent
+
+2. Indent f => start at e (the last sexp) -> loop done
+=> backward-sexp loop terminates because the indentation caught up to the sexp
+=> return indent of e
+
+Users interested in the arcane (the nil case) can step through the part of
+`calculate-lisp-indent' occurring right after `lisp-indent-function' is called.
+Stepping through the trace is particularly useful in understanding indentation
+commands."
+  (goto-char calculated-last-sexp-indent)
+
+<<<<<<< HEAD
     ;; Start goes to current line, need to go to start of #[[ block
     (when (nth 1 (syntax-ppss))  ; when inermost-char go to [ => [ => #
       (goto-char (- (hy--sexp-inermost-char (syntax-ppss)) 2)))
@@ -1421,38 +939,34 @@ Not all defuns can be argspeced - eg. C defuns.\"
     (meta (-> arg hy--eldoc-get-docs hy--str-or-empty))))
 
 ;;; Keybindings
+=======
+  (let ((last-sexp-start))
+    (cond ((ignore-errors
+             (while (<= (current-indentation) (current-column))
+               (setq last-sexp-start (prog1 (point) (backward-sexp))))
+             t)
+           (current-column))
+>>>>>>> upstream/master
 
-;;;###autoload
-(defun hy-insert-pdb ()
-  "Import and set pdb trace at point."
-  (interactive)
-  (insert "(do (import pdb) (pdb.set-trace))"))
+          ((null last-sexp-start)
+           (progn
+             (when (-contains? '(?\' ?\` ?\~ ?\# ?\@) (char-before))
+               (backward-char))
+             (when (eq ?\~ (char-before))
+               (backward-char))
 
-;;;###autoload
-(defun hy-insert-pdb-threaded ()
-  "Import and set pdb trace at point for a threading macro."
-  (interactive)
-  (insert "((fn [x] (import pdb) (pdb.set-trace) x))"))
+             (1+ (current-column)))))))
 
-;;;###autoload
-(defun hy-shell-start-or-switch-to-shell ()
-  (interactive)
-  (if (hy--shell-buffer?)
-      (switch-to-buffer-other-window
-       (hy--shell-get-or-create-buffer))
-    (run-hy)))
+;;;; Spec Finding
 
-;;;###autoload
-(defun hy-shell-eval-buffer ()
-  "Send the buffer to the shell, inhibiting output."
-  (interactive)
-  (-let [text
-         (buffer-string)]
-    (unless (hy--shell-buffer?)
-      (hy-shell-start-or-switch-to-shell))
-    (hy--shell-with-shell-buffer
-     (hy-shell-send-string-no-output text))))
+(defun hy-indent--syntax->indent-spec (syntax)
+  "Get int for special indentation for SYNTAX state or nil for normal indent."
+  (-when-let (sym (and (hy--prior-sexp? syntax)
+                       (thing-at-point 'symbol)))
+    (or (-contains? hy-indent--exactly sym)
+        (-some (-cut s-matches? <> sym) hy-indent--fuzzily))))
 
+<<<<<<< HEAD
 ;;;###autoload
 (defun hy-shell-eval-region ()
   "Send highlighted region to shell, inhibiting output."
@@ -1464,36 +978,27 @@ Not all defuns can be argspeced - eg. C defuns.\"
         (hy-shell-start-or-switch-to-shell))
       (hy--shell-with-shell-buffer
        (hy-shell-send-string-no-output text)))))
+=======
+;;;; Indent Function
+>>>>>>> upstream/master
 
-;;;###autoload
-(defun hy-shell-eval-current-form ()
-  "Send form containing current point to shell."
-  (interactive)
-  (-when-let (text (hy--current-form-string))
-    (unless (hy--shell-buffer?)
-      (hy-shell-start-or-switch-to-shell))
-    (hy--shell-with-shell-buffer
-     (hy-shell-send-string text))))
+(defun hy-indent-function (_indent-point syntax)
+  "Given SYNTAX, the `parse-partial-sexp' corr. to _INDENT-POINT, get indent."
+  (hy--goto-inner-sexp syntax)
 
-;;;###autoload
-(defun hy-shell-eval-last-sexp ()
-  "Send form containing the last s-expression to shell."
-  (interactive)
-  (-when-let (text (hy--last-sexp-string))
-    (unless (hy--shell-buffer?)
-      (hy-shell-start-or-switch-to-shell))
-    (hy--shell-with-shell-buffer
-     (hy-shell-send-string text))))
+  (cond ((-contains? '(?\[ ?\{) (char-before))
+         (current-column))
 
-;;; hy-mode and inferior-hy-mode
-;;;; Hy-mode setup
+        ((hy-indent--syntax->indent-spec syntax)
+         (1+ (current-column)))
 
-(defun hy--mode-setup-eldoc ()
-  (make-local-variable 'eldoc-documentation-function)
-  (setq-local eldoc-documentation-function 'hy-eldoc-documentation-function)
-  (eldoc-mode +1))
+        (t (hy-indent--normal calculate-lisp-indent-last-sexp))))
 
-(defun hy--mode-setup-font-lock ()
+;;; Setup
+;;;; Core
+
+(defun hy-mode--setup-font-lock ()
+  "Setup `font-lock-defaults' and others for `hy-mode.'"
   (setq-local font-lock-multiline t)
   (setq font-lock-defaults
         '(hy-font-lock-kwds
@@ -1504,14 +1009,11 @@ Not all defuns can be argspeced - eg. C defuns.\"
           (font-lock-syntactic-face-function  ; Differentiates (doc)strings
            . hy-font-lock-syntactic-face-function))))
 
-(defun hy--mode-setup-inferior ()
-  ;; (add-to-list 'company-backends 'company-hy)
-  (setenv "PYTHONIOENCODING" "UTF-8")
+(defun hy-mode--setup-syntax ()
+  "Setup syntax, indentation, and other core components of major modes."
+  ;; We explictly set it for tests that only call this setup-fn
+  (set-syntax-table hy-mode-syntax-table)
 
-  (run-hy-internal)
-  (add-hook 'pyvenv-post-activate-hooks 'run-hy-internal nil t))
-
-(defun hy--mode-setup-syntax ()
   ;; Bracket string literals require context sensitive highlighting
   (setq-local syntax-propertize-function 'hy-syntax-propertize-function)
 
@@ -1526,74 +1028,85 @@ Not all defuns can be argspeced - eg. C defuns.\"
 
   ;; Lispy indent with hy-specialized indentation
   (setq-local indent-tabs-mode nil)
-  (setq-local indent-line-function 'lisp-indent-line)
-  (setq-local lisp-indent-function 'hy-indent-function))
+  (setq-local indent-line-function #'lisp-indent-line)
+  (setq-local lisp-indent-function #'hy-indent-function))
 
-(defun hy--mode-setup-smartparens ()
-  "Setup smartparens, if active, pairs for Hy."
-  (when (fboundp 'sp-local-pair)
-    (sp-local-pair '(hy-mode) "`" "`" :actions nil)
-    (sp-local-pair '(hy-mode) "'" "'" :actions nil)
-    (sp-local-pair '(inferior-hy-mode) "`" "" :actions nil)
-    (sp-local-pair '(inferior-hy-mode) "'" "" :actions nil)))
+;;;; Support
 
-;;;; Inferior-hy-mode setup
+(defun hy-mode--support-smartparens ()
+  "Setup `smartparens-mode' pairs for Hy, if applicable."
+  (when (fboundp #'sp-local-pair)
+    (sp-local-pair '(hy-mode inferior-hy-mode) "`" "`" :actions nil)))
 
-(defun hy--inferior-mode-setup ()
-  ;; Comint config
-  (setq mode-line-process '(":%s"))
-  (setq-local indent-tabs-mode nil)
-  (setq-local comint-prompt-read-only t)
-  (setq-local comint-prompt-regexp (rx bol "=>" space))
+;;;; Jedhy
 
-  ;; Highlight errors according to colorama python package
-  (ansi-color-for-comint-mode-on)
-  (setq-local comint-output-filter-functions '(ansi-color-process-output))
+(defun hy-mode--setup-jedhy ()
+  "Auto-start jedhy for company, eldoc, and other `hy-mode' IDE features."
+  (let ((hy-shell--notify?))
+    (run-jedhy))  ; Unlikely that jedhy installed globally so dont warn
 
-  ;; Don't startup font lock for internal processes
-  (when hy--shell-font-lock-enable
-    (if (fboundp 'xterm-color-filter)
-        (setq-local comint-preoutput-filter-functions
-                    `(xterm-color-filter hy--shell-font-lock-spy-output))
-      (setq-local comint-preoutput-filter-functions
-                  `(hy--shell-font-lock-spy-output)))
-    (hy--shell-font-lock-turn-on))
+  (when (fboundp 'pyvenv-mode)
+    (add-hook 'pyvenv-post-activate-hooks #'run-jedhy)
+    (add-hook 'pyvenv-post-deactivate-hooks
+              #'run-jedhy--pyvenv-post-deactive-hook)))
 
-  ;; Fixes issue with "=>", no side effects from this advice
-  (advice-add 'comint-previous-input :before
-              (lambda (&rest args) (setq-local comint-stored-incomplete-input ""))))
+(defun hy-mode--support-company ()
+  "Support `company-mode' autocompletion."
+  (add-to-list 'company-backends #'company-hy))
 
-;;; Core
+(defun hy-mode--support-eldoc ()
+  "Support `eldoc-mode' with lispy docstring leaders."
+  (setq-local eldoc-documentation-function #'hy-eldoc-documentation-function)
+  (eldoc-mode +1))
+
+;;; hy-mode
 
 (add-to-list 'auto-mode-alist '("\\.hy\\'" . hy-mode))
 (add-to-list 'interpreter-mode-alist '("hy" . hy-mode))
 
 ;;;###autoload
-(define-derived-mode inferior-hy-mode comint-mode "Inferior Hy"
-  "Major mode for Hy inferior process."
-  (hy--inferior-mode-setup))
-
-;;;###autoload
 (define-derived-mode hy-mode prog-mode "Hy"
   "Major mode for editing Hy files."
-  (hy--mode-setup-eldoc)
-  (hy--mode-setup-font-lock)
-  (hy--mode-setup-inferior)
-  (hy--mode-setup-smartparens)
-  (hy--mode-setup-syntax))
+  (hy-mode--setup-font-lock)
+  (hy-mode--setup-syntax)
 
-;; Spacemacs users please see spacemacs-hy, all bindings defined there
+  (hy-mode--support-smartparens)
+
+  (when hy-jedhy--enable?
+    (hy-mode--setup-jedhy)
+
+    (hy-mode--support-eldoc)
+    (hy-mode--support-company)
+
+    (add-hook 'inferior-hy-mode-hook #'hy-mode--support-company)))
+
+;;; Bindings
+
 (set-keymap-parent hy-mode-map lisp-mode-shared-map)
-(define-key hy-mode-map (kbd "C-c C-z") 'hy-shell-start-or-switch-to-shell)
-(define-key hy-mode-map (kbd "C-c C-b") 'hy-shell-eval-buffer)
-(define-key hy-mode-map (kbd "C-c C-t") 'hy-insert-pdb)
-(define-key hy-mode-map (kbd "C-c C-S-t") 'hy-insert-pdb-threaded)
-(define-key hy-mode-map (kbd "C-c C-r") 'hy-shell-eval-region)
-(define-key hy-mode-map (kbd "C-M-x") 'hy-shell-eval-current-form)
-(define-key hy-mode-map (kbd "C-c C-e") 'hy-shell-eval-last-sexp)
-(define-key inferior-hy-mode-map (kbd "C-c C-z") (lambda ()
-                                                   (interactive)
-                                                   (other-window -1)))
+
+;;;; Shell
+
+(define-key hy-mode-map (kbd "C-c C-z") #'run-hy)
+
+(define-key hy-mode-map (kbd "C-c C-b") #'hy-shell-eval-buffer)
+(define-key hy-mode-map (kbd "C-c C-r") #'hy-shell-eval-region)
+(define-key hy-mode-map (kbd "C-c C-e") #'hy-shell-eval-last-sexp)
+(define-key hy-mode-map (kbd "C-M-x") #'hy-shell-eval-current-form)
+
+(define-key hy-mode-map (kbd "C-c C-d d") #'hy-describe-thing-at-point)
+(define-key hy-mode-map (kbd "C-c C-d C-d") #'hy-describe-thing-at-point)
+
+;;;; Misc
+
+;;;###autoload
+(defun hy-insert-pdb ()
+  "Import and set pdb trace at point."
+  (interactive)
+  (insert "(do (import pdb) (pdb.set-trace))"))
+
+(define-key hy-mode-map (kbd "C-c C-t") #'hy-insert-pdb)
+
+;;; Provide:
 
 (provide 'hy-mode)
 

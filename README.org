@@ -1,19 +1,51 @@
-An Emacs major mode for [[http://docs.hylang.org/en/stable/][Hy]], lisp python, providing support for:
+An Emacs major mode for [[http://docs.hylang.org/en/stable/][Hy]], a lisp embedded in python.
 
-1. Syntax Highlighting
-2. Auto-completion
-3. Eldoc and shift-K documentation lookups
-4. Shell integration
-5. New Hy constructs like bracket strings
+Provides autocompletion, documentation lookup, and all features required to make
+developing in Hy enjoyable and productive.
+
+[[file:./img/jedhy.png]]
 
 ** Installation
 
-~hy-mode~ requires Emacs 24+ and is available in MELPA. For the most current set
-of features use master.
+~hy-mode~ is available in MELPA.
 
-** Spacemacs Users
+IDE components like autocompletion via company-mode rely on ~jedhy~, which can
+be installed as standard with ~pip install jedhy~ in your virtual environment of
+choice, see [[https://github.com/ekaschalk/jedhy]].
 
-hy-mode is in active development and Spacemacs does not reflect current work.
+Jedhy should auto-start whenever it finds it.
 
-Require ~spacemacs-hy~ to enable auto-completion and bindings for the new shell
-functions. See that file for all available bindings.
+Currently, completing imported packages requires sending the
+imports/requires/sys.path.extend manually in the current buffer with ~M-x
+hy-jedhy-update-imports~.
+
+The precise features enabled are: ~company-mode~, ~eldoc-mode~, and
+~hy-describe-thing-at-point~ for looking up docs of the symbol at point.
+
+Spacemacs users - Hy has its own layer in its dev branch.
+
+** Configuring
+
+Company/Eldoc support is enabled by default with ~hy-jedhy--enable?~.
+
+Indentation can be customized with ~hy-indent--exactly~ and ~hy-indent--fuzzily~.
+
+See ~hy-shell.el~ for configuring the shell.
+
+** Raising Issues
+
+Please provide the version of Hy you are using. The last confirmed version of Hy
+jedhy is compatible with is: ~0.16.0~.
+
+The IDE features and management is feature-full but nascent. If you encounter
+issues please provide as much details as you can.
+
+** Contributing
+
+~hy-mode~ is well-tested. It uses [[https://github.com/jorgenschaefer/emacs-buttercup][buttercup]] rather than ~ert~.
+
+Execute tests after running ~cask install~ with the command: ~cask exec buttercup -L .~
+
+Process-based tests currently rely on setting ~hy-test--pyvenv-name~ to the name
+of a virtual environment containing Hy, see ~hy-test.el~. If not set, then
+a warning will be given and process-based tests will be skipped.
