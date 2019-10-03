@@ -99,8 +99,9 @@ Not bound atm as this is temporary, run via M-x or bind yourself."
     (goto-char (point-min))
 
     (while (re-search-forward hy-shell--import-rgx nil t)
-      (let ((text (s-join " " (s-lines (hy--current-form-string)))))
-        (hy-shell--redirect-send-internal text)))
+      (-when-let (hy-form (hy--current-form-string))
+        (let ((text (s-join " " (s-lines hy-form))))
+          (hy-shell--redirect-send-internal text))))
 
     (hy-shell--redirect-send-internal hy-jedhy--reset-namespace-code)))
 
