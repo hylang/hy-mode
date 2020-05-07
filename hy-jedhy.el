@@ -290,7 +290,7 @@ shift-K keybinding that executes `spacemacs/evil-smart-doc-lookup'."
   "Implements autocompletion for `hy-mode'."
   (interactive (list 'interactive))
 
-  (when (and (string= major-mode "hy-mode")
+  (when (and (memq major-mode '(hy-mode inferior-hy-mode))
              (hy-shell--live-internal?))
     (cl-case command
       (prefix (company-grab-symbol))
