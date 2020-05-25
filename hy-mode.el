@@ -277,7 +277,9 @@ commands."
 
 ;;; hy-mode
 
+;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.hy\\'" . hy-mode))
+;;;###autoload
 (add-to-list 'interpreter-mode-alist '("hy" . hy-mode))
 
 ;;;###autoload
