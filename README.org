@@ -1,3 +1,5 @@
+[[Testing Workflow][file:https://github.com/hylang/hy-mode/workflows/Testing%20Workflow/badge.svg]]
+
 An Emacs major mode for [[http://docs.hylang.org/en/stable/][Hy]], a lisp embedded in python.
 
 Provides autocompletion, documentation lookup, and all features required to make
