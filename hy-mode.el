@@ -294,9 +294,10 @@ commands."
     (hy-mode--setup-jedhy)
 
     (hy-mode--support-eldoc)
-    (hy-mode--support-company)
 
-    (add-hook 'inferior-hy-mode-hook #'hy-mode--support-company)))
+    (when (featurep 'company)
+      (hy-mode--support-company)
+      (add-hook 'inferior-hy-mode-hook #'hy-mode--support-company))))
 
 ;;; Bindings
 
