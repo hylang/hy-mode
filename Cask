@@ -3,7 +3,7 @@
 
 (package-file "hy-mode.el")
 
-(depends-on "cl")
+(depends-on "cl-lib")
 (depends-on "dash")
 (depends-on "dash-functional")
 (depends-on "s")
