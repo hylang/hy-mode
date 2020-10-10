@@ -293,7 +293,8 @@ shift-K keybinding that executes `spacemacs/evil-smart-doc-lookup'."
   (when (and (memq major-mode '(hy-mode inferior-hy-mode))
              (hy-shell--live-internal?))
     (cl-case command
-      (prefix (company-grab-symbol))
+      (prefix (unless (company-in-string-or-comment)
+                (company-grab-symbol)))
       (candidates (hy-jedhy--prefix-str->candidates prefix-or-candidate-str))
       (annotation (hy-jedhy--candidate-str->annotation prefix-or-candidate-str))
       (meta (hy-jedhy--candidate-str->eldoc prefix-or-candidate-str)))))
