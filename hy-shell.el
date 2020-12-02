@@ -181,7 +181,7 @@
 	    (or (re-search-backward comint-prompt-regexp nil t)
 		      (error "No prompt found or `comint-prompt-regexp' not set properly")))))
 
-(defun hy-shell--redirect-send-1 (text)
+(defun hy-shell--redirect-send-1 (text &optional keep-output)
   "Internal implementation of `comint-redirect-send-command-to-process'.
 
 Expected to be called within a Hy interpreter process buffer."
@@ -192,19 +192,19 @@ Expected to be called within a Hy interpreter process buffer."
         (process (hy-shell--current-process))
         (timeout hy-shell--redirect-timeout))
     ;; Setup local vars for the filter, temporarily overwrite comint filters
-    (comint-redirect-setup output-buffer buffer comint-prompt-regexp)
+    (comint-redirect-setup output-buffer buffer comint-prompt-regexp keep-output)
     (add-function :around (process-filter process) #'comint-redirect-filter)
 
     (process-send-string buffer (s-concat text "\n"))
     (while (and (null comint-redirect-completed)
 		            (accept-process-output process timeout)))))
 
-(defun hy-shell--redirect-send (text)
+(defun hy-shell--redirect-send (text &optional keep-output)
   "Send TEXT to Hy interpreter, capturing and removing the output."
   (with-current-buffer (get-buffer-create hy-shell--redirect-output-buffer)
     (erase-buffer)
     (hy-shell--with
-      (hy-shell--redirect-send-1 text))
+      (hy-shell--redirect-send-1 text keep-output))
     (s-chomp (buffer-substring-no-properties (point-min) (point-max)))))
 
 (defun hy-shell--redirect-send-internal (text)
