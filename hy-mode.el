@@ -196,16 +196,40 @@ commands."
     (or (-contains? hy-indent--exactly sym)
         (-some (-cut s-matches? <> sym) hy-indent--fuzzily))))
 
+;;;; Helpers
+
+(defun hy--closing-paren-end ()
+  "Get point after matching paren if looking at an open paren.
+
+If `show-paren-data-function' returns nil, return point-max + 1
+to fake point being inside the function definition, in which case
+we should indent normally."
+  (let ((paren-data (funcall show-paren-data-function)))
+    (if paren-data (nth 3 paren-data)	; after closing paren
+      (1+ (point-max)))))
+
+(defun hy-indent--current-column? (_indent-point)
+  "Returns t if we should indent to current-column, else nil.
+
+The second case covers immediately applied function definitions
+and evaluation results, e.g.
+	((fn [x y]
+	   (+ x y))
+	 7
+	 11)"
+  (or (-contains? '(?\[ ?\{) (char-before))
+      (> _indent-point (hy--closing-paren-end))))
+
 ;;;; Indent Function
 
 (defun hy-indent-function (_indent-point syntax)
   "Given SYNTAX, the `parse-partial-sexp' corr. to _INDENT-POINT, get indent."
   (hy--goto-inner-sexp syntax)
 
-  (cond ((-contains? '(?\[ ?\{) (char-before))
+  (cond ((hy-indent--current-column? _indent-point)
          (current-column))
 
-        ((hy-indent--syntax->indent-spec syntax)
+	((hy-indent--syntax->indent-spec syntax)
          (1+ (current-column)))
 
         (t (hy-indent--normal calculate-lisp-indent-last-sexp))))
