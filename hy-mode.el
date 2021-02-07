@@ -57,7 +57,7 @@
   '("when" "unless"
     "for" "for*" "for/a" "for/a*"
     "while"
-    "except" "catch")
+    "except" "catch" "assoc")
   "Symbols that will have following lines indented +1 when matched.
 
 Examples:
