@@ -8,7 +8,7 @@
 ;; URL: http://github.com/hylang/hy-mode
 ;; Version: 1.0
 ;; Keywords: languages, lisp, python
-;; Package-Requires: ((dash "2.13.0") (dash-functional "1.2.0") (s "1.11.0") (emacs "24"))
+;; Package-Requires: ((dash "2.18.0") (s "1.11.0") (emacs "24"))
 
 ;; hy-mode is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by
