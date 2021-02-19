@@ -5,7 +5,6 @@
 
 (depends-on "cl-lib")
 (depends-on "dash")
-(depends-on "dash-functional")
 (depends-on "s")
 
 (development
