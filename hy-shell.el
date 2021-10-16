@@ -51,6 +51,13 @@
 (defvar hy-shell--redirect-timeout 0.5
   "Seconds (float) to allow redirection commands to complete before quitting.")
 
+(defvar hy-shell--startup-timeout 3
+  "Seconds (float) for `accept-process-output' to wait for REPL banner text.
+
+`hy-shell--redirect-check-prompt-regexp' may throw an error if
+`accept-process-output' (called in `hy-shell--make-comint') times
+out before consuming the REPL banner text.")
+
 ;;;; Managed
 
 (defconst hy-shell--name "Hy"
@@ -142,7 +149,7 @@
         (inferior-hy-mode))
 
       ;; Get shell's initial output/prompt
-      (accept-process-output (hy-shell--current-process) 0.5)
+      (accept-process-output (hy-shell--current-process) hy-shell--startup-timeout)
 
       (hy-shell--current-process))))
 

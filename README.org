@@ -48,6 +48,8 @@ issues please provide as much details as you can.
 
 Execute tests after running ~cask install~ with the command: ~cask exec buttercup -L .~
 
+For linux users, after installing buttercup (available from melpa), execute the tests from the project root with ~emacs -batch -f package-initialize -L . -f buttercup-run-discover~.
+
 Process-based tests currently rely on setting ~hy-test--pyvenv-name~ to the name
 of a virtual environment containing Hy, see ~hy-test.el~. If not set, then
 a warning will be given and process-based tests will be skipped.
