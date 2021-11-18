@@ -62,7 +62,7 @@
   "Text identifying successful startup of jedhy.")
 
 (defconst hy-jedhy--reset-namespace-code
-  "(setv --JEDHY (jedhy.api.API :locals- (locals) :globals- (globals) :macros- --macros--))"
+  "(setv --JEDHY (jedhy.api.API :locals- (locals) :globals- (globals) :macros- __macros__))"
   "Text to send to make Jedhy's namespace current.")
 
 ;;; Startup
@@ -149,13 +149,13 @@ Not bound atm as this is temporary, run via M-x or bind yourself."
 
 (defun hy-jedhy--format-output-tuple (output)
   "Format OUTPUT given as a tuple."
-  (unless (s-equals? "()" output)
+  (unless (s-equals? "(,)" output)
     (->> output
        (s-replace-all '(("'" . "")
-                        (",)" . "")  ; one element list case
-                        ("(" . "")
-                        (")" . "")))
-       (s-split ", "))))  ; comma is a valid token so can't replace it
+                        ("(, \"" . "")  ; one element list case
+                        ("\")" . "")))
+       (s-split "\" \"")
+       )))  ; comma is a valid token so can't replace it
 
 (defun hy-jedhy--format-describe-output (output)
   "Converts escaped newlines to true newlines."
