@@ -176,6 +176,7 @@
     "max"
     "memoryview"
     "min"
+    "match"
     "next"
     "object"
     "oct"
@@ -219,17 +220,25 @@
 
 (defconst hy-font-lock--exceptions
   '("ArithmeticError" "AssertionError" "AttributeError" "BaseException"
-    "DeprecationWarning" "EOFError" "EnvironmentError" "Exception"
-    "FloatingPointError" "FutureWarning" "GeneratorExit" "IOError" "ImportError"
-    "ImportWarning" "IndexError" "KeyError" "KeyboardInterrupt" "LookupError"
-    "MemoryError" "NameError" "NotImplementedError" "OSError" "OverflowError"
-    "PendingDeprecationWarning" "ReferenceError" "RuntimeError" "RuntimeWarning"
-    "StopIteration" "SyntaxError" "SyntaxWarning" "SystemError" "SystemExit"
-    "TypeError" "UnboundLocalError" "UnicodeDecodeError" "UnicodeEncodeError"
-    "UnicodeError" "UnicodeTranslateError" "UnicodeWarning" "UserWarning"
-    "VMSError" "ValueError" "Warning" "WindowsError" "ZeroDivisionError"
-    "BufferError" "BytesWarning" "IndentationError" "ResourceWarning"
-    "TabError")
+    "BufferError" "BytesWarning" "DeprecationWarning" "EOFError"
+    "EnvironmentError" "Exception" "FloatingPointError" "FutureWarning"
+    "GeneratorExit" "IOError" "ImportError" "ImportWarning"
+    "IndentationError" "IndexError" "KeyError" "KeyboardInterrupt"
+    "LookupError" "MemoryError" "NameError" "NotImplementedError"
+    "OSError" "OverflowError" "PendingDeprecationWarning"
+    "ReferenceError" "RuntimeError" "RuntimeWarning" "StopIteration"
+    "SyntaxError" "SyntaxWarning" "SystemError" "SystemExit" "TabError"
+    "TypeError" "UnboundLocalError" "UnicodeDecodeError"
+    "UnicodeEncodeError" "UnicodeError" "UnicodeTranslateError"
+    "UnicodeWarning" "UserWarning" "ValueError" "Warning"
+    "ZeroDivisionError"
+    "BlockingIOError" "BrokenPipeError" "ChildProcessError"
+    "ConnectionAbortedError" "ConnectionError" "ConnectionRefusedError"
+    "ConnectionResetError" "FileExistsError" "FileNotFoundError"
+    "InterruptedError" "IsADirectoryError" "NotADirectoryError"
+    "PermissionError" "ProcessLookupError" "RecursionError"
+    "ResourceWarning" "StopAsyncIteration" "TimeoutError"
+    "VMSError" "WindowsError")
   "Exception and error names.")
 
 ;;;; Definitions
@@ -240,15 +249,16 @@
 
     ;; Macros
     "defmacro" "defmacro/g!" "defmacro!"
+    "delmacro"
 
-    ;; Tag Macros
-    "deftag"
+    ;; Reader Macros
+    "defreader"
 
     ;; Defining __main__
     "defmain"
 
-    ;; Multi-methods
-    "defmulti" "defmethod")
+    ;; Defining lazy sequences
+    "defseq")
   "Names in Hy that define functions, macros, etc.")
 
 ;;;; Operators
@@ -264,7 +274,7 @@
 (defconst hy-font-lock--special-names
   '(;; Looping
     "for" "for/a"
-    "dfor" "lfor" "sfor"  ; comprehensions
+    "dfor" "lfor" "sfor" "gfor" "cfor" ; comprehensions
     "loop" "recur"  ; hy.contrib.loop
 
     ;; Threading
@@ -277,6 +287,8 @@
     "break" "continue" "while"
     "cond"
     "do"
+    "case" "branch"
+    "ecase" "ebranch"
 
     ;; Functional
     "fn" "fn/a"
@@ -286,7 +298,7 @@
     "with-gensyms"
 
     ;; Error Handling
-    "except" "try" "throw" "raise" "catch" "finally" "assert"
+    "except" "try" "throw" "raise" "finally" "assert"
 
     ;; Python builtins (and shadowed calls to builtins)
     "print"
@@ -313,7 +325,9 @@
     "ap-map"
     "ap-map-when"
     "ap-reduce"
-    "ap-reject")
+    "ap-reject"
+    "ap-when"
+    "ap-with")
   "Hy anaphoric contrib keywords.")
 
 ;;; Keywords
